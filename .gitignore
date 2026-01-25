@@ -1,0 +1,91 @@
+# ============================================
+# IoBT-NCSim .gitignore
+# ============================================
+
+# Build artifacts
+bin/
+obj/
+Release/
+Debug/
+*.dll
+*.exe
+*.pdb
+*.cache
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.ncb
+*.vcproj*
+*.sln.cache
+*.manifest
+*.CodeAnalysisLog.xml
+*.lastcodeanalysissucceeded
+_ReSharper.*/
+
+# Visual Studio Code
+.vscode/settings.json
+
+# JetBrains IDEs
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.env
+*.egg-info/
+dist/
+build/
+
+# Logs and runtime files
+*.log
+Logs/
+support/
+Support/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup files
+*~
+*.orig
+*.bak
+\#*
+.*.sw?
+
+# Claude Code (local project config)
+.claude/
+
+# OpenRA specific
+IP2LOCATION-LITE-DB1.IPV6.BIN.ZIP
+DOCUMENTATION.md
+WEAPONS.md
+Lua-API.md
+Settings.md
+openra.6
+update.log
+
+# Test results
+TestResult.xml
+TestResults/
+
+# NuGet packages (if any)
+packages/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# MonoDevelop
+*.pidb
+*.userprefs

@@ -1,0 +1,19 @@
+# IoBT World Extensions
+# This file extends the RA world configuration
+
+# Add a Blue faction for IoBT simulations (based on Allies)
+World:
+	Faction@Blue:
+		Name: Blue Force
+		InternalName: Blue
+		Side: Allies
+		Description: Blue force for IoBT simulation
+	IoBTNetworkOverlay:
+		NetworkRadius: 12
+		LinkWidth: 1
+		ActiveLinkWidth: 3
+		MaxDataRate: 100
+		MinDataRate: 10
+		ComputeCircleRadius: 150
+		InfantryComputePercent: 15
+		VehicleComputePercent: 50

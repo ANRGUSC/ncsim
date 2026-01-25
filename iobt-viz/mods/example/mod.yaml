@@ -1,0 +1,76 @@
+Metadata:
+	Title: mod-title
+	Version: {DEV_VERSION}
+	WindowTitle: mod-windowtitle
+
+FileSystem: DefaultFileSystem
+	Packages:
+		^EngineDir
+		$example: example
+		^EngineDir|mods/common: common
+
+MapFolders:
+	example|maps: System
+
+Assemblies: OpenRA.Mods.Common.dll, OpenRA.Mods.Example.dll
+
+AssetBrowser:
+	AudioExtensions: .wav
+	SpriteExtensions: .png
+	VideoExtensions:
+
+SupportsMapsFrom: Example
+
+LoadScreen: BlankLoadScreen
+
+ServerTraits:
+	LobbyCommands
+	SkirmishLogic
+	PlayerPinger
+	MasterServerPinger
+	LobbySettingsNotification
+
+MapGrid:
+	TileSize: 32, 32
+	Type: Rectangular
+
+SpriteFormats: PngSheet
+
+SoundFormats: Wav
+
+TerrainFormat: DefaultTerrain
+
+SpriteSequenceFormat: DefaultSpriteSequence
+
+DefaultOrderGenerator: UnitOrderGenerator
+
+GameSpeeds:
+	DefaultSpeed: default
+	Speeds:
+		slowest:
+			Name: options-game-speed.slowest
+			Timestep: 80
+			OrderLatency: 2
+		slower:
+			Name: options-game-speed.slower
+			Timestep: 50
+			OrderLatency: 3
+		default:
+			Name: options-game-speed.normal
+			Timestep: 40
+			OrderLatency: 3
+		fast:
+			Name: options-game-speed.fast
+			Timestep: 35
+			OrderLatency: 4
+		faster:
+			Name: options-game-speed.faster
+			Timestep: 30
+			OrderLatency: 4
+		fastest:
+			Name: options-game-speed.fastest
+			Timestep: 20
+			OrderLatency: 6
+
+Include: mod.content.yaml
+Include: mod.chrome.yaml

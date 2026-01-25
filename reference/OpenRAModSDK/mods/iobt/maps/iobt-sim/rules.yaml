@@ -1,0 +1,5 @@
+World:
+	LuaScript:
+		Scripts: iobt-config.lua, iobt-main.lua
+	MissionData:
+		Briefing: IoBT Simulation Scenario

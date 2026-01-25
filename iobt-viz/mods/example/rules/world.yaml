@@ -1,0 +1,45 @@
+^baseworld:
+	Inherits: ^palettes
+	ActorMap:
+	AlwaysVisible:
+	ControlGroups:
+	Faction@Random:
+		InternalName: Random
+		Name: faction-random.name
+		RandomFactionMembers: example
+		Description: faction-random.description
+	Faction@example:
+		InternalName: example
+		Name: faction-example.name
+		Description: faction-example.description
+	LoadWidgetAtGameStart:
+	MusicPlaylist:
+	ScreenMap:
+	Selection:
+	TerrainRenderer:
+
+world:
+	Inherits: ^baseworld
+	ColorPickerManager:
+		PreviewActor: example.colorpicker
+	CreateMapPlayers:
+	CustomTerrainDebugOverlay:
+	DebugVisualizations:
+	MapStartingLocations:
+	SpawnMapActors:
+	SpawnStartingUnits:
+	StartingUnits@Example:
+		BaseActor: example
+		Factions: example
+		ClassName: options-starting-units.unlabeled
+
+editorworld:
+	Inherits: ^baseworld
+	BuildableTerrainOverlay:
+		AllowedTerrainTypes:
+		Palette:
+	EditorActionManager:
+	EditorActorLayer:
+	EditorCursorLayer:
+	MarkerLayerOverlay:
+	TerrainGeometryOverlay:
