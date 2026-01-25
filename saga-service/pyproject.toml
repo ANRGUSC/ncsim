@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "saga-service"
+version = "0.1.0"
+description = "SAGA Scheduler Service for IoBT-Viz"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "ANRG, USC"}
+]
+dependencies = [
+    "anrg-saga>=2.0.0",
+    "networkx>=3.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+saga-service = "scheduler_service:main"
+
+[tool.setuptools]
+py-modules = ["scheduler_service", "test_connection"]

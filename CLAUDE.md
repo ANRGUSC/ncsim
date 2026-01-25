@@ -3290,54 +3290,66 @@ Each phase delivers a **working, demonstrable product**. Phases build incrementa
 - [x] Included in initial commit
 
 #### Checkpoint 1.5: Remove Production Sidebar
-- [ ] Identify production tab chrome in `reference/`
-- [ ] Create `ingame-iobt.yaml` without production UI
-- [ ] Remove credits/money display
-- [ ] Remove power display
-- [ ] Test: Game runs without sidebar clutter
-- [ ] Commit: "iobt-viz: remove production sidebar"
+- [x] Identify production tab chrome in `reference/` (ingame-player.yaml)
+- [x] Simplified `ingame-player.yaml` - removed command bar, stance bar, support powers
+- [x] Remove credits/money display (removed)
+- [x] Remove power display (removed)
+- [x] Test: Game runs without sidebar clutter
+- [x] Commit: "iobt-viz: Simplify UI and add makespan tracking"
 
-#### Checkpoint 1.6: Remove/Hide Radar Minimap
-- [ ] Locate radar/minimap chrome
-- [ ] Disable or remove from iobt chrome
-- [ ] Test: No minimap visible
-- [ ] Commit: "iobt-viz: remove radar minimap"
+#### Checkpoint 1.6: Radar Minimap
+- [x] **KEPT** - Radar minimap intentionally preserved for map navigation
+- [x] User needs minimap to move around the battlefield
+- [x] Only removed game-specific buttons (beacon, sell, power, repair)
 
 #### Checkpoint 1.7: Entity Definitions
-- [ ] Create `iobt-entities.yaml` for compute nodes
-- [ ] Define basic building/structure actors for nodes
-- [ ] Test: Can place entities on map
-- [ ] Commit: "iobt-viz: add compute node entity definitions"
+- [x] Entity definitions exist in initial commit (infantry, vehicles as compute nodes)
+- [x] IoBTNetworkOverlay.cs handles compute node assignment
+- [x] Entities spawn and display on map
+- [x] Included in initial commit
 
 #### Checkpoint 1.8: Network Link Overlay (Basic)
-- [ ] Study existing overlay patterns in `reference/`
-- [ ] Create basic line rendering for links
-- [ ] Test: Lines appear between entities
-- [ ] Commit: "iobt-viz: basic network link overlay"
+- [x] IoBTNetworkOverlay.cs implements full overlay system
+- [x] Distance-based link quality with color coding (green→yellow→red)
+- [x] Active transfer highlighting (cyan)
+- [x] DAG status panel with task states
+- [x] Included in initial commit
 
 #### Checkpoint 1.9: Demo Map
-- [ ] Create `maps/iobt-demo/` directory
-- [ ] Create simple map with clear terrain
-- [ ] Add Lua config for test entities
-- [ ] Test: Map loads with entities visible
-- [ ] Commit: "iobt-viz: add demo map"
+- [x] Maps exist: `iobt-sim/` and `iobt-demo2/`
+- [x] Lua config files define units, buildings, DAG execution
+- [x] Maps load with entities and network overlay
+- [x] Included in initial commit
+
+#### Checkpoint 1.9.1: Makespan Display (Added)
+- [x] Track DAG start time (first task assigned)
+- [x] Track DAG completion time (all tasks completed)
+- [x] Display running makespan in yellow, completed in green
+- [x] Commit: "iobt-viz: Simplify UI and add makespan tracking"
 
 #### Checkpoint 1.10: Bridge Server Skeleton
-- [ ] Create `IoBTViz.Bridge/` project structure
-- [ ] Implement TCP listener on port 9999
-- [ ] Accept connections and log messages
-- [ ] **Phase 1 uses newline-delimited JSON** (for easy testing with netcat)
-- [ ] No command execution yet (just echo/log)
-- [ ] Test: Can connect with `nc localhost 9999` and send `{"type":"ping"}\n`
-- [ ] Commit: "iobt-viz: bridge server skeleton"
+- [x] Create `OpenRA.Mods.IoBT/Bridge/` directory structure
+- [x] Implement TCP listener on port 9999 (`IoBTBridgeServer.cs`)
+- [x] Accept connections and log messages
+- [x] **Phase 1 uses newline-delimited JSON** (for easy testing with netcat)
+- [x] Responds to ping with pong, get_state with network info
+- [x] Test: Can connect with `nc localhost 9999` and send `{"type":"ping"}\n`
 
 **Note:** Phase 3 upgrades to length-prefixed binary framing for robustness. Phase 1's newline-delimited protocol is for development convenience only.
 
 #### Checkpoint 1.11: Bridge Trait Integration
-- [ ] Create trait to attach bridge to world
-- [ ] Bridge starts when game/map loads
-- [ ] Test: Bridge active during gameplay
-- [ ] Commit: "iobt-viz: integrate bridge trait"
+- [x] Create trait to attach bridge to world (`IoBTBridgeTrait.cs`)
+- [x] Bridge starts when game/map loads (AutoStart: true in world.yaml)
+- [x] Added to world.yaml with `IoBTBridge:` trait
+- [x] Lua API: `IsBridgeRunning()`, `GetBridgeConnectionCount()`, `RequestSchedule()`
+- [x] Test: Bridge active during gameplay
+
+#### Checkpoint 1.11.1: SAGA Scheduler Service (NEW)
+- [x] Create `saga-service/` Python package
+- [x] Implement `scheduler_service.py` - connects to bridge, calls SAGA
+- [x] Fallback to round-robin if SAGA not installed
+- [x] Protocol: schedule_request → HeftScheduler → schedule_response
+- [x] Test script: `test_connection.py`
 
 #### Checkpoint 1.12: LuaSim Backend Discovery and Preservation
 **IMPORTANT: Read existing code first before making changes.**
@@ -3376,7 +3388,7 @@ This abstraction enables both LuaSim and BridgeBackend to drive the same overlay
 - [ ] Commit: "iobt-viz: add backend mode selection"
 
 #### Additional Checkpoints (discovered during development)
-- [ ] _(space for tasks discovered during implementation)_
+- [x] SAGA Scheduler Service (saga-service/) - Python service for HEFT/CPOP scheduling
 - [ ] _(add as needed)_
 
 #### Phase 1 Exit Criteria
@@ -3413,6 +3425,9 @@ iobt-viz/
 │       ├── map.yaml
 │       └── demo-config.lua         # Entity configuration
 ├── OpenRA.Mods.IoBT/
+│   ├── Bridge/
+│   │   ├── IoBTBridgeServer.cs     # TCP server on port 9999
+│   │   └── IoBTBridgeTrait.cs      # World trait for bridge lifecycle
 │   ├── Backend/
 │   │   ├── IBackend.cs             # Backend interface
 │   │   ├── LuaSimBackend.cs        # Wrapper for Lua simulation

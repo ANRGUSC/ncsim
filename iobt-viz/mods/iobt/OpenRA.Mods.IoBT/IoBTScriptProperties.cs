@@ -5,7 +5,9 @@
  */
 #endregion
 
+using System.Collections.Generic;
 using OpenRA.Mods.Common.Scripting;
+using OpenRA.Mods.IoBT.Bridge;
 using OpenRA.Scripting;
 using OpenRA.Traits;
 
@@ -186,6 +188,103 @@ namespace OpenRA.Mods.IoBT
 		{
 			var overlay = GetOverlay();
 			return overlay?.GetTaskDependencies(taskId) ?? "";
+		}
+
+		[Desc("Set the scheduler algorithm name for display (e.g. 'HEFT', 'Round-Robin').")]
+		public void SetSchedulerAlgorithm(string algorithm)
+		{
+			var overlay = GetOverlay();
+			if (overlay != null)
+				overlay.SchedulerAlgorithm = algorithm;
+		}
+
+		// === Bridge Communication ===
+
+		IoBTBridge GetBridge()
+		{
+			return world.WorldActor.TraitOrDefault<IoBTBridge>();
+		}
+
+		[Desc("Check if the bridge server is running.")]
+		public bool IsBridgeRunning()
+		{
+			var bridge = GetBridge();
+			return bridge?.IsRunning ?? false;
+		}
+
+		[Desc("Get the number of connected bridge clients.")]
+		public int GetBridgeConnectionCount()
+		{
+			var bridge = GetBridge();
+			return bridge?.ConnectionCount ?? 0;
+		}
+
+		[Desc("Request a schedule from connected SAGA scheduler. DAG info is sent as JSON.")]
+		public void RequestSchedule(string dagJson)
+		{
+			var bridge = GetBridge();
+			if (bridge == null)
+			{
+				Log.Write("debug", "IoBT Lua: Bridge not available");
+				return;
+			}
+
+			// Parse the DAG JSON and forward to bridge
+			try
+			{
+				var dagInfo = new Dictionary<string, object>
+				{
+					["dag"] = dagJson,
+					["compute_nodes"] = GetComputeNodeCount()
+				};
+				bridge.RequestSchedule(dagInfo);
+				Log.Write("debug", "IoBT Lua: Schedule request sent");
+			}
+			catch (System.Exception ex)
+			{
+				Log.Write("debug", $"IoBT Lua: Failed to send schedule request: {ex.Message}");
+			}
+		}
+
+		[Desc("Check if a SAGA schedule response is pending.")]
+		public bool HasPendingSchedule()
+		{
+			var bridge = GetBridge();
+			return bridge?.HasPendingSchedule ?? false;
+		}
+
+		[Desc("Clear the pending schedule flag.")]
+		public void ClearPendingSchedule()
+		{
+			var bridge = GetBridge();
+			bridge?.ClearPendingSchedule();
+		}
+
+		[Desc("Get the node assignment for a task from pending SAGA schedule (-1 if not assigned).")]
+		public int GetPendingAssignment(string taskId)
+		{
+			var bridge = GetBridge();
+			if (bridge == null)
+				return -1;
+
+			var assignments = bridge.GetAndClearPendingAssignments();
+			if (assignments.TryGetValue(taskId, out var nodeIndex))
+				return nodeIndex;
+			return -1;
+		}
+
+		[Desc("Get all pending assignments as comma-separated 'taskId:nodeIndex' pairs.")]
+		public string GetAllPendingAssignments()
+		{
+			var bridge = GetBridge();
+			if (bridge == null)
+				return "";
+
+			var assignments = bridge.GetAndClearPendingAssignments();
+			var parts = new List<string>();
+			foreach (var kvp in assignments)
+				parts.Add($"{kvp.Key}:{kvp.Value}");
+			return string.Join(",", parts);
 		}
 	}
 }

@@ -78,6 +78,9 @@ namespace OpenRA.Mods.IoBT
 		readonly List<ActiveLink> activeLinks = new();
 		readonly List<Actor> computeNodeList = new(); // Ordered list of compute nodes for assignment
 
+		// Scheduler info (set by Lua when SAGA response arrives)
+		public string SchedulerAlgorithm { get; set; } = ""; // e.g., "HEFT", "Round-Robin"
+
 		// Makespan tracking
 		int dagStartTick = -1;           // Tick when first task started running
 		int dagCompletionTick = -1;      // Tick when all tasks completed
@@ -617,7 +620,17 @@ namespace OpenRA.Mods.IoBT
 
 				yOffset += 8;
 
-				// Section 2: Task Status
+				// Section 2: Scheduler Info (if set)
+				if (!string.IsNullOrEmpty(SchedulerAlgorithm))
+				{
+					yield return new IoBTScreenTextRenderable(
+						new int2(10, yOffset),
+						$"Scheduler: {SchedulerAlgorithm}",
+						Color.FromArgb(255, 100, 200, 255)); // Light blue
+					yOffset += 18;
+				}
+
+				// Section 3: Task Status
 				yield return new IoBTScreenTextRenderable(
 					new int2(10, yOffset),
 					"Status:",

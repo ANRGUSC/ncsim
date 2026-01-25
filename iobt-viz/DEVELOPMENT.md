@@ -248,3 +248,217 @@ Blue.AddTaskTransfer("T1", "T4", "data")  -- Shows "T1→T4" in status panel
 cd iobt-viz
 powershell.exe -ExecutionPolicy Bypass -Command "& { cd 'C:\Users\bhask\claude\iobt-ncsim\iobt-viz'; .\make.ps1 all }"
 ```
+
+### Checkpoint 1.10-1.11: Bridge Server + Trait Integration (2026-01-24)
+
+**Added**: TCP bridge server for external simulator communication (SAGA scheduler, ncsim).
+
+**New Files Created:**
+- `OpenRA.Mods.IoBT/Bridge/IoBTBridgeServer.cs` - TCP server on port 9999
+- `OpenRA.Mods.IoBT/Bridge/IoBTBridgeTrait.cs` - World trait that starts/stops bridge
+
+**Protocol**: Newline-delimited JSON (for easy testing with netcat)
+```bash
+# Test connection:
+echo '{"type":"ping"}' | nc localhost 9999
+```
+
+**Message Types:**
+| Type | Direction | Purpose |
+|------|-----------|---------|
+| `ping` | Client → Bridge | Connectivity test |
+| `pong` | Bridge → Client | Ping response |
+| `welcome` | Bridge → Client | Sent on connect with server info |
+| `get_state` | Client → Bridge | Request current network state |
+| `state` | Bridge → Client | Response with node count, connectivity |
+| `schedule_request` | Either | Request SAGA scheduling |
+| `schedule_response` | Either | Task→node assignments |
+
+**Key Architectural Decisions:**
+1. **Threading**: Messages received on socket thread, queued for processing on game thread via `ITick`
+2. **Multiple clients**: Supports multiple simultaneous connections (for future use)
+3. **Graceful shutdown**: Bridge stopped when World actor is disposed
+
+**Build Note**: When adding new files in subdirectories (like `Bridge/`), the SDK-style .csproj auto-includes them - no manual edits needed.
+
+**Common Error**: Missing `using OpenRA.Graphics;` for `WorldRenderer` in `IWorldLoaded` interface. Always include this for world traits.
+
+**Lua API Added:**
+```lua
+Blue.IsBridgeRunning()        -- Check if bridge is active
+Blue.GetBridgeConnectionCount() -- Number of connected clients
+Blue.RequestSchedule(dagJson)  -- Request schedule from SAGA
+```
+
+### Checkpoint 1.12: SAGA Scheduler Service (2026-01-24)
+
+**Added**: Python SAGA scheduler service that connects to bridge.
+
+**New Directory**: `saga-service/`
+- `scheduler_service.py` - Main service (connects to bridge, calls SAGA)
+- `test_connection.py` - Simple connection test script
+- `requirements.txt` - Dependencies (anrg-saga, networkx, numpy)
+- `pyproject.toml` - Python package config
+
+**Usage:**
+```bash
+cd saga-service
+pip install -r requirements.txt
+python scheduler_service.py --host localhost --port 9999 --scheduler heft
+```
+
+**Fallback Behavior**: If SAGA library not installed, uses simple round-robin scheduler. This allows testing the protocol without full SAGA setup.
+
+**Protocol Flow:**
+1. Service connects to bridge on port 9999
+2. Receives `welcome` message with server info
+3. Sends `hello` identifying as SAGA scheduler
+4. Waits for `schedule_request` messages
+5. Calls SAGA HeftScheduler
+6. Returns `schedule_response` with task→node assignments
+
+**Key Design Decision**: The scheduler service is a separate process, not embedded in iobt-viz. This allows:
+- Running SAGA (Python) alongside OpenRA (C#)
+- Easy testing and debugging of scheduler independently
+- Future replacement with different schedulers
+
+### Log Channel Error Fix (2026-01-24)
+
+**Error:** `System.ArgumentException: Tried logging to non-existent channel bridge`
+
+**Cause:** Using `Log.Write("bridge", ...)` but OpenRA requires log channels to be pre-registered.
+
+**Solution:** Use existing channels like "debug" instead:
+```csharp
+// Wrong - causes crash
+Log.Write("bridge", "message");
+
+// Correct - use existing channel
+Log.Write("debug", "message");
+```
+
+**Available channels:** debug, perf, server, nat, geoip, irc, and others defined in OpenRA.
+
+### Network Testing on Windows (2026-01-24)
+
+**Problem:** Network testing commands like `netstat` don't work reliably in Git Bash on Windows.
+
+**Solution:** Always use Python scripts for network testing:
+```python
+import socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+try:
+    sock.connect(('localhost', 9999))
+    print("Connected!")
+except ConnectionRefusedError:
+    print("Port not open")
+```
+
+**Existing test script:** `saga-service/test_connection.py`
+
+### Launching iobt-viz (2026-01-24)
+
+**Rule:** Always ask the user to manually launch iobt-viz rather than trying to launch it programmatically.
+
+**Why:**
+- GUI apps launched from scripts may not show properly
+- User can confirm when the app is fully loaded
+- Avoids race conditions with bridge startup
+
+**Command for user:**
+```powershell
+cd C:\Users\bhask\claude\iobt-ncsim\iobt-viz
+.\launch-game.cmd Game.Mod=iobt
+```
+
+### SAGA Library Installation on Windows (2026-01-24)
+
+**Problem:** `pygraphviz` requires native Graphviz libraries that are difficult to install on Windows.
+
+**Solution:** Install SAGA without pygraphviz - it's only needed for visualization, not core scheduling:
+```bash
+pip install anrg-saga --no-deps
+pip install networkx numpy scipy pandas pydantic gitpython tqdm z3-solver pysmt
+```
+
+**Note:** Some SAGA imports require `pysmt` even if not using SMT schedulers - the module import loads all schedulers.
+
+### BridgeMessage Constructor (2026-01-24)
+
+**Error:** `'BridgeMessage' does not contain a constructor that takes 1 arguments`
+
+**Cause:** BridgeMessage only has a parameterless constructor.
+
+**Wrong:**
+```csharp
+var msg = new BridgeMessage("hello_ack");  // No such constructor
+```
+
+**Correct:**
+```csharp
+var msg = new BridgeMessage();
+msg.Type = "hello_ack";
+msg.Data["key"] = "value";
+```
+
+### Alternative Build Methods (2026-01-24)
+
+**Preferred Method:** Use `make.ps1` for building:
+```powershell
+cd iobt-viz
+.\make.ps1    # Type: all
+```
+
+**Alternative Method:** Direct `dotnet build` also works for quick rebuilds of the IoBT mod:
+```powershell
+cd iobt-viz
+dotnet build "mods\iobt\OpenRA.Mods.IoBT\OpenRA.Mods.IoBT.csproj"
+```
+
+**When to use each:**
+- `make.ps1 all` - Full build including engine and all mods (use after clean or major changes)
+- `dotnet build` on specific .csproj - Quick rebuild of just the IoBT mod (use for iterating on mod code)
+
+**Note:** Both methods produce the same output. `dotnet build` is faster when only modifying the IoBT mod code, as it skips engine compilation if already built.
+
+### SAGA API Changes (2026-01-24)
+
+**Problem:** SAGA scheduler API changed - using NetworkX graph directly causes errors.
+
+**Error:** `list index out of range` or `BaseModel.__init__() takes 1 positional argument but 2 were given`
+
+**Solution:** SAGA now uses Pydantic models. Correct API:
+```python
+from saga import Network, TaskGraph, NetworkNode, NetworkEdge, TaskGraphNode, TaskGraphEdge
+
+# Network construction
+nodes = frozenset([
+    NetworkNode(name="node_0", speed=1.0),
+    NetworkNode(name="node_1", speed=1.0),
+])
+edges = frozenset([
+    # IMPORTANT: Self-loops required for local transfers!
+    NetworkEdge(source="node_0", target="node_0", speed=float('inf')),
+    NetworkEdge(source="node_0", target="node_1", speed=100.0),
+])
+network = Network(nodes=nodes, edges=edges)
+
+# TaskGraph construction
+tasks = frozenset([
+    TaskGraphNode(name="T0", cost=10.0),
+])
+dependencies = frozenset([
+    TaskGraphEdge(source="T0", target="T1", size=5.0),
+])
+taskgraph = TaskGraph(tasks=tasks, dependencies=dependencies)
+
+# Run scheduler
+schedule = HeftScheduler().schedule(network, taskgraph)
+
+# Extract assignments from schedule.mapping (Dict[node_name, List[ScheduledTask]])
+for node_name, scheduled_tasks in schedule.mapping.items():
+    for task in scheduled_tasks:
+        print(f"{task.name} -> {node_name}")
+```
+
+**Critical:** Include self-loops (`node_0 -> node_0`) for each node - SAGA requires these for modeling local transfers when parent and child tasks are on the same node.
