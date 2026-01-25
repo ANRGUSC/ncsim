@@ -4,6 +4,8 @@
 
 An interactive simulation environment for visualizing and analyzing networked computing systems, featuring RTS-style visualization of compute nodes, network links, data flows, and task execution.
 
+> **Note**: This project is based on a modification of [OpenRA](https://github.com/OpenRA/OpenRA), an open-source game engine for classic RTS games. We leverage OpenRA's rendering, entity management, and Lua scripting capabilities to create an immersive visualization platform for networked computing research.
+
 ## Overview
 
 IoBT-NCSim combines:
