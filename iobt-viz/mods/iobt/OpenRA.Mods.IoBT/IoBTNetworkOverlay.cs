@@ -78,6 +78,12 @@ namespace OpenRA.Mods.IoBT
 		readonly List<ActiveLink> activeLinks = new();
 		readonly List<Actor> computeNodeList = new(); // Ordered list of compute nodes for assignment
 
+		// Makespan tracking
+		int dagStartTick = -1;           // Tick when first task started running
+		int dagCompletionTick = -1;      // Tick when all tasks completed
+		double lastMakespan = -1;        // Last completed makespan (in seconds)
+		bool dagInProgress = false;      // Is a DAG currently executing?
+
 		public IoBTNetworkOverlay(Actor self, IoBTNetworkOverlayInfo info)
 		{
 			this.info = info;
@@ -149,6 +155,14 @@ namespace OpenRA.Mods.IoBT
 				task.AssignedNodeIndex = computeNodeIndex;
 				task.Status = TaskStatus.Running;
 
+				// Track when the first task starts (for makespan calculation)
+				if (!dagInProgress)
+				{
+					dagInProgress = true;
+					dagStartTick = world.WorldTick;
+					dagCompletionTick = -1;
+				}
+
 				// Update the compute node info with the task
 				if (computeNodes.TryGetValue(node, out var nodeInfo))
 				{
@@ -169,6 +183,16 @@ namespace OpenRA.Mods.IoBT
 			if (task.AssignedNode != null && computeNodes.TryGetValue(task.AssignedNode, out var nodeInfo))
 			{
 				nodeInfo.RunningTaskId = null;
+			}
+
+			// Check if all tasks are now completed
+			if (dagInProgress && dagTasks.Values.All(t => t.Status == TaskStatus.Completed))
+			{
+				dagCompletionTick = world.WorldTick;
+				var elapsedTicks = dagCompletionTick - dagStartTick;
+				// OpenRA runs at 25 ticks per second by default
+				lastMakespan = elapsedTicks / 25.0;
+				dagInProgress = false;
 			}
 		}
 
@@ -257,6 +281,12 @@ namespace OpenRA.Mods.IoBT
 			activeLinks.Clear();
 			foreach (var nodeInfo in computeNodes.Values)
 				nodeInfo.RunningTaskId = null;
+
+			// Reset makespan tracking for next DAG
+			dagStartTick = -1;
+			dagCompletionTick = -1;
+			dagInProgress = false;
+			// Note: we keep lastMakespan so it continues to display
 		}
 
 		// Get number of compute nodes (for Lua to know how many are available)
@@ -537,10 +567,32 @@ namespace OpenRA.Mods.IoBT
 				}
 			}
 
+			// Draw makespan even when no DAG tasks (persists between rounds)
+			if (ShowDagStatus && (dagInProgress || lastMakespan >= 0))
+			{
+				if (dagInProgress && dagStartTick >= 0)
+				{
+					// Show current elapsed time
+					var currentElapsed = (world.WorldTick - dagStartTick) / 25.0;
+					yield return new IoBTScreenTextRenderable(
+						new int2(10, 50),
+						$"Makespan: {currentElapsed:F1}s (running)",
+						Color.Yellow);
+				}
+				else if (lastMakespan >= 0)
+				{
+					// Show last completed makespan
+					yield return new IoBTScreenTextRenderable(
+						new int2(10, 50),
+						$"Makespan: {lastMakespan:F1}s",
+						Color.LimeGreen);
+				}
+			}
+
 			// Draw DAG status panel in top-left corner
 			if (ShowDagStatus && dagTasks.Count > 0)
 			{
-				var yOffset = 50;
+				var yOffset = 70; // Start below makespan
 
 				// Section 1: DAG Structure (Adjacency List)
 				yield return new IoBTScreenTextRenderable(

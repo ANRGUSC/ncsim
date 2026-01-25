@@ -3282,12 +3282,12 @@ Each phase delivers a **working, demonstrable product**. Phases build incrementa
 - [x] Build verified - branding displays during visualization
 
 #### Checkpoint 1.4: Escape Menu Cleanup
-- [ ] Find ingame menu chrome files
-- [ ] Remove "Surrender" option
-- [ ] Remove "Diplomacy" option
-- [ ] Keep only: Resume, Settings, Exit
-- [ ] Test: Escape menu works with reduced options
-- [ ] Commit: "iobt-viz: simplify escape menu"
+- [x] Find ingame menu chrome files (mods/iobt/chrome/ingame-menu.yaml)
+- [x] Remove "Surrender" option (not present - only RESUME, SETTINGS, QUIT defined)
+- [x] Remove "Diplomacy" option (not present)
+- [x] Keep only: Resume, Settings, Exit (implemented via IoBTIngameMenuLogic.cs)
+- [x] Test: Escape menu works with reduced options
+- [x] Included in initial commit
 
 #### Checkpoint 1.5: Remove Production Sidebar
 - [ ] Identify production tab chrome in `reference/`
