@@ -2,7 +2,7 @@
 
 **Immersive Networked Compute Simulator**
 
-An interactive simulation environment for visualizing and analyzing networked computing systems, featuring RTS-style visualization of compute nodes, network links, data flows, and task execution.
+An interactive simulation environment for visualizing and analyzing networked computing systems, featuring RTS-style visualization of compute nodes, network links, data flows, and DAG task execution with HEFT scheduling.
 
 > **Note**: This project is based on a modification of [OpenRA](https://github.com/OpenRA/OpenRA), an open-source game engine for classic RTS games. We leverage OpenRA's rendering, entity management, and Lua scripting capabilities to create an immersive visualization platform for networked computing research.
 
@@ -11,8 +11,8 @@ An interactive simulation environment for visualizing and analyzing networked co
 IoBT-NCSim combines:
 
 - **iobt-viz**: High-quality RTS-style visualization (derived from OpenRA) displaying compute nodes, network links, data flows, and DAG task execution
+- **saga-service**: SAGA scheduler service providing HEFT/CPOP algorithms for network-aware task scheduling
 - **ncsim** (planned): A standalone, headless-capable discrete-event simulation engine for networked computing
-- **viz-bridge** (planned): A protocol translation layer enabling ncsim to drive any compatible visualizer
 
 ## Current Features
 
@@ -23,6 +23,14 @@ IoBT-NCSim combines:
 - Compute node markers (blue/yellow for high/low CPU)
 - Network-aware scheduling with connectivity checks
 - Interactive configuration GUI for scenario setup
+- Makespan tracking and display
+
+### SAGA Scheduler Integration
+- **HEFT** (Heterogeneous Earliest Finish Time) scheduling algorithm
+- **CPOP** (Critical Path on Processor) scheduling algorithm
+- Network-aware task placement based on actual connectivity
+- Real-time link data rates based on node distance
+- Automatic fallback to round-robin if scheduler unavailable
 
 ### Network Overlay
 - Link color coding: green (high bandwidth) → yellow → red (low bandwidth)
@@ -35,30 +43,49 @@ IoBT-NCSim combines:
 ### Prerequisites
 - Windows 10/11
 - .NET 8.0 SDK
-- Python 3.11+ (for configuration tools)
+- Python 3.11+
 
-### Building
-```powershell
-cd iobt-viz
-.\make.ps1 clean
-.\make.ps1 all
+### Installation
+
+1. **Clone the repository**
+   ```
+   git clone https://github.com/ANRGUSC/iobt-ncsim.git
+   cd iobt-ncsim
+   ```
+
+2. **Install Python dependencies** (for SAGA scheduler)
+   ```
+   pip install -r saga-service/requirements.txt
+   ```
+
+3. **Build iobt-viz**
+   ```powershell
+   cd iobt-viz
+   .\make.cmd
+   ```
+
+### Running (Two Windows Required)
+
+**Window 1 - Start the SAGA scheduler service:**
 ```
+.\runsched
+```
+This starts the HEFT scheduler listening on port 9999.
 
-### Running
-1. Configure the simulation:
-   ```
-   runconfig
-   ```
-   This opens the configuration GUI where you can set:
-   - Number of nodes (infantry/vehicles)
-   - Communication range and data rates
-   - DAG structure (depth, branching factor)
-   - Task and transfer durations
+**Window 2 - Configure and run the visualization:**
+```
+runconfig
+```
+This opens the configuration GUI where you can set:
+- Number of nodes (infantry/vehicles)
+- Communication range and data rates
+- DAG structure (depth, branching factor)
+- Task and transfer durations
 
-2. Launch the visualization:
-   ```
-   runiobt
-   ```
+Then launch the visualization:
+```
+runiobt
+```
 
 ### Hotkeys
 - **N**: Toggle network overlay
@@ -68,17 +95,26 @@ cd iobt-viz
 
 ```
 iobt-ncsim/
+├── README.md              # This file
 ├── CLAUDE.md              # Detailed project specification
+├── runsched.bat           # Start SAGA scheduler service
+├── runconfig.bat          # Open configuration GUI
+├── runiobt.bat            # Launch visualization
+├── saga-service/          # SAGA scheduler service (Python)
+│   ├── scheduler_service.py   # Main service (HEFT/CPOP)
+│   ├── requirements.txt       # Python dependencies
+│   └── test_connection.py     # Connection test script
 ├── iobt-viz/              # Visualization engine (OpenRA-derived)
 │   ├── engine/            # OpenRA engine
 │   ├── mods/iobt/         # IoBT visualization mod
 │   │   ├── chrome/        # UI definitions
 │   │   ├── maps/          # Scenario maps
 │   │   ├── OpenRA.Mods.IoBT/  # C# mod code
+│   │   │   ├── Bridge/    # TCP bridge for SAGA communication
+│   │   │   └── ...
 │   │   └── tools/         # Python config tools
 │   └── ...
-├── reference/             # Read-only OpenRA reference copies
-└── README.md
+└── reference/             # Read-only OpenRA reference copies
 ```
 
 ## Configuration
@@ -87,20 +123,71 @@ The configuration GUI (`runconfig`) allows you to customize:
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| Total Nodes | Number of mobile units | 50 |
+| Total Nodes | Number of mobile compute units | 15 |
 | Infantry % | Percentage of infantry vs vehicles | 70% |
 | Communication Range | Max link distance (cells) | 8 |
 | Max/Min Data Rate | Bandwidth range (Mbps) | 100/10 |
-| DAG Depth | Levels in task tree | 3 |
-| Branching Factor | Children per task | 2 |
+| DAG Levels | Depth of task tree | 1 |
+| Branches | Children per task | 8 |
 | Task Duration | Execution time (ticks) | 75 |
-| Transfer Duration | Data transfer visualization time (ticks) | 50 |
+| Transfer Duration | Data transfer visualization (ticks) | 80 |
+
+## Architecture
+
+```
+┌─────────────────┐         TCP/9999          ┌─────────────────┐
+│   saga-service  │◄────────────────────────►│    iobt-viz     │
+│                 │    schedule_request       │                 │
+│  HEFT/CPOP      │    schedule_response      │  Visualization  │
+│  Scheduler      │    (task assignments)     │  + Lua scripts  │
+└─────────────────┘                           └─────────────────┘
+                                                      │
+                                                      ▼
+                                              ┌─────────────────┐
+                                              │  Network Overlay │
+                                              │  - Link quality  │
+                                              │  - Task states   │
+                                              │  - Transfers     │
+                                              └─────────────────┘
+```
+
+## How It Works
+
+1. **Configuration**: `runconfig` generates `iobt-config.lua` with node positions, DAG structure, and network settings
+
+2. **Scheduler Service**: `runsched` starts the SAGA service which listens for scheduling requests
+
+3. **Visualization**: `runiobt` launches iobt-viz which:
+   - Spawns compute nodes (mobile units)
+   - Connects to SAGA service via TCP bridge
+   - Sends DAG + network topology to HEFT scheduler
+   - Receives task-to-node assignments
+   - Visualizes task execution and data transfers
+
+4. **HEFT Scheduling**: The scheduler considers:
+   - Network connectivity between nodes
+   - Link data rates (based on distance)
+   - Task dependencies (DAG edges)
+   - Compute costs
 
 ## Documentation
 
 - `CLAUDE.md`: Complete project specification and architecture
 - `iobt-viz/DEVELOPMENT.md`: Development notes and common issues
-- `iobt-viz/mods/iobt/NETWORK_OVERLAY.md`: Network overlay Lua API reference
+
+## Requirements
+
+### Python Dependencies (saga-service)
+```
+anrg-saga>=2.0.0
+networkx>=3.0
+numpy>=1.24
+```
+
+Install with: `pip install -r saga-service/requirements.txt`
+
+### .NET Dependencies
+- .NET 8.0 SDK (for building iobt-viz)
 
 ## Author
 
@@ -111,4 +198,4 @@ University of Southern California
 
 ## License
 
-Private repository - All rights reserved.
+MIT License - See LICENSE file for details.
