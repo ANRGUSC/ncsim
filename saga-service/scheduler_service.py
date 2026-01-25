@@ -93,7 +93,8 @@ class SAGASchedulerWrapper:
         tasks: list[dict],
         edges: list[dict],
         num_nodes: int,
-        connectivity: list[list[bool]]
+        connectivity: list[list[bool]],
+        data_rates: list[list[float]] = None
     ) -> dict[str, int]:
         """
         Compute task-to-node assignments using SAGA.
@@ -103,6 +104,7 @@ class SAGASchedulerWrapper:
             edges: List of edge dicts with 'from', 'to', 'data_size'
             num_nodes: Number of compute nodes
             connectivity: NxN connectivity matrix
+            data_rates: NxN matrix of link data rates (Mbps), optional
 
         Returns:
             Dict mapping task_id to node_index
@@ -118,9 +120,16 @@ class SAGASchedulerWrapper:
                 # Assume fully connected if matrix is incomplete
                 connectivity = [[True for _ in range(num_nodes)] for _ in range(num_nodes)]
 
+            # Log connectivity for debugging
+            connected_count = sum(1 for i in range(num_nodes) for j in range(num_nodes) if i != j and connectivity[i][j])
+            logger.info(f"Network topology: {num_nodes} nodes, {connected_count} links")
+            for i in range(min(5, num_nodes)):
+                connected_to = [j for j in range(num_nodes) if j != i and connectivity[i][j]]
+                logger.info(f"  Node {i} connected to: {connected_to}")
+
             # Build SAGA Network model
             logger.debug(f"Building SAGA network with {num_nodes} nodes")
-            network = self._build_saga_network(num_nodes, connectivity)
+            network = self._build_saga_network(num_nodes, connectivity, data_rates)
 
             # Build SAGA TaskGraph model
             logger.debug(f"Building SAGA task graph with {len(tasks)} tasks, {len(edges)} edges")
@@ -144,29 +153,43 @@ class SAGASchedulerWrapper:
             task_ids = [t['id'] for t in tasks]
             return MockScheduler().schedule(task_ids, num_nodes, connectivity)
 
-    def _build_saga_network(self, num_nodes: int, connectivity: list[list[bool]]):
-        """Build SAGA Network from connectivity matrix."""
+    def _build_saga_network(self, num_nodes: int, connectivity: list[list[bool]], data_rates: list[list[float]] = None):
+        """Build SAGA Network from connectivity matrix and data rates."""
         # Create network nodes
         nodes = set()
         for i in range(num_nodes):
             nodes.add(NetworkNode(name=f"node_{i}", speed=1.0))
 
-        # Create network edges based on connectivity
-        # IMPORTANT: SAGA requires self-loops for local transfers (same node)
+        # Create network edges for ALL node pairs
+        # HEFT requires a fully-connected graph - disconnected nodes get very low speed
+        # so HEFT will avoid scheduling tasks that require transfers over them
+        DISCONNECTED_SPEED = 0.001  # Very slow = very expensive transfer
+        LOCAL_SPEED = 10000.0  # Local transfers are very fast
+
         edges = set()
         for i in range(num_nodes):
-            # Add self-loop for local transfers (very high speed = instant)
-            edges.add(NetworkEdge(source=f"node_{i}", target=f"node_{i}", speed=float('inf')))
-
             for j in range(num_nodes):
-                if i != j:
+                if i == j:
+                    # Self-loop for local transfers (very high speed = instant)
+                    edges.add(NetworkEdge(source=f"node_{i}", target=f"node_{j}", speed=LOCAL_SPEED))
+                else:
                     # Check connectivity safely
-                    is_connected = True
+                    is_connected = False
                     if i < len(connectivity) and j < len(connectivity[i]):
                         is_connected = connectivity[i][j]
 
                     if is_connected:
-                        edges.add(NetworkEdge(source=f"node_{i}", target=f"node_{j}", speed=100.0))
+                        # Use actual data rate if provided, otherwise default to 100.0
+                        link_speed = 100.0
+                        if data_rates and i < len(data_rates) and j < len(data_rates[i]):
+                            rate = data_rates[i][j]
+                            if rate > 0 and rate < 10000:  # Ignore very large values
+                                link_speed = rate
+                        edges.add(NetworkEdge(source=f"node_{i}", target=f"node_{j}", speed=link_speed))
+                    else:
+                        # Disconnected nodes: add edge with very low speed
+                        # HEFT will strongly prefer not to use these
+                        edges.add(NetworkEdge(source=f"node_{i}", target=f"node_{j}", speed=DISCONNECTED_SPEED))
 
         logger.debug(f"Built network: {len(nodes)} nodes, {len(edges)} edges")
         return Network(nodes=frozenset(nodes), edges=frozenset(edges))
@@ -384,6 +407,7 @@ class BridgeClient:
             edges = dag.get('edges', [])
             num_nodes = msg.get('compute_nodes', 0)
             connectivity = msg.get('connectivity', [])
+            data_rates = msg.get('data_rates', None)
 
             if num_nodes == 0 or not tasks:
                 logger.warning("Empty schedule request")
@@ -395,9 +419,13 @@ class BridgeClient:
                 return
 
             logger.info(f"Scheduling {len(tasks)} tasks on {num_nodes} nodes")
+            if data_rates:
+                logger.info(f"Using actual data rates from network topology")
+            else:
+                logger.info(f"No data rates provided, using default link speed")
 
-            # Run SAGA scheduler
-            assignments = self.scheduler.schedule(tasks, edges, num_nodes, connectivity)
+            # Run SAGA scheduler with connectivity and data rates
+            assignments = self.scheduler.schedule(tasks, edges, num_nodes, connectivity, data_rates)
 
             logger.info(f"Schedule computed: {assignments}")
 

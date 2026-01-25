@@ -441,10 +441,63 @@ namespace OpenRA.Mods.IoBT.Bridge
 				return;
 			}
 
+			// Get current network topology for the scheduler
+			var nodeCount = overlay?.GetComputeNodeCount() ?? 0;
+
+			// Build connectivity matrix (which nodes can communicate)
+			var connectivity = new List<List<bool>>();
+			for (var i = 0; i < nodeCount; i++)
+			{
+				var row = new List<bool>();
+				for (var j = 0; j < nodeCount; j++)
+					row.Add(overlay?.AreNodesConnected(i, j) ?? false);
+				connectivity.Add(row);
+			}
+
+			// Build link data rates matrix (bandwidth between nodes)
+			// Note: Use large value (not Infinity) for local transfers since JSON doesn't support Infinity
+			const double LocalTransferRate = 10000.0;
+			var dataRates = new List<List<double>>();
+			for (var i = 0; i < nodeCount; i++)
+			{
+				var row = new List<double>();
+				for (var j = 0; j < nodeCount; j++)
+				{
+					if (i == j)
+						row.Add(LocalTransferRate); // Local transfers are very fast
+					else
+						row.Add(overlay?.GetLinkDataRate(i, j) ?? 0.0);
+				}
+				dataRates.Add(row);
+			}
+
+			// Log connectivity for debugging
+			System.Console.WriteLine($"[BRIDGE] RequestSchedule: {nodeCount} nodes");
+			for (var i = 0; i < nodeCount && i < 5; i++)
+			{
+				var connectedTo = new List<int>();
+				for (var j = 0; j < nodeCount; j++)
+				{
+					if (connectivity[i][j])
+						connectedTo.Add(j);
+				}
+				System.Console.WriteLine($"[BRIDGE]   Node {i} connected to: [{string.Join(", ", connectedTo)}]");
+			}
+			if (nodeCount > 5)
+				System.Console.WriteLine($"[BRIDGE]   ... and {nodeCount - 5} more nodes");
+
+			// Add network topology to the request
+			var requestData = new Dictionary<string, object>(dagInfo)
+			{
+				["compute_nodes"] = nodeCount,
+				["connectivity"] = connectivity,
+				["data_rates"] = dataRates
+			};
+
 			var request = new BridgeMessage
 			{
 				Type = "schedule_request",
-				Data = dagInfo
+				Data = requestData
 			};
 
 			server.BroadcastMessage(request);

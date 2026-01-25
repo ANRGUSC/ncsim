@@ -322,6 +322,33 @@ namespace OpenRA.Mods.IoBT
 			return distance <= radiusInWorld;
 		}
 
+		// Get the data rate between two compute nodes (0 if not connected)
+		public double GetLinkDataRate(int nodeIndex1, int nodeIndex2)
+		{
+			if (nodeIndex1 < 0 || nodeIndex1 >= computeNodeList.Count ||
+			    nodeIndex2 < 0 || nodeIndex2 >= computeNodeList.Count)
+				return 0;
+
+			if (nodeIndex1 == nodeIndex2)
+				return 10000.0; // Local transfers are very fast (use large value, not Infinity for JSON compatibility)
+
+			var node1 = computeNodeList[nodeIndex1];
+			var node2 = computeNodeList[nodeIndex2];
+
+			if (node1.IsDead || !node1.IsInWorld || node2.IsDead || !node2.IsInWorld)
+				return 0;
+
+			var diff = node1.CenterPosition - node2.CenterPosition;
+			var distSquared = (long)diff.X * diff.X + (long)diff.Y * diff.Y;
+			var distance = Math.Sqrt(distSquared);
+
+			var radiusInWorld = NetworkRadius * 1024;
+			var rate = CalculateDataRate(distance, radiusInWorld);
+
+			// Return 0 if below minimum threshold
+			return rate >= info.MinDataRate ? rate : 0;
+		}
+
 		// Stall a task (waiting for network connectivity)
 		public void StallTask(string taskId)
 		{
