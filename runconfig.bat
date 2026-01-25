@@ -1,0 +1,2 @@
+cd iobt-viz
+runconfig
