@@ -1,19 +1,139 @@
-This repository contains a bare development environment for creating a new mod/game on the [OpenRA](https://github.com/OpenRA/OpenRA) engine.
+# iobt-viz
 
-These scripts and support files wrap and automatically manage a copy of the OpenRA game engine and common files during development, and generates Windows installers, macOS .app bundles, and Linux [AppImages](https://appimage.org/) for distribution.
+**RTS-Style Visualization for Networked Computing**
 
-The key scripts in this SDK are:
+iobt-viz provides an immersive, real-time visualization of networked computing systems using the [OpenRA](https://github.com/OpenRA/OpenRA) game engine. It displays compute nodes as mobile units, network links with quality indicators, and animated task execution with data transfers.
 
-| Windows               | Linux / macOS            | Purpose
-| --------------------- | ------------------------ | ------------- |
-| make.cmd              | Makefile                 | Compiles your project and fetches dependencies (including the OpenRA engine).
-| launch-game.cmd       | launch-game.sh           | Launches your project from the SDK directory.
-| launch-server.cmd     | launch-server.sh         | Launches a dedicated server for your project from the SDK directory.
-| utility.cmd           | utility.sh         | Launches the OpenRA Utility for your project.
-| &lt;not available&gt; | packaging/package-all.sh | Generates release installers for your project.
+## Features
 
-To launch your project from the development environment you must first compile the project by running `make.cmd` (Windows), or opening a terminal in the SDK directory and running `make` (Linux / macOS).  You can then run `launch-game.cmd` (Windows) or `launch-game.sh` (Linux / macOS) to run your game.
+- **Network Topology Overlay**: Visualize links between nodes with color-coded bandwidth
+- **DAG Task Visualization**: See task dependencies and execution state
+- **Data Transfer Animation**: Watch data flow between nodes during transfers
+- **Interactive Configuration**: GUI to set up scenarios before running
+- **HEFT Scheduling Integration**: Real-time scheduling via saga-service
 
-The `example` mod included in this repository provides the bare minimum structure to launch to the in-game main menu for the sole purpose of demonstrating the SDK.  See [Getting Started](https://github.com/OpenRA/OpenRAModTemplate/wiki/Getting-Started) on the Wiki for instructions on how to adapt this template for your own projects.  For common questions, please see the [FAQ](https://github.com/OpenRA/OpenRAModSDK/wiki/FAQ).  See [Updating to a new SDK or Engine version](https://github.com/OpenRA/OpenRAModSDK/wiki/Updating-to-a-new-SDK-or-Engine-version) for a guide on updating your mod a newer OpenRA release.
+## Prerequisites
 
-The OpenRA engine and SDK scripts are made available under the [GPLv3](https://github.com/OpenRA/OpenRA/blob/bleed/COPYING) license, and any executable code developed by a mod and loaded by the engine (i.e. custom mod DLLs, lua scripts) must be released under a compatible license.  Your mod data files (artwork, sound files, yaml, etc) are not part of your mod's source code, so you are free to distribute these assets under different terms (e.g. allowing redistribution in unmodified form, but not for use in other works).
+- Windows 10/11
+- .NET 8.0 SDK
+- saga-service running (for scheduling)
+
+## Building
+
+```powershell
+cd iobt-viz
+.\make.cmd
+```
+
+This compiles the C# code and fetches OpenRA engine dependencies.
+
+## Running
+
+### 1. Start the Scheduler Service
+
+In a separate terminal:
+```
+.\runsched
+```
+
+### 2. Configure the Scenario
+
+```
+runconfig
+```
+
+This opens a GUI where you can set:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| Total Nodes | Number of compute units | 15 |
+| Infantry % | Percentage infantry vs vehicles | 70% |
+| Comm Range | Max link distance (cells) | 8 |
+| Max/Min Data Rate | Bandwidth range (Mbps) | 100/10 |
+| DAG Levels | Task tree depth | 1 |
+| Branches | Children per task | 8 |
+| Task Duration | Execution time (ticks) | 75 |
+| Transfer Duration | Transfer animation (ticks) | 80 |
+
+### 3. Launch Visualization
+
+```
+runiobt
+```
+
+## Hotkeys
+
+| Key | Action |
+|-----|--------|
+| `N` | Toggle network overlay |
+| `Escape` | Open menu (Resume/Settings/Quit) |
+
+## Network Overlay
+
+When enabled (`N` key), the overlay shows:
+
+- **Link Colors**: Green (high bandwidth) → Yellow → Red (low bandwidth)
+- **Active Transfers**: Cyan highlighting during data transfers
+- **Status Panel**: DAG structure, task states, and transfer progress
+
+## Architecture
+
+```
+iobt-viz/
+├── engine/                 # OpenRA game engine
+├── mods/iobt/             # IoBT visualization mod
+│   ├── chrome/            # UI definitions (YAML)
+│   ├── maps/              # Scenario maps
+│   ├── OpenRA.Mods.IoBT/  # C# mod code
+│   │   ├── Bridge/        # TCP bridge to saga-service
+│   │   ├── Traits/        # Entity behaviors
+│   │   └── Network/       # Network overlay rendering
+│   └── tools/             # Python config tools
+└── ...
+```
+
+### Key Components
+
+- **SagaBridge**: TCP client connecting to saga-service (port 9999)
+- **NetworkOverlay**: Renders links and transfer animations
+- **DAGManager**: Tracks task states and dependencies
+- **ConfigGenerator**: Produces `iobt-config.lua` from GUI settings
+
+## How It Works
+
+1. **Configuration**: `runconfig` generates `iobt-config.lua` with node positions, DAG structure, and network parameters
+
+2. **Launch**: `runiobt` starts the visualization, spawning compute nodes as mobile units
+
+3. **Scheduling**: When a DAG is submitted:
+   - Network topology and DAG sent to saga-service
+   - HEFT scheduler returns task-to-node assignments
+   - Tasks execute on assigned nodes with animated transfers
+
+4. **Visualization**: The overlay shows real-time:
+   - Link quality based on node distance
+   - Task execution state (idle/running/complete)
+   - Data transfers with progress
+
+## Development
+
+For development notes and common issues, see:
+- `DEVELOPMENT.md` in this directory
+- [OpenRA Wiki](https://github.com/OpenRA/OpenRA/wiki)
+
+### Useful Commands
+
+```powershell
+# Rebuild after changes
+.\make.cmd
+
+# Launch with debug logging
+.\launch-game.cmd --debug
+
+# Run utility commands
+.\utility.cmd --help
+```
+
+## License
+
+The OpenRA engine is licensed under GPLv3. Custom mod code and Lua scripts must be compatible.

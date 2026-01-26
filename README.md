@@ -4,92 +4,104 @@
 
 An interactive simulation environment for visualizing and analyzing networked computing systems, featuring RTS-style visualization of compute nodes, network links, data flows, and DAG task execution with HEFT scheduling.
 
-> **Note**: This project is based on a modification of [OpenRA](https://github.com/OpenRA/OpenRA), an open-source game engine for classic RTS games. We leverage OpenRA's rendering, entity management, and Lua scripting capabilities to create an immersive visualization platform for networked computing research.
+> **Note**: The visualization component (iobt-viz) is based on a modification of [OpenRA](https://github.com/OpenRA/OpenRA), an open-source game engine for classic RTS games.
 
 ## Overview
 
-IoBT-NCSim combines:
+IoBT-NCSim provides two complementary approaches to networked computing simulation:
 
-- **iobt-viz**: High-quality RTS-style visualization (derived from OpenRA) displaying compute nodes, network links, data flows, and DAG task execution
-- **saga-service**: SAGA scheduler service providing HEFT/CPOP algorithms for network-aware task scheduling
-- **ncsim** (planned): A standalone, headless-capable discrete-event simulation engine for networked computing
+| Component | Purpose | Status |
+|-----------|---------|--------|
+| **iobt-viz** | Interactive RTS-style visualization with real-time HEFT scheduling | Functional |
+| **saga-service** | TCP wrapper for HEFT/CPOP scheduling algorithms | Functional |
+| **ncsim** | Headless discrete-event simulator for research experiments | Functional |
 
-## Current Features
+```
+DEMO MODE:                              RESEARCH MODE:
+┌──────────────┐                        ┌──────────────┐
+│   iobt-viz   │ ◄─TCP─► saga-service   │    ncsim     │ → trace.jsonl
+│ (real-time)  │         (HEFT/CPOP)    │  (headless)  │ → metrics.json
+└──────────────┘                        └──────────────┘
+```
 
-### Visualization (iobt-viz)
-- Real-time network topology visualization with distance-based link quality
-- DAG (Directed Acyclic Graph) task scheduling visualization
-- Task-to-task data transfer visualization with highlighted links
-- Compute node markers (blue/yellow for high/low CPU)
-- Network-aware scheduling with connectivity checks
-- Interactive configuration GUI for scenario setup
-- Makespan tracking and display
+## Components
 
-### SAGA Scheduler Integration
-- **HEFT** (Heterogeneous Earliest Finish Time) scheduling algorithm
-- **CPOP** (Critical Path on Processor) scheduling algorithm
-- Network-aware task placement based on actual connectivity
-- Real-time link data rates based on node distance
-- Automatic fallback to round-robin if scheduler unavailable
+### iobt-viz (Visualization)
 
-### Network Overlay
-- Link color coding: green (high bandwidth) → yellow → red (low bandwidth)
-- Active transfer highlighting (cyan)
-- Status panel showing DAG structure, task states, and active transfers
-- Configurable communication range and data rates
+Real-time visualization of networked computing with:
+- Network topology overlay with distance-based link quality
+- DAG task scheduling and execution visualization
+- Task-to-task data transfer animations
+- Interactive configuration GUI
+
+See [iobt-viz/README.md](iobt-viz/README.md) for details.
+
+### saga-service (Scheduler)
+
+TCP service providing HEFT/CPOP scheduling:
+- Network-aware task placement
+- Heterogeneous node support
+- Real-time scheduling responses
+
+See [saga-service/README.md](saga-service/README.md) for details.
+
+### ncsim (Headless Simulator)
+
+Discrete-event simulator for research:
+- Deterministic simulation with reproducible results
+- HEFT/CPOP scheduling via SAGA integration
+- Fair bandwidth sharing model
+- JSONL trace output for analysis
+
+See [ncsim/README.md](ncsim/README.md) for details.
 
 ## Quick Start
 
 ### Prerequisites
+
 - Windows 10/11
-- .NET 8.0 SDK
-- Python 3.11+
+- .NET 8.0 SDK (for iobt-viz)
+- Python 3.10+ (for ncsim and saga-service)
 
 ### Installation
 
-1. **Clone the repository**
-   ```
-   git clone https://github.com/ANRGUSC/iobt-ncsim.git
-   cd iobt-ncsim
-   ```
+```bash
+git clone https://github.com/ANRGUSC/iobt-ncsim.git
+cd iobt-ncsim
 
-2. **Install Python dependencies** (for SAGA scheduler)
-   ```
-   pip install -r saga-service/requirements.txt
-   ```
+# Install Python dependencies
+pip install -r saga-service/requirements.txt
+pip install -e ncsim/
 
-3. **Build iobt-viz**
-   ```powershell
-   cd iobt-viz
-   .\make.cmd
-   ```
+# Build visualization (optional)
+cd iobt-viz && .\make.cmd && cd ..
+```
 
-### Running (Two Windows Required)
+### Running the Visualization Demo
 
-**Window 1 - Start the SAGA scheduler service:**
+**Terminal 1** - Start the scheduler:
 ```
 .\runsched
 ```
-This starts the HEFT scheduler listening on port 9999.
 
-**Window 2 - Configure and run the visualization:**
+**Terminal 2** - Configure and run:
 ```
-runconfig
-```
-This opens the configuration GUI where you can set:
-- Number of nodes (infantry/vehicles)
-- Communication range and data rates
-- DAG structure (depth, branching factor)
-- Task and transfer durations
-
-Then launch the visualization:
-```
-runiobt
+runconfig    # Set parameters
+runiobt      # Launch visualization
 ```
 
-### Hotkeys
-- **N**: Toggle network overlay
-- **Escape**: Open menu (Resume/Settings/Quit)
+**Hotkeys:** `N` (network overlay), `Escape` (menu)
+
+### Running Headless Simulations
+
+```bash
+cd ncsim
+python -m ncsim --scenario scenarios/demo_simple.yaml --output results/
+```
+
+Output:
+- `results/trace.jsonl` - Event trace
+- `results/metrics.json` - Performance metrics
 
 ## Project Structure
 
@@ -100,98 +112,33 @@ iobt-ncsim/
 ├── runsched.bat           # Start SAGA scheduler service
 ├── runconfig.bat          # Open configuration GUI
 ├── runiobt.bat            # Launch visualization
-├── saga-service/          # SAGA scheduler service (Python)
-│   ├── scheduler_service.py   # Main service (HEFT/CPOP)
-│   ├── requirements.txt       # Python dependencies
-│   └── test_connection.py     # Connection test script
-├── iobt-viz/              # Visualization engine (OpenRA-derived)
+├── saga-service/          # SAGA scheduler TCP service
+│   ├── README.md
+│   ├── scheduler_service.py
+│   └── requirements.txt
+├── iobt-viz/              # RTS-style visualization
+│   ├── README.md
 │   ├── engine/            # OpenRA engine
-│   ├── mods/iobt/         # IoBT visualization mod
-│   │   ├── chrome/        # UI definitions
-│   │   ├── maps/          # Scenario maps
-│   │   ├── OpenRA.Mods.IoBT/  # C# mod code
-│   │   │   ├── Bridge/    # TCP bridge for SAGA communication
-│   │   │   └── ...
-│   │   └── tools/         # Python config tools
-│   └── ...
-└── reference/             # Read-only OpenRA reference copies
+│   └── mods/iobt/         # IoBT visualization mod
+├── ncsim/                 # Headless simulator
+│   ├── README.md
+│   ├── ncsim/             # Python package
+│   ├── scenarios/         # Example scenarios
+│   └── tests/             # Test suite
+└── reference/             # Read-only OpenRA reference
 ```
-
-## Configuration
-
-The configuration GUI (`runconfig`) allows you to customize:
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| Total Nodes | Number of mobile compute units | 15 |
-| Infantry % | Percentage of infantry vs vehicles | 70% |
-| Communication Range | Max link distance (cells) | 8 |
-| Max/Min Data Rate | Bandwidth range (Mbps) | 100/10 |
-| DAG Levels | Depth of task tree | 1 |
-| Branches | Children per task | 8 |
-| Task Duration | Execution time (ticks) | 75 |
-| Transfer Duration | Data transfer visualization (ticks) | 80 |
-
-## Architecture
-
-```
-┌─────────────────┐         TCP/9999          ┌─────────────────┐
-│   saga-service  │◄────────────────────────►│    iobt-viz     │
-│                 │    schedule_request       │                 │
-│  HEFT/CPOP      │    schedule_response      │  Visualization  │
-│  Scheduler      │    (task assignments)     │  + Lua scripts  │
-└─────────────────┘                           └─────────────────┘
-                                                      │
-                                                      ▼
-                                              ┌─────────────────┐
-                                              │  Network Overlay │
-                                              │  - Link quality  │
-                                              │  - Task states   │
-                                              │  - Transfers     │
-                                              └─────────────────┘
-```
-
-## How It Works
-
-1. **Configuration**: `runconfig` generates `iobt-config.lua` with node positions, DAG structure, and network settings
-
-2. **Scheduler Service**: `runsched` starts the SAGA service which listens for scheduling requests
-
-3. **Visualization**: `runiobt` launches iobt-viz which:
-   - Spawns compute nodes (mobile units)
-   - Connects to SAGA service via TCP bridge
-   - Sends DAG + network topology to HEFT scheduler
-   - Receives task-to-node assignments
-   - Visualizes task execution and data transfers
-
-4. **HEFT Scheduling**: The scheduler considers:
-   - Network connectivity between nodes
-   - Link data rates (based on distance)
-   - Task dependencies (DAG edges)
-   - Compute costs
 
 ## Documentation
 
-- `CLAUDE.md`: Complete project specification and architecture
-- `iobt-viz/DEVELOPMENT.md`: Development notes and common issues
-
-## Requirements
-
-### Python Dependencies (saga-service)
-```
-anrg-saga>=2.0.0
-networkx>=3.0
-numpy>=1.24
-```
-
-Install with: `pip install -r saga-service/requirements.txt`
-
-### .NET Dependencies
-- .NET 8.0 SDK (for building iobt-viz)
+- [CLAUDE.md](CLAUDE.md) - Complete project specification
+- [iobt-viz/README.md](iobt-viz/README.md) - Visualization guide
+- [saga-service/README.md](saga-service/README.md) - Scheduler service
+- [ncsim/README.md](ncsim/README.md) - Headless simulator
+- [ncsim/DEVELOPMENT.md](ncsim/DEVELOPMENT.md) - Development notes
 
 ## Author
 
-Developed by **Bhaskar Krishnamachari** (USC), 2026
+Developed by **Bhaskar Krishnamachari** (USC), 2025-2026
 
 Autonomous Networks Research Group (ANRG)
 University of Southern California
