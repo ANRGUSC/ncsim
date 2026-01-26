@@ -134,7 +134,6 @@ iobt-ncsim/
 - [iobt-viz/README.md](iobt-viz/README.md) - Visualization guide
 - [saga-service/README.md](saga-service/README.md) - Scheduler service
 - [ncsim/README.md](ncsim/README.md) - Headless simulator
-- [ncsim/DEVELOPMENT.md](ncsim/DEVELOPMENT.md) - Development notes
 
 ## Author
 
