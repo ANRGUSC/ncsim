@@ -166,10 +166,6 @@ ncsim/
 └── tests/                   # Test suite
 ```
 
-## Development
-
-See [DEVELOPMENT.md](DEVELOPMENT.md) for development notes and debugging tips.
-
 ## License
 
 See [LICENSE](../LICENSE) for license details.
