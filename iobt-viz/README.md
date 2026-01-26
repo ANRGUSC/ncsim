@@ -136,4 +136,4 @@ For development notes and common issues, see:
 
 ## License
 
-The OpenRA engine is licensed under GPLv3. Custom mod code and Lua scripts must be compatible.
+See [LICENSE](../LICENSE) for license details. Note: The OpenRA engine is licensed under GPLv3.

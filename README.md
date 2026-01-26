@@ -108,7 +108,6 @@ Output:
 ```
 iobt-ncsim/
 ├── README.md              # This file
-├── CLAUDE.md              # Detailed project specification
 ├── runsched.bat           # Start SAGA scheduler service
 ├── runconfig.bat          # Open configuration GUI
 ├── runiobt.bat            # Launch visualization
@@ -130,7 +129,6 @@ iobt-ncsim/
 
 ## Documentation
 
-- [CLAUDE.md](CLAUDE.md) - Complete project specification
 - [iobt-viz/README.md](iobt-viz/README.md) - Visualization guide
 - [saga-service/README.md](saga-service/README.md) - Scheduler service
 - [ncsim/README.md](ncsim/README.md) - Headless simulator
@@ -144,4 +142,4 @@ University of Southern California
 
 ## License
 
-MIT License - See LICENSE file for details.
+See [LICENSE](LICENSE) for license details.

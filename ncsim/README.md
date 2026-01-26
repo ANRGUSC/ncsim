@@ -129,7 +129,7 @@ The trace file contains one JSON object per line:
 {"seq": 10, "sim_time": 5.0, "type": "sim_end", "status": "completed", "makespan": 5.0}
 ```
 
-See [CLAUDE.md](../CLAUDE.md) Section 4 for the complete trace specification.
+See the project specification for the complete trace format.
 
 ## Running Tests
 
@@ -172,4 +172,4 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for development notes and debugging tips.
 
 ## License
 
-MIT License
+See [LICENSE](../LICENSE) for license details.

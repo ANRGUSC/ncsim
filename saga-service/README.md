@@ -145,4 +145,4 @@ Environment variables (optional):
 
 ## License
 
-MIT License
+See [LICENSE](../LICENSE) for license details.
