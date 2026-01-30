@@ -22,6 +22,124 @@ IoBTState = {
 -- Position log for export
 PositionLog = {}
 
+-- ============================================
+-- Run Logging System (console-based - io library not available in OpenRA sandbox)
+-- ============================================
+RunLog = {
+    startTick = 0,
+    lastStateSnapshot = -1000  -- Force first snapshot
+}
+
+function InitRunLog()
+    print("=== IoBT Run Log ===")
+    print("================================================================================")
+end
+
+function Log(category, message)
+    local tick = DateTime.GameTime or 0
+    local elapsed = tick - RunLog.startTick
+    print(string.format("[%05d] %-10s %s", elapsed, category, message))
+end
+
+function LogSection(title)
+    print("")
+    print("--- " .. title .. " ---")
+end
+
+function LogDagState()
+    local tick = DateTime.GameTime or 0
+
+    -- Count tasks by state
+    local completed, running, stalled, pending = 0, 0, 0, 0
+    local completedList, runningList, stalledList = {}, {}, {}
+
+    for _, task in ipairs(IoBTConfig.dagTasks) do
+        local id = task.id
+        local node = ConfiguredDagState.taskNodeAssignment[id]
+        local nodeStr = node and ("C" .. node) or "?"
+
+        if ConfiguredDagState.completedTasks[id] then
+            completed = completed + 1
+            table.insert(completedList, id .. "@" .. nodeStr)
+        elseif ConfiguredDagState.runningTasks[id] then
+            running = running + 1
+            table.insert(runningList, id .. "@" .. nodeStr)
+        elseif ConfiguredDagState.stalledTasks[id] then
+            stalled = stalled + 1
+            table.insert(stalledList, id .. "@" .. nodeStr)
+        else
+            pending = pending + 1
+        end
+    end
+
+    Log("DAG-STATE", string.format("Completed:%d Running:%d Stalled:%d Pending:%d",
+        completed, running, stalled, pending))
+    if #completedList > 0 then
+        Log("DAG-STATE", "  Completed: " .. table.concat(completedList, ", "))
+    end
+    if #runningList > 0 then
+        Log("DAG-STATE", "  Running: " .. table.concat(runningList, ", "))
+    end
+    if #stalledList > 0 then
+        Log("DAG-STATE", "  STALLED: " .. table.concat(stalledList, ", "))
+    end
+end
+
+function LogNetworkState()
+    local nodeCount = Blue.GetComputeNodeCount()
+
+    -- Build connectivity summary - count connections per node
+    local connCounts = {}
+    local totalConnections = 0
+    for i = 0, nodeCount - 1 do
+        local count = 0
+        for j = 0, nodeCount - 1 do
+            if i ~= j and Blue.AreNodesConnected(i, j) then
+                count = count + 1
+            end
+        end
+        connCounts[i] = count
+        totalConnections = totalConnections + count
+    end
+
+    -- Find isolated nodes (0 connections) and well-connected nodes
+    local isolated, sparse = {}, {}
+    for i = 0, nodeCount - 1 do
+        if connCounts[i] == 0 then
+            table.insert(isolated, "C" .. i)
+        elseif connCounts[i] <= 2 then
+            table.insert(sparse, "C" .. i .. "(" .. connCounts[i] .. ")")
+        end
+    end
+
+    Log("NETWORK", string.format("Nodes:%d TotalLinks:%d", nodeCount, totalConnections / 2))
+    if #isolated > 0 then
+        Log("NETWORK", "  Isolated: " .. table.concat(isolated, ", "))
+    end
+    if #sparse > 0 then
+        Log("NETWORK", "  Sparse: " .. table.concat(sparse, ", "))
+    end
+end
+
+function LogStateSnapshot(reason)
+    LogSection("STATE SNAPSHOT: " .. reason)
+    LogNetworkState()
+    LogDagState()
+end
+
+function MaybeLogPeriodicSnapshot()
+    local tick = DateTime.GameTime or 0
+    -- Snapshot every 250 ticks (10 seconds at 25 tps)
+    if tick - RunLog.lastStateSnapshot >= 250 then
+        RunLog.lastStateSnapshot = tick
+        LogStateSnapshot("Periodic")
+    end
+end
+
+function CloseRunLog()
+    LogSection("RUN COMPLETE")
+end
+
 -- Linear interpolation helper
 function Lerp(a, b, t)
     return a + (b - a) * t
@@ -103,7 +221,8 @@ ConfiguredDagState = {
     sagaScheduleRequested = false,
     sagaScheduleReceived = false,
     sagaMonitorCount = 0,
-    useSagaScheduler = true  -- Set to false to force round-robin
+    useSagaScheduler = true,  -- Set to false to force round-robin
+    currentPartition = nil    -- Set when in H-mode to restrict scheduling
 }
 
 -- Apply settings from IoBTConfig.dagSettings if available
@@ -120,6 +239,28 @@ function ApplyDagSettings()
     end
 end
 
+-- Apply network settings from IoBTConfig.networkSettings if available
+function ApplyNetworkSettings()
+    if IoBTConfig and IoBTConfig.networkSettings then
+        if IoBTConfig.networkSettings.range then
+            Blue.SetNetworkRadius(IoBTConfig.networkSettings.range)
+            print("IoBT Network: Set communication range to " .. IoBTConfig.networkSettings.range)
+        end
+    end
+end
+
+-- Wait until enough compute nodes are available before starting DAG
+function WaitForComputeNodes()
+    local nodeCount = Blue.GetComputeNodeCount()
+    local minNodes = 3
+    if nodeCount < minNodes then
+        Trigger.AfterDelay(25, WaitForComputeNodes)
+        return
+    end
+    Log("INIT", "Compute nodes ready: " .. nodeCount)
+    InitConfiguredDag()
+end
+
 -- Initialize the configured DAG (reads from IoBTConfig.dagTasks)
 function InitConfiguredDag()
     if ConfiguredDagState.started then return end
@@ -134,6 +275,9 @@ function InitConfiguredDag()
     end
 
     local nodeCount = Blue.GetComputeNodeCount()
+    LogSection("DAG INITIALIZATION")
+    Log("INIT", "Compute nodes: " .. nodeCount)
+    Log("INIT", "Tasks: " .. #IoBTConfig.dagTasks)
     print("IoBT DAG: Found " .. nodeCount .. " compute nodes")
     print("IoBT DAG: Found " .. #IoBTConfig.dagTasks .. " tasks in config")
 
@@ -151,7 +295,8 @@ function InitConfiguredDag()
     ConfiguredDagState.sagaScheduleRequested = false
     ConfiguredDagState.sagaScheduleReceived = false
     ConfiguredDagState.sagaMonitorCount = 0
-    print("IoBT DAG: Starting configured DAG execution...")
+    ConfiguredDagState.currentPartition = nil  -- Full network, no partition restriction
+    print("IoBT DAG: Starting configured DAG execution (fresh schedule)...")
 
     -- Register all tasks with the DAG system (read from config)
     for _, task in ipairs(IoBTConfig.dagTasks) do
@@ -161,14 +306,18 @@ function InitConfiguredDag()
 
     -- Check if SAGA scheduler is available and enabled
     if ConfiguredDagState.useSagaScheduler and Blue.IsBridgeRunning() and Blue.GetBridgeConnectionCount() > 0 then
+        Log("SAGA", "SAGA connected, requesting HEFT schedule")
+        LogNetworkState()
         print("IoBT DAG: SAGA scheduler connected, requesting schedule...")
         RequestSagaSchedule()
         StartScheduleMonitor()
     else
         if ConfiguredDagState.useSagaScheduler then
+            Log("SAGA", "SAGA not connected, using round-robin fallback")
             print("IoBT DAG: SAGA not connected (bridge=" .. tostring(Blue.IsBridgeRunning()) ..
                   ", clients=" .. Blue.GetBridgeConnectionCount() .. "), using round-robin")
         else
+            Log("SAGA", "SAGA disabled, using round-robin")
             print("IoBT DAG: SAGA disabled, using round-robin")
         end
         Blue.SetSchedulerAlgorithm("Round-Robin")
@@ -178,6 +327,7 @@ function InitConfiguredDag()
 
     -- Start periodic connectivity check for stalled tasks
     StartConnectivityMonitor()
+    LogStateSnapshot("After Init")
 end
 
 -- ============================================
@@ -323,9 +473,11 @@ end
 -- Apply assignments from SAGA schedule response
 function ApplySagaAssignments()
     local assignmentsStr = Blue.GetAllPendingAssignments()
+    Log("SAGA", "Received HEFT response")
     print("IoBT DAG: Raw assignments from SAGA: " .. assignmentsStr)
 
     if assignmentsStr == "" then
+        Log("SAGA", "Empty response, using round-robin fallback")
         print("IoBT DAG: No assignments from SAGA, using fallback")
         Blue.SetSchedulerAlgorithm("Round-Robin (empty)")
         FallbackAssignTaskNodes()
@@ -335,21 +487,25 @@ function ApplySagaAssignments()
 
     -- Parse "taskId:nodeIndex,taskId:nodeIndex,..." format
     local assignmentCount = 0
+    local assignments = {}
     for pair in string.gmatch(assignmentsStr, "[^,]+") do
         local taskId, nodeIndexStr = string.match(pair, "([^:]+):(%d+)")
         if taskId and nodeIndexStr then
             local nodeIndex = tonumber(nodeIndexStr)
             ConfiguredDagState.taskNodeAssignment[taskId] = nodeIndex
+            table.insert(assignments, taskId .. "->C" .. nodeIndex)
             print("IoBT DAG: SAGA assigned " .. taskId .. " to C" .. nodeIndex)
             assignmentCount = assignmentCount + 1
         end
     end
 
     if assignmentCount > 0 then
+        Log("SAGA", "HEFT assignments: " .. table.concat(assignments, ", "))
         print("IoBT DAG: Applied " .. assignmentCount .. " SAGA assignments")
         Blue.SetSchedulerAlgorithm("SAGA (HEFT)")
         ConfiguredDagState.sagaScheduleReceived = true
     else
+        Log("SAGA", "Parse failed, using round-robin fallback")
         print("IoBT DAG: Failed to parse SAGA assignments, using fallback")
         Blue.SetSchedulerAlgorithm("Round-Robin (parse error)")
         FallbackAssignTaskNodes()
@@ -396,6 +552,72 @@ function CanAssignToNode(taskId, targetNode)
     return true, nil, nil
 end
 
+-- Find all nodes in the same partition as the given node (BFS)
+function FindNodesInPartition(startNode)
+    local nodeCount = Blue.GetComputeNodeCount()
+    local visited = {}
+    local partition = {}
+    local queue = {startNode}
+    visited[startNode] = true
+
+    while #queue > 0 do
+        local current = table.remove(queue, 1)
+        table.insert(partition, current)
+
+        for i = 0, nodeCount - 1 do
+            if not visited[i] and Blue.AreNodesConnected(current, i) then
+                visited[i] = true
+                table.insert(queue, i)
+            end
+        end
+    end
+
+    return partition
+end
+
+-- Find the largest connected partition among all compute nodes
+function FindLargestPartition()
+    local nodeCount = Blue.GetComputeNodeCount()
+    local visited = {}
+    local largestPartition = {}
+
+    for startNode = 0, nodeCount - 1 do
+        if not visited[startNode] then
+            local partition = FindNodesInPartition(startNode)
+            for _, node in ipairs(partition) do
+                visited[node] = true
+            end
+            if #partition > #largestPartition then
+                largestPartition = partition
+            end
+        end
+    end
+
+    return largestPartition
+end
+
+-- Find a node in the same partition as the parent task
+function FindNodeInParentPartition(taskId)
+    -- Get the parent tasks
+    for _, task in ipairs(IoBTConfig.dagTasks) do
+        if task.id == taskId then
+            for _, dep in ipairs(task.deps or {}) do
+                local parentNode = ConfiguredDagState.taskNodeAssignment[dep]
+                if parentNode ~= nil then
+                    -- Find all nodes in parent's partition
+                    local partition = FindNodesInPartition(parentNode)
+                    if #partition > 0 then
+                        -- Return the parent node itself (simplest choice)
+                        return parentNode, partition
+                    end
+                end
+            end
+            break
+        end
+    end
+    return nil, {}
+end
+
 -- Pre-assign nodes to tasks using round-robin (fallback)
 function PreAssignTaskNodes()
     local nodeCount = Blue.GetComputeNodeCount()
@@ -437,6 +659,7 @@ function ExecuteNextDagTasks()
                 local canAssign, blockedBy, blockedNode = CanAssignToNode(taskId, assignedNode)
 
                 if canAssign then
+                    Log("TASK", taskId .. " STARTED on C" .. assignedNode)
                     print("IoBT DAG: Assigning " .. taskId .. " to node C" .. assignedNode)
                     Blue.AssignTask(taskId, assignedNode)
                     ConfiguredDagState.runningTasks[taskId] = true
@@ -446,26 +669,89 @@ function ExecuteNextDagTasks()
                         CompleteTask(taskId)
                     end)
                 else
-                    print("IoBT DAG: Task " .. taskId .. " stalled - C" .. assignedNode ..
-                          " disconnected from parent " .. blockedBy .. " (C" .. blockedNode .. ")")
-                    Blue.StallTask(taskId)
-                    ConfiguredDagState.stalledTasks[taskId] = true
+                    -- Check current mode
+                    local mode = Blue.GetResilienceMode()
+
+                    if mode == "S" then
+                        -- S mode: reassign to a node in parent's partition
+                        -- This means the task runs where its data already exists (no cross-partition transfer)
+                        local newNode, partition = FindNodeInParentPartition(taskId)
+                        if newNode ~= nil then
+                            Log("REASSIGN", taskId .. " C" .. assignedNode .. "->C" .. newNode .. " (S mode, parent partition)")
+                            print("IoBT DAG: [S-MODE] " .. taskId .. ": REASSIGNED C" .. assignedNode ..
+                                  " -> C" .. newNode .. " (runs where parent data exists, no partition crossing)")
+
+                            -- Update assignment and start task
+                            ConfiguredDagState.taskNodeAssignment[taskId] = newNode
+                            Blue.AssignTask(taskId, newNode)
+                            ConfiguredDagState.runningTasks[taskId] = true
+
+                            local taskDuration = ConfiguredDagState.taskDuration
+                            Trigger.AfterDelay(taskDuration, function()
+                                CompleteTask(taskId)
+                            end)
+                        else
+                            -- No partition found, stall
+                            Log("STALL", taskId .. "@C" .. assignedNode .. " no partition (S mode)")
+                            Blue.StallTask(taskId)
+                            ConfiguredDagState.stalledTasks[taskId] = true
+                        end
+                    else
+                        -- B mode: stall and wait
+                        Log("STALL", taskId .. "@C" .. assignedNode .. " blocked by " .. blockedBy .. "@C" .. blockedNode .. " (B mode)")
+                        print("IoBT DAG: [B] Task " .. taskId .. " stalled - C" .. assignedNode ..
+                              " disconnected from parent " .. blockedBy .. " (C" .. blockedNode .. ")")
+                        Blue.StallTask(taskId)
+                        ConfiguredDagState.stalledTasks[taskId] = true
+                        LogStateSnapshot("Task Stalled")
+                    end
                 end
             end
         end
     end
 end
 
--- Periodically check if stalled tasks can resume
+-- Periodically check if stalled tasks can resume (and handle mode changes)
 function StartConnectivityMonitor()
     Trigger.AfterDelay(25, function()
         if not ConfiguredDagState.started then return end
 
+        -- Check for mode changes
+        if Blue.ConsumeResilienceModeChanged() then
+            local mode = Blue.GetResilienceMode()
+            Log("MODE", "Changed to " .. mode)
+            LogStateSnapshot("Mode Changed to " .. mode)
+
+            -- Handle mode-specific behavior
+            if mode == "H" then
+                -- H mode: restart DAG on largest partition with fresh HEFT schedule
+                HandleHModeRestart()
+            elseif mode == "S" then
+                -- S mode: try to reassign stalled tasks immediately
+                HandleStalledTasksInSMode()
+            elseif mode == "B" then
+                -- B mode (Baseline): restart DAG with fresh HEFT schedule on full network
+                HandleBaselineRestart()
+            end
+        end
+
+        -- Periodic state snapshot
+        MaybeLogPeriodicSnapshot()
+
+        -- Check stalled tasks for connectivity restoration (B mode) or reassignment (S mode)
+        local mode = Blue.GetResilienceMode()
+        local stalledCopy = {}
         for taskId, _ in pairs(ConfiguredDagState.stalledTasks) do
+            stalledCopy[taskId] = true
+        end
+
+        for taskId, _ in pairs(stalledCopy) do
             local targetNode = ConfiguredDagState.taskNodeAssignment[taskId]
             if targetNode then
                 local canAssign, _, _ = CanAssignToNode(taskId, targetNode)
                 if canAssign then
+                    -- Connectivity restored, resume task
+                    Log("UNSTALL", taskId .. " connectivity restored, resuming on C" .. targetNode)
                     print("IoBT DAG: Task " .. taskId .. " connectivity restored, resuming on C" .. targetNode)
                     Blue.UnstallTask(taskId)
                     ConfiguredDagState.stalledTasks[taskId] = nil
@@ -485,6 +771,243 @@ function StartConnectivityMonitor()
     end)
 end
 
+-- Handle stalled tasks when switching to S mode
+function HandleStalledTasksInSMode()
+    local stalledCopy = {}
+    for taskId, _ in pairs(ConfiguredDagState.stalledTasks) do
+        stalledCopy[taskId] = true
+    end
+
+    for taskId, _ in pairs(stalledCopy) do
+        local newNode, partition = FindNodeInParentPartition(taskId)
+        if newNode ~= nil then
+            local oldNode = ConfiguredDagState.taskNodeAssignment[taskId]
+            Log("REASSIGN", taskId .. " C" .. tostring(oldNode) .. "->C" .. newNode .. " (S mode switch)")
+            print("IoBT DAG: [S-MODE] " .. taskId .. ": REASSIGNED C" .. tostring(oldNode) ..
+                  " -> C" .. newNode .. " (runs where parent data exists)")
+
+            -- Clear stall and reassign
+            Blue.UnstallTask(taskId)
+            ConfiguredDagState.stalledTasks[taskId] = nil
+            ConfiguredDagState.taskNodeAssignment[taskId] = newNode
+
+            Blue.AssignTask(taskId, newNode)
+            ConfiguredDagState.runningTasks[taskId] = true
+
+            local taskDuration = ConfiguredDagState.taskDuration
+            Trigger.AfterDelay(taskDuration, function()
+                CompleteTask(taskId)
+            end)
+        end
+    end
+end
+
+-- Handle H mode: restart entire DAG on largest connected partition
+-- Uses HEFT scheduling restricted to partition nodes if SAGA is available
+function HandleHModeRestart()
+    local partition = FindLargestPartition()
+    if #partition == 0 then
+        Log("H-MODE", "No connected partition found!")
+        print("IoBT DAG: [H] No connected partition found!")
+        return
+    end
+
+    local partitionStr = {}
+    for _, node in ipairs(partition) do
+        table.insert(partitionStr, "C" .. node)
+    end
+    Log("H-MODE", "Restarting DAG on partition: " .. table.concat(partitionStr, ", "))
+    print("IoBT DAG: [H] Restarting DAG on partition with " .. #partition .. " nodes: " .. table.concat(partitionStr, ", "))
+
+    -- Clear all current DAG state
+    Blue.ClearDag()
+    Blue.ClearActiveLinks()
+    ConfiguredDagState.completedTasks = {}
+    ConfiguredDagState.runningTasks = {}
+    ConfiguredDagState.stalledTasks = {}
+    ConfiguredDagState.taskNodeAssignment = {}
+    ConfiguredDagState.pendingTransfers = {}
+    ConfiguredDagState.sagaScheduleRequested = false
+    ConfiguredDagState.sagaScheduleReceived = false
+    ConfiguredDagState.sagaMonitorCount = 0
+    Blue.ClearPendingSchedule()
+
+    -- Store partition for use by schedule handlers
+    ConfiguredDagState.currentPartition = partition
+
+    -- Re-register all tasks
+    for _, task in ipairs(IoBTConfig.dagTasks) do
+        local depsStr = table.concat(task.deps or {}, ",")
+        Blue.AddDagTask(task.id, task.name, depsStr)
+    end
+
+    -- Try to use SAGA for partition-aware HEFT scheduling
+    if ConfiguredDagState.useSagaScheduler and Blue.IsBridgeRunning() and Blue.GetBridgeConnectionCount() > 0 then
+        Log("H-MODE", "Requesting HEFT schedule for partition")
+        print("IoBT DAG: [H] Requesting HEFT schedule restricted to partition nodes...")
+        -- Request fresh schedule - SAGA will use current connectivity which reflects partition
+        RequestSagaSchedule()
+        StartPartitionScheduleMonitor(partition)
+    else
+        -- Fallback: round-robin on partition nodes only
+        Log("H-MODE", "SAGA not available, using round-robin on partition")
+        print("IoBT DAG: [H] SAGA not connected, using round-robin on partition")
+        AssignTasksToPartition(partition)
+        Blue.SetSchedulerAlgorithm("Round-Robin (H-mode partition)")
+        ExecuteNextDagTasks()
+    end
+end
+
+-- Assign tasks to partition nodes using round-robin
+function AssignTasksToPartition(partition)
+    local nodeIndex = 0
+    for _, task in ipairs(IoBTConfig.dagTasks) do
+        local taskId = task.id
+        local assignedNode = partition[(nodeIndex % #partition) + 1]  -- Lua is 1-indexed
+        nodeIndex = nodeIndex + 1
+        ConfiguredDagState.taskNodeAssignment[taskId] = assignedNode
+        Log("H-MODE", taskId .. " assigned to C" .. assignedNode)
+    end
+end
+
+-- Monitor for SAGA schedule response in H-mode (partition-aware)
+function StartPartitionScheduleMonitor(partition)
+    Trigger.AfterDelay(5, function()
+        if not ConfiguredDagState.started then return end
+        if ConfiguredDagState.sagaScheduleReceived then return end
+
+        -- Check if SAGA response arrived
+        if Blue.HasPendingSchedule() then
+            print("IoBT DAG: [H] SAGA schedule response received!")
+            ApplyPartitionAwareAssignments(partition)
+            return
+        end
+
+        -- Timeout after ~5 seconds (125 ticks at 25 tps)
+        ConfiguredDagState.sagaMonitorCount = ConfiguredDagState.sagaMonitorCount + 1
+        if ConfiguredDagState.sagaMonitorCount > 25 then
+            print("IoBT DAG: [H] SAGA timeout, falling back to round-robin on partition")
+            Blue.SetSchedulerAlgorithm("Round-Robin (H-mode timeout)")
+            Blue.ClearPendingSchedule()
+            AssignTasksToPartition(partition)
+            ExecuteNextDagTasks()
+            return
+        end
+
+        -- Continue monitoring
+        StartPartitionScheduleMonitor(partition)
+    end)
+end
+
+-- Apply SAGA assignments but remap to partition nodes if needed
+function ApplyPartitionAwareAssignments(partition)
+    local assignmentsStr = Blue.GetAllPendingAssignments()
+    Log("H-MODE", "Received HEFT response for partition")
+    print("IoBT DAG: [H] Raw assignments from SAGA: " .. assignmentsStr)
+
+    if assignmentsStr == "" then
+        Log("H-MODE", "Empty response, using round-robin on partition")
+        print("IoBT DAG: [H] No assignments from SAGA, using round-robin on partition")
+        Blue.SetSchedulerAlgorithm("Round-Robin (H-mode empty)")
+        AssignTasksToPartition(partition)
+        ExecuteNextDagTasks()
+        return
+    end
+
+    -- Build set of partition nodes for quick lookup
+    local partitionSet = {}
+    for _, node in ipairs(partition) do
+        partitionSet[node] = true
+    end
+
+    -- Parse assignments and remap any out-of-partition nodes
+    local assignmentCount = 0
+    local assignments = {}
+    local remappedCount = 0
+    local partitionIndex = 1
+
+    for pair in string.gmatch(assignmentsStr, "[^,]+") do
+        local taskId, nodeIndexStr = string.match(pair, "([^:]+):(%d+)")
+        if taskId and nodeIndexStr then
+            local nodeIndex = tonumber(nodeIndexStr)
+
+            -- Check if assigned node is in partition
+            if partitionSet[nodeIndex] then
+                ConfiguredDagState.taskNodeAssignment[taskId] = nodeIndex
+                table.insert(assignments, taskId .. "->C" .. nodeIndex)
+            else
+                -- Remap to a partition node (round-robin among partition)
+                local remappedNode = partition[(partitionIndex % #partition) + 1]
+                partitionIndex = partitionIndex + 1
+                ConfiguredDagState.taskNodeAssignment[taskId] = remappedNode
+                table.insert(assignments, taskId .. "->C" .. remappedNode .. "(remapped)")
+                remappedCount = remappedCount + 1
+            end
+            assignmentCount = assignmentCount + 1
+        end
+    end
+
+    if assignmentCount > 0 then
+        Log("H-MODE", "HEFT assignments: " .. table.concat(assignments, ", "))
+        if remappedCount > 0 then
+            print("IoBT DAG: [H] Applied " .. assignmentCount .. " assignments (" .. remappedCount .. " remapped to partition)")
+        else
+            print("IoBT DAG: [H] Applied " .. assignmentCount .. " SAGA assignments")
+        end
+        Blue.SetSchedulerAlgorithm("SAGA HEFT (H-mode partition)")
+        ConfiguredDagState.sagaScheduleReceived = true
+    else
+        Log("H-MODE", "Parse failed, using round-robin on partition")
+        print("IoBT DAG: [H] Failed to parse SAGA assignments, using round-robin on partition")
+        Blue.SetSchedulerAlgorithm("Round-Robin (H-mode parse error)")
+        AssignTasksToPartition(partition)
+    end
+
+    -- Now start executing tasks
+    ExecuteNextDagTasks()
+end
+
+-- Handle Baseline mode: restart DAG with fresh HEFT schedule on full network
+-- This ensures baseline always uses latest network state for scheduling
+function HandleBaselineRestart()
+    Log("B-MODE", "Restarting DAG with fresh HEFT schedule on full network")
+    print("IoBT DAG: [B] Restarting DAG with fresh HEFT schedule...")
+
+    -- Clear all current DAG state
+    Blue.ClearDag()
+    Blue.ClearActiveLinks()
+    ConfiguredDagState.completedTasks = {}
+    ConfiguredDagState.runningTasks = {}
+    ConfiguredDagState.stalledTasks = {}
+    ConfiguredDagState.taskNodeAssignment = {}
+    ConfiguredDagState.pendingTransfers = {}
+    ConfiguredDagState.sagaScheduleRequested = false
+    ConfiguredDagState.sagaScheduleReceived = false
+    ConfiguredDagState.sagaMonitorCount = 0
+    ConfiguredDagState.currentPartition = nil  -- Clear partition restriction
+    Blue.ClearPendingSchedule()
+
+    -- Re-register all tasks
+    for _, task in ipairs(IoBTConfig.dagTasks) do
+        local depsStr = table.concat(task.deps or {}, ",")
+        Blue.AddDagTask(task.id, task.name, depsStr)
+    end
+
+    -- Request fresh HEFT schedule with current network state
+    if ConfiguredDagState.useSagaScheduler and Blue.IsBridgeRunning() and Blue.GetBridgeConnectionCount() > 0 then
+        Log("B-MODE", "Requesting fresh HEFT schedule")
+        print("IoBT DAG: [B] Requesting fresh HEFT schedule with current network state...")
+        RequestSagaSchedule()
+        StartScheduleMonitor()
+    else
+        Log("B-MODE", "SAGA not available, using round-robin")
+        print("IoBT DAG: [B] SAGA not connected, using round-robin")
+        Blue.SetSchedulerAlgorithm("Round-Robin (Baseline)")
+        FallbackAssignTaskNodes()
+        ExecuteNextDagTasks()
+    end
+end
+
 -- Find all tasks that depend on the given task
 function FindDependentTasks(completedTaskId)
     local dependents = {}
@@ -500,27 +1023,42 @@ function FindDependentTasks(completedTaskId)
 end
 
 -- Start data transfers from completed task to its dependent tasks
+-- BUG FIX: Only visualize transfers to nodes that are actually connected
 function StartDataTransfers(completedTaskId)
     local sourceNode = ConfiguredDagState.taskNodeAssignment[completedTaskId]
     if sourceNode == nil then return end
 
     local dependents = FindDependentTasks(completedTaskId)
     local transfersStarted = 0
+    local blockedTransfers = 0
 
     for _, depTaskId in ipairs(dependents) do
         if not ConfiguredDagState.completedTasks[depTaskId] then
             local targetNode = ConfiguredDagState.taskNodeAssignment[depTaskId]
 
             if targetNode ~= nil and targetNode ~= sourceNode then
-                print("IoBT DAG: Transferring data " .. completedTaskId .. " -> " .. depTaskId ..
-                      " (C" .. sourceNode .. " -> C" .. targetNode .. ")")
-                Blue.AddTaskTransferWithNodes(completedTaskId, depTaskId, sourceNode, targetNode, "data")
-                transfersStarted = transfersStarted + 1
+                -- BUG FIX: Check connectivity before visualizing transfer
+                if Blue.AreNodesConnected(sourceNode, targetNode) then
+                    print("IoBT DAG: Transferring data " .. completedTaskId .. " -> " .. depTaskId ..
+                          " (C" .. sourceNode .. " -> C" .. targetNode .. ")")
+                    Blue.AddTaskTransferWithNodes(completedTaskId, depTaskId, sourceNode, targetNode, "data")
+                    transfersStarted = transfersStarted + 1
 
-                if not ConfiguredDagState.pendingTransfers[depTaskId] then
-                    ConfiguredDagState.pendingTransfers[depTaskId] = {}
+                    if not ConfiguredDagState.pendingTransfers[depTaskId] then
+                        ConfiguredDagState.pendingTransfers[depTaskId] = {}
+                    end
+                    table.insert(ConfiguredDagState.pendingTransfers[depTaskId], completedTaskId)
+                else
+                    -- Nodes are disconnected - transfer blocked
+                    Log("TRANSFER", completedTaskId .. "->" .. depTaskId .. " BLOCKED (C" .. sourceNode ..
+                        " disconnected from C" .. targetNode .. ")")
+                    print("IoBT DAG: Transfer " .. completedTaskId .. " -> " .. depTaskId ..
+                          " blocked - nodes disconnected")
+                    blockedTransfers = blockedTransfers + 1
                 end
-                table.insert(ConfiguredDagState.pendingTransfers[depTaskId], completedTaskId)
+            elseif targetNode ~= nil and targetNode == sourceNode then
+                -- Same node, no transfer needed - just log
+                Log("TRANSFER", completedTaskId .. "->" .. depTaskId .. " local (same node C" .. sourceNode .. ")")
             end
         end
     end
@@ -541,6 +1079,8 @@ function CompleteTask(taskId)
         return
     end
 
+    local node = ConfiguredDagState.taskNodeAssignment[taskId]
+    Log("TASK", taskId .. " COMPLETED on C" .. tostring(node))
     print("IoBT DAG: " .. taskId .. " complete")
     Blue.CompleteTask(taskId)
     ConfiguredDagState.completedTasks[taskId] = true
@@ -555,6 +1095,8 @@ function CompleteTask(taskId)
     end
 
     if allDone then
+        LogSection("DAG COMPLETE")
+        LogDagState()
         print("IoBT DAG: All tasks complete! Restarting in 3 seconds...")
         Blue.ClearActiveLinks()
         Trigger.AfterDelay(75, function()
@@ -579,6 +1121,7 @@ function RestartDag()
     ConfiguredDagState.sagaScheduleRequested = false
     ConfiguredDagState.sagaScheduleReceived = false
     ConfiguredDagState.sagaMonitorCount = 0
+    ConfiguredDagState.currentPartition = nil  -- Clear partition restriction
     Blue.ClearPendingSchedule()
 
     Trigger.AfterDelay(25, function()
@@ -592,13 +1135,22 @@ end
 
 -- Called once when the map loads
 function WorldLoaded()
+    -- Initialize run logging
+    RunLog.startTick = DateTime.GameTime or 0
+    InitRunLog()
+    Log("WORLD", "World loaded")
+
     -- Get the Blue player
     Blue = Player.GetPlayer("Blue")
 
     if not Blue then
         print("ERROR: Blue player not found!")
+        Log("ERROR", "Blue player not found!")
         return
     end
+
+    -- Apply network settings (communication range) from config
+    ApplyNetworkSettings()
 
     print("IoBT: Initializing simulation...")
     print("IoBT: Export enabled = " .. tostring(IoBTConfig.export.enabled))
@@ -624,14 +1176,17 @@ function WorldLoaded()
     end
 
     IoBTState.initialized = true
+    Log("WORLD", "Units: " .. #IoBTConfig.units .. ", Buildings: " .. #IoBTConfig.buildings)
     print("IoBT: Initialization complete. " .. #IoBTConfig.units .. " units, " .. #IoBTConfig.buildings .. " buildings configured.")
 
-    -- Start DAG after units have spawned
-    Trigger.AfterDelay(50, function()
+    -- Start DAG after units have spawned (wait for compute nodes)
+    Trigger.AfterDelay(200, function()
         if IoBTConfig.dagTasks and #IoBTConfig.dagTasks > 0 then
+            Log("WORLD", "DAG config: " .. #IoBTConfig.dagTasks .. " tasks")
             print("IoBT: Using DAG from iobt-config.lua (" .. #IoBTConfig.dagTasks .. " tasks)")
-            InitConfiguredDag()
+            WaitForComputeNodes()
         else
+            Log("WORLD", "No DAG tasks configured")
             print("IoBT: No DAG tasks configured")
         end
     end)

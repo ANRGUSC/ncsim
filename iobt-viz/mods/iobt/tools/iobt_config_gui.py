@@ -163,13 +163,13 @@ class IoBTConfigGUI:
 
         # Communication Range
         ttk.Label(network_frame, text="Communication Range:").grid(row=0, column=0, sticky="w", pady=2)
-        self.comm_range_var = tk.IntVar(value=8)
+        self.comm_range_var = tk.IntVar(value=4)  # Small default for partition demo
         self.comm_range_spin = ttk.Spinbox(
             network_frame, from_=1, to=50, textvariable=self.comm_range_var,
             width=8, command=self._on_value_change
         )
         self.comm_range_spin.grid(row=0, column=1, sticky="w", padx=5)
-        ttk.Label(network_frame, text="cells").grid(row=0, column=2, sticky="w")
+        ttk.Label(network_frame, text="cells (smaller = more partitions)").grid(row=0, column=2, sticky="w")
 
         # Max Data Rate
         ttk.Label(network_frame, text="Max Data Rate:").grid(row=1, column=0, sticky="w", pady=2)
@@ -267,6 +267,23 @@ class IoBTConfigGUI:
         self.num_squads_spin.grid(row=1, column=1, sticky="w", padx=5)
         ttk.Label(sim_frame, text="squads").grid(row=1, column=2, sticky="w")
 
+        # Partition Mode checkbox
+        self.partition_mode_var = tk.BooleanVar(value=True)
+        self.partition_mode_check = ttk.Checkbutton(
+            sim_frame, text="Partition Mode (guaranteed stalls for demo)",
+            variable=self.partition_mode_var, command=self._on_value_change
+        )
+        self.partition_mode_check.grid(row=2, column=0, columnspan=3, sticky="w", pady=5)
+
+        # Partition mode description
+        partition_desc = ttk.Label(
+            sim_frame,
+            text="When enabled: Fast left/right split creates partition before DAG completes.\n"
+                 "Baseline (B) stalls, Smart-Resilient (S) reassigns to fix.",
+            font=("TkDefaultFont", 8), foreground="gray"
+        )
+        partition_desc.grid(row=3, column=0, columnspan=3, sticky="w", padx=20)
+
         # === Output Path Section ===
         output_frame = ttk.Frame(self.main_frame)
         output_frame.grid(row=row, column=0, columnspan=3, sticky="ew", pady=10)
@@ -360,6 +377,7 @@ class IoBTConfigGUI:
             "transfer_duration": int(self.transfer_duration_var.get()),
             "simulation_duration": int(self.duration_var.get()),
             "num_squads": int(self.num_squads_var.get()),
+            "partition_mode": bool(self.partition_mode_var.get()),
         }
 
     def _generate_config(self):

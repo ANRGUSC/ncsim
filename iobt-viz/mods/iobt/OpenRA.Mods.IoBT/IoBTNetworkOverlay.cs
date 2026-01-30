@@ -42,11 +42,14 @@ namespace OpenRA.Mods.IoBT
 		[Desc("Radius of compute point circles (in world units).")]
 		public readonly int ComputeCircleRadius = 150;
 
-		[Desc("Percentage of infantry that are compute nodes (0-100).")]
+		[Desc("Percentage of infantry that are compute nodes (0-100). Ignored if FixedComputeNodeCount > 0.")]
 		public readonly int InfantryComputePercent = 15;
 
-		[Desc("Percentage of vehicles that are compute nodes (0-100).")]
+		[Desc("Percentage of vehicles that are compute nodes (0-100). Ignored if FixedComputeNodeCount > 0.")]
 		public readonly int VehicleComputePercent = 50;
+
+		[Desc("Fixed number of compute nodes to select (0 = use percentages instead).")]
+		public readonly int FixedComputeNodeCount = 6;
 
 		public override object Create(ActorInitializer init) { return new IoBTNetworkOverlay(init.Self, this); }
 	}
@@ -81,11 +84,73 @@ namespace OpenRA.Mods.IoBT
 		// Scheduler info (set by Lua when SAGA response arrives)
 		public string SchedulerAlgorithm { get; set; } = ""; // e.g., "HEFT", "Round-Robin"
 
+		// Resilience mode: "B" = Baseline (stall), "H" = HEFT-restart (restart on partition), "S" = Smart (reassign in partition)
+		string resilienceMode = "B";
+		bool resilienceModeChanged = false;
+
+		public string ResilienceMode
+		{
+			get => resilienceMode;
+			set
+			{
+				if (resilienceMode != value)
+				{
+					// Check if switching from B while DAG is in progress with stalled tasks
+					if (resilienceMode == "B" && (value == "S" || value == "H") && dagInProgress)
+					{
+						var hasStalledTasks = dagTasks.Values.Any(t => t.Status == TaskStatus.Stalled);
+						if (hasStalledTasks)
+						{
+							bModeAbandoned = true;
+							lastMakespanB = -2;  // -2 = infinity
+							System.Console.WriteLine($"[OVERLAY] B mode abandoned (had stalled tasks)");
+						}
+					}
+
+					// Record when S or H mode started (for incremental makespan)
+					if (value == "S")
+					{
+						sModeStartTick = world.WorldTick;
+						System.Console.WriteLine($"[OVERLAY] S mode started at tick {sModeStartTick}");
+					}
+					else if (value == "H")
+					{
+						hModeStartTick = world.WorldTick;
+						System.Console.WriteLine($"[OVERLAY] H mode started at tick {hModeStartTick}");
+					}
+
+					resilienceMode = value;
+					resilienceModeChanged = true;
+					System.Console.WriteLine($"[OVERLAY] Resilience mode changed to: {value}");
+				}
+			}
+		}
+
+		/// <summary>Check and consume the mode changed flag (for Lua polling).</summary>
+		public bool ConsumeResilienceModeChanged()
+		{
+			if (resilienceModeChanged)
+			{
+				resilienceModeChanged = false;
+				return true;
+			}
+			return false;
+		}
+
 		// Makespan tracking
 		int dagStartTick = -1;           // Tick when first task started running
 		int dagCompletionTick = -1;      // Tick when all tasks completed
 		double lastMakespan = -1;        // Last completed makespan (in seconds)
 		bool dagInProgress = false;      // Is a DAG currently executing?
+		string dagStartMode = "B";       // Mode when DAG started
+
+		// Per-mode makespan tracking
+		double lastMakespanB = -1;       // Last makespan in B mode (-2 = infinity/abandoned)
+		double lastMakespanH = -1;       // Last makespan in H mode (incremental time only)
+		double lastMakespanS = -1;       // Last makespan in S mode (incremental time only)
+		bool bModeAbandoned = false;     // True if B mode was abandoned due to stalls
+		int hModeStartTick = -1;         // Tick when H mode was activated (for incremental time)
+		int sModeStartTick = -1;         // Tick when S mode was activated (for incremental time)
 
 		public IoBTNetworkOverlay(Actor self, IoBTNetworkOverlayInfo info)
 		{
@@ -153,6 +218,13 @@ namespace OpenRA.Mods.IoBT
 
 			if (computeNodeIndex >= 0 && computeNodeIndex < computeNodeList.Count)
 			{
+				// Clear old assignment if task was previously assigned elsewhere
+				if (task.AssignedNode != null && computeNodes.TryGetValue(task.AssignedNode, out var oldNodeInfo))
+				{
+					if (oldNodeInfo.RunningTaskId == taskId)
+						oldNodeInfo.RunningTaskId = null;
+				}
+
 				var node = computeNodeList[computeNodeIndex];
 				task.AssignedNode = node;
 				task.AssignedNodeIndex = computeNodeIndex;
@@ -164,6 +236,7 @@ namespace OpenRA.Mods.IoBT
 					dagInProgress = true;
 					dagStartTick = world.WorldTick;
 					dagCompletionTick = -1;
+					dagStartMode = resilienceMode;  // Track mode when DAG started
 				}
 
 				// Update the compute node info with the task
@@ -182,10 +255,11 @@ namespace OpenRA.Mods.IoBT
 
 			task.Status = TaskStatus.Completed;
 
-			// Clear the task from the compute node
-			if (task.AssignedNode != null && computeNodes.TryGetValue(task.AssignedNode, out var nodeInfo))
+			// Clear the task from ALL nodes (in case of reassignment)
+			foreach (var nodeInfo in computeNodes.Values)
 			{
-				nodeInfo.RunningTaskId = null;
+				if (nodeInfo.RunningTaskId == taskId)
+					nodeInfo.RunningTaskId = null;
 			}
 
 			// Check if all tasks are now completed
@@ -196,6 +270,41 @@ namespace OpenRA.Mods.IoBT
 				// OpenRA runs at 25 ticks per second by default
 				lastMakespan = elapsedTicks / 25.0;
 				dagInProgress = false;
+
+				// Store per-mode makespan (use current mode, which may have changed during execution)
+				if (resilienceMode == "B")
+				{
+					lastMakespanB = lastMakespan;
+					bModeAbandoned = false;  // B mode completed successfully
+				}
+				else if (resilienceMode == "H")
+				{
+					// For H mode, show only the incremental time from when H mode started
+					if (hModeStartTick > 0)
+					{
+						var incrementalTicks = dagCompletionTick - hModeStartTick;
+						lastMakespanH = incrementalTicks / 25.0;
+					}
+					else
+					{
+						// H mode was active from the start
+						lastMakespanH = lastMakespan;
+					}
+				}
+				else if (resilienceMode == "S")
+				{
+					// For S mode, show only the incremental time from when S mode started
+					if (sModeStartTick > 0)
+					{
+						var incrementalTicks = dagCompletionTick - sModeStartTick;
+						lastMakespanS = incrementalTicks / 25.0;
+					}
+					else
+					{
+						// S mode was active from the start
+						lastMakespanS = lastMakespan;
+					}
+				}
 			}
 		}
 
@@ -289,7 +398,9 @@ namespace OpenRA.Mods.IoBT
 			dagStartTick = -1;
 			dagCompletionTick = -1;
 			dagInProgress = false;
-			// Note: we keep lastMakespan so it continues to display
+			hModeStartTick = -1;  // Reset H mode start tick
+			sModeStartTick = -1;  // Reset S mode start tick
+			// Note: we keep lastMakespan/lastMakespanB/lastMakespanH/lastMakespanS so they continue to display
 		}
 
 		// Get number of compute nodes (for Lua to know how many are available)
@@ -414,17 +525,65 @@ namespace OpenRA.Mods.IoBT
 			trackedActors.Clear();
 			computeNodeList.Clear();
 
+			// Collect all mobile actors first
+			var mobileActors = new List<Actor>();
 			foreach (var actor in world.Actors)
 			{
 				if (actor.IsDead || !actor.IsInWorld)
 					continue;
 
-				// Track mobile units (infantry and vehicles)
 				if (actor.Info.HasTraitInfo<MobileInfo>())
 				{
 					trackedActors.Add(actor);
+					mobileActors.Add(actor);
+				}
+			}
 
-					// Assign compute status if not already done
+			// Use fixed count or percentage-based selection
+			if (info.FixedComputeNodeCount > 0)
+			{
+				// Fixed count: randomly select N compute nodes from NEW actors only
+				// Once an actor is assigned compute status, it keeps it until death
+				// This prevents flickering during simulation
+
+				// Find actors that need compute status assignment (new actors only)
+				var newActors = mobileActors.Where(a => !computeNodes.ContainsKey(a)).ToList();
+
+				if (newActors.Count > 0)
+				{
+					// Count how many compute nodes we already have
+					var existingComputeCount = computeNodes.Values.Count(n => n.IsCompute);
+					var neededCount = Math.Max(0, info.FixedComputeNodeCount - existingComputeCount);
+
+					// Shuffle new actors and select up to neededCount as compute nodes
+					for (var i = newActors.Count - 1; i > 0; i--)
+					{
+						var j = random.Next(i + 1);
+						(newActors[i], newActors[j]) = (newActors[j], newActors[i]);
+					}
+
+					var selectedCount = Math.Min(neededCount, newActors.Count);
+					var selectedActors = new HashSet<Actor>();
+					for (var i = 0; i < selectedCount; i++)
+						selectedActors.Add(newActors[i]);
+
+					// Register new actors with their compute status (set once, never changed)
+					foreach (var actor in newActors)
+					{
+						computeNodes[actor] = new ComputeNodeInfo
+						{
+							IsCompute = selectedActors.Contains(actor),
+							IsHighCpu = random.Next(2) == 0,
+							NodeIndex = -1
+						};
+					}
+				}
+			}
+			else
+			{
+				// Percentage-based: random selection
+				foreach (var actor in mobileActors)
+				{
 					if (!computeNodes.ContainsKey(actor))
 					{
 						var isInfantry = actor.Info.Name.ToLowerInvariant().StartsWith("e");
@@ -432,12 +591,11 @@ namespace OpenRA.Mods.IoBT
 
 						if (random.Next(100) < computeChance)
 						{
-							// Randomly assign high or low CPU (50/50)
 							computeNodes[actor] = new ComputeNodeInfo
 							{
 								IsCompute = true,
 								IsHighCpu = random.Next(2) == 0,
-								NodeIndex = -1 // Will be assigned below
+								NodeIndex = -1
 							};
 						}
 						else
@@ -445,13 +603,19 @@ namespace OpenRA.Mods.IoBT
 							computeNodes[actor] = new ComputeNodeInfo { IsCompute = false };
 						}
 					}
+				}
+			}
 
-					// Build ordered compute node list
-					if (computeNodes.TryGetValue(actor, out var nodeInfo) && nodeInfo.IsCompute)
-					{
-						nodeInfo.NodeIndex = computeNodeList.Count;
-						computeNodeList.Add(actor);
-					}
+			// Build ordered compute node list (sorted by actor ID for consistency)
+			var computeActors = mobileActors.Where(a => computeNodes.TryGetValue(a, out var n) && n.IsCompute).ToList();
+			computeActors.Sort((a, b) => a.ActorID.CompareTo(b.ActorID));
+
+			foreach (var actor in computeActors)
+			{
+				if (computeNodes.TryGetValue(actor, out var nodeInfo))
+				{
+					nodeInfo.NodeIndex = computeNodeList.Count;
+					computeNodeList.Add(actor);
 				}
 			}
 
@@ -577,52 +741,124 @@ namespace OpenRA.Mods.IoBT
 							info.ComputeCircleRadius,
 							cpuColor);
 
-						// Show task ID if running a task
+						// Determine what label to show on this node:
+						// 1. If actively running a task ON THIS NODE, show task ID in white
+						// 2. If part of active transfer, show task IDs being transferred in cyan
+						// 3. Otherwise, show "Cx" node index (default)
+						string nodeLabel = null;
+						var labelColor = Color.FromArgb(180, 200, 200, 200);
+
+						// Check if actively running a task (must verify task is Running AND assigned to THIS node)
 						if (!string.IsNullOrEmpty(nodeInfo.RunningTaskId))
 						{
-							yield return new IoBTTextRenderable(
-								actor.CenterPosition + new WVec(0, -300, 0),
-								nodeInfo.RunningTaskId,
-								Color.White);
+							if (dagTasks.TryGetValue(nodeInfo.RunningTaskId, out var runningTask) &&
+							    runningTask.Status == TaskStatus.Running &&
+							    runningTask.AssignedNodeIndex == nodeInfo.NodeIndex)
+							{
+								nodeLabel = nodeInfo.RunningTaskId;
+								labelColor = Color.White;
+							}
+							else
+							{
+								// Task not actually running on this node - clear stale reference
+								nodeInfo.RunningTaskId = null;
+							}
 						}
-						// Otherwise show node index
-						else
+
+						// Check if this node is part of an active transfer
+						if (nodeLabel == null)
 						{
-							yield return new IoBTTextRenderable(
-								actor.CenterPosition + new WVec(0, -300, 0),
-								$"C{nodeInfo.NodeIndex}",
-								Color.FromArgb(180, 200, 200, 200));
+							foreach (var link in activeLinks)
+							{
+								if (link.FromNodeIndex == nodeInfo.NodeIndex && !string.IsNullOrEmpty(link.SourceTaskId))
+								{
+									nodeLabel = $"{link.SourceTaskId}\u2192";
+									labelColor = Color.Cyan;
+									break;
+								}
+								if (link.ToNodeIndex == nodeInfo.NodeIndex && !string.IsNullOrEmpty(link.DestTaskId))
+								{
+									nodeLabel = $"\u2192{link.DestTaskId}";
+									labelColor = Color.Cyan;
+									break;
+								}
+							}
 						}
+
+						// Default: show node index
+						if (nodeLabel == null)
+						{
+							nodeLabel = $"C{nodeInfo.NodeIndex}";
+						}
+
+						yield return new IoBTTextRenderable(
+							actor.CenterPosition + new WVec(0, -300, 0),
+							nodeLabel,
+							labelColor);
 					}
 				}
 			}
 
-			// Draw makespan even when no DAG tasks (persists between rounds)
-			if (ShowDagStatus && (dagInProgress || lastMakespan >= 0))
+			// Draw mode and makespan info at top
+			if (ShowDagStatus)
 			{
+				var yPos = 50;
+
+				// Mode indicator (always show)
+				var modeColor = resilienceMode switch
+				{
+					"H" => Color.LimeGreen,
+					"S" => Color.Cyan,
+					_ => Color.Orange
+				};
+				var modeName = resilienceMode switch
+				{
+					"H" => "HEFT-Restart",
+					"S" => "Smart",
+					_ => "Baseline"
+				};
+				yield return new IoBTScreenTextRenderable(
+					new int2(10, yPos),
+					$"Mode: {modeName} [{resilienceMode}]  (B/H/S to switch, R=restart, Q=quit)",
+					modeColor);
+				yPos += 18;
+
+				// Current/last makespan
 				if (dagInProgress && dagStartTick >= 0)
 				{
-					// Show current elapsed time
 					var currentElapsed = (world.WorldTick - dagStartTick) / 25.0;
 					yield return new IoBTScreenTextRenderable(
-						new int2(10, 50),
+						new int2(10, yPos),
 						$"Makespan: {currentElapsed:F1}s (running)",
 						Color.Yellow);
 				}
 				else if (lastMakespan >= 0)
 				{
-					// Show last completed makespan
 					yield return new IoBTScreenTextRenderable(
-						new int2(10, 50),
+						new int2(10, yPos),
 						$"Makespan: {lastMakespan:F1}s",
 						Color.LimeGreen);
+				}
+				yPos += 18;
+
+				// Per-mode makespans (if we have data)
+				if (lastMakespanB >= 0 || lastMakespanB == -2 || lastMakespanH >= 0 || lastMakespanS >= 0)
+				{
+					var bStr = lastMakespanB == -2 ? "∞" : (lastMakespanB >= 0 ? $"{lastMakespanB:F1}s" : "-");
+					var hStr = lastMakespanH >= 0 ? $"{lastMakespanH:F1}s" : "-";
+					var sStr = lastMakespanS >= 0 ? $"{lastMakespanS:F1}s" : "-";
+					var bColor = lastMakespanB == -2 ? Color.Red : Color.FromArgb(200, 180, 180, 180);
+					yield return new IoBTScreenTextRenderable(
+						new int2(10, yPos),
+						$"B: {bStr} | H: {hStr} | S: {sStr}",
+						bColor);
 				}
 			}
 
 			// Draw DAG status panel in top-left corner
 			if (ShowDagStatus && dagTasks.Count > 0)
 			{
-				var yOffset = 70; // Start below makespan
+				var yOffset = 110; // Start below mode/makespan info
 
 				// Section 1: DAG Structure (Adjacency List)
 				yield return new IoBTScreenTextRenderable(

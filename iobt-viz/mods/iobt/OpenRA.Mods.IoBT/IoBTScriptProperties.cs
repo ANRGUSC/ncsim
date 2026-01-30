@@ -198,6 +198,30 @@ namespace OpenRA.Mods.IoBT
 				overlay.SchedulerAlgorithm = algorithm;
 		}
 
+		// === Resilience Mode ===
+
+		[Desc("Get the current resilience mode ('B' = Baseline, 'S' = Smart).")]
+		public string GetResilienceMode()
+		{
+			var overlay = GetOverlay();
+			return overlay?.ResilienceMode ?? "B";
+		}
+
+		[Desc("Set the resilience mode ('B' = Baseline, 'S' = Smart).")]
+		public void SetResilienceMode(string mode)
+		{
+			var overlay = GetOverlay();
+			if (overlay != null)
+				overlay.ResilienceMode = mode;
+		}
+
+		[Desc("Check if resilience mode changed (consumes the flag).")]
+		public bool ConsumeResilienceModeChanged()
+		{
+			var overlay = GetOverlay();
+			return overlay?.ConsumeResilienceModeChanged() ?? false;
+		}
+
 		// === Bridge Communication ===
 
 		IoBTBridge GetBridge()

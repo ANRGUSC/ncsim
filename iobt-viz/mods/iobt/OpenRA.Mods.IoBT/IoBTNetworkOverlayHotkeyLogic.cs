@@ -22,22 +22,65 @@ namespace OpenRA.Mods.IoBT
 			var keyHandler = widget.Get<LogicKeyListenerWidget>("IOBT_KEYHANDLER");
 			keyHandler.AddHandler(e =>
 			{
-				// Check for 'n' key press (lowercase)
-				if (e.Event == KeyInputEvent.Down && e.Key == Keycode.N && !e.IsRepeat)
-				{
-					// Don't trigger if any modifiers are held
-					if (e.Modifiers != Modifiers.None)
-						return false;
+				if (e.Event != KeyInputEvent.Down || e.IsRepeat || e.Modifiers != Modifiers.None)
+					return false;
 
-					// Find the network overlay and toggle it
-					var overlay = world.WorldActor.TraitOrDefault<IoBTNetworkOverlay>();
-					if (overlay != null)
+				var overlay = world.WorldActor.TraitOrDefault<IoBTNetworkOverlay>();
+				if (overlay == null)
+					return false;
+
+				// 'N' key: toggle network overlay
+				if (e.Key == Keycode.N)
+				{
+					overlay.Toggle();
+					var status = overlay.OverlayEnabled ? "ON" : "OFF";
+					TextNotificationsManager.Debug($"IoBT Network Overlay: {status}");
+					return true;
+				}
+
+				// 'B' key: Baseline mode (stall on partition)
+				if (e.Key == Keycode.B)
+				{
+					overlay.ResilienceMode = "B";
+					TextNotificationsManager.Debug("Mode: Baseline (tasks stall on partition)");
+					return true;
+				}
+
+				// 'S' key: Smart mode (reassign stalled tasks in partition)
+				if (e.Key == Keycode.S)
+				{
+					overlay.ResilienceMode = "S";
+					TextNotificationsManager.Debug("Mode: Smart (reassign stalled tasks in partition)");
+					return true;
+				}
+
+				// 'H' key: HEFT restart mode (restart HEFT on largest partition)
+				if (e.Key == Keycode.H)
+				{
+					overlay.ResilienceMode = "H";
+					TextNotificationsManager.Debug("Mode: HEFT-Restart (restart DAG on largest partition)");
+					return true;
+				}
+
+				// 'R' key: Restart simulation (reset map)
+				if (e.Key == Keycode.R)
+				{
+					TextNotificationsManager.Debug("Restarting simulation...");
+					// Delay slightly to allow message to display
+					Game.RunAfterTick(() =>
 					{
-						overlay.Toggle();
-						var status = overlay.OverlayEnabled ? "ON" : "OFF";
-						TextNotificationsManager.Debug($"IoBT Network Overlay: {status}");
-						return true;
-					}
+						var map = world.Map.Uid;
+						Game.RestartGame();
+					});
+					return true;
+				}
+
+				// 'Q' key: Quit application
+				if (e.Key == Keycode.Q)
+				{
+					TextNotificationsManager.Debug("Quitting...");
+					Game.Exit();
+					return true;
 				}
 
 				return false;

@@ -66,7 +66,37 @@ runiobt
 | Key | Action |
 |-----|--------|
 | `N` | Toggle network overlay |
+| `B` | Switch to Baseline mode (tasks stall on partition) |
+| `S` | Switch to Smart mode (reassign stalled tasks to parent partition) |
+| `H` | Switch to HEFT-Restart mode (restart DAG on largest partition) |
+| `R` | Restart simulation |
+| `Q` | Quit application |
 | `Escape` | Open menu (Resume/Settings/Quit) |
+
+## Resilience Modes
+
+The visualization supports three modes for handling network partitions (when nodes become disconnected):
+
+### Baseline Mode (`B`)
+Tasks stall when their assigned node becomes unreachable. Execution resumes when connectivity is restored. This demonstrates the impact of network partitions on task completion time.
+
+### Smart Mode (`S`)
+When a partition occurs, tasks that were assigned to disconnected nodes are reassigned to available nodes in the connected partition. Completed tasks whose results are locally available are preserved - only remaining tasks are redeployed.
+
+### HEFT-Restart Mode (`H`)
+When a partition occurs, the entire DAG is restarted on the largest connected component. HEFT scheduling is re-requested for all tasks. This provides a clean restart but loses progress on completed tasks.
+
+### Status Panel
+
+The network overlay status panel shows:
+- **Current mode**: Displayed as `Mode: Baseline [B/S/H]`
+- **Per-mode makespans**: Compare execution times across modes (e.g., `B: 12.5s | S: 8.2s | H: 6.1s`)
+
+To compare resilience strategies:
+1. Run a scenario in Baseline mode, note the makespan
+2. Press `S` to switch to Smart mode (DAG restarts automatically)
+3. Create the same partition scenario, compare makespan
+4. Press `H` to try HEFT-Restart mode
 
 ## Network Overlay
 

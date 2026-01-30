@@ -17,6 +17,7 @@ World:
 		ComputeCircleRadius: 150
 		InfantryComputePercent: 15
 		VehicleComputePercent: 50
+		FixedComputeNodeCount: 6
 	IoBTBridge:
 		Port: 9999
 		AutoStart: true
