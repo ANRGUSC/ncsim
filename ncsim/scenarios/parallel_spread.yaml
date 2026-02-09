@@ -1,0 +1,67 @@
+# Parallel spread scenario — demonstrates HEFT + multi-hop advantage
+#
+# 5 nodes in a line with bidirectional links:
+#   n0(80) == n1(90) == n2(100) == n3(90) == n4(80) cu/s
+#   All links 500 MB/s, 0.001s latency
+#
+# DAG: Fan-out/fan-in with 8 parallel tasks
+#   T_root -> {P0..P7} -> T_sink
+#
+# HEFT + direct routing: only uses 3 adjacent nodes (35.3s)
+# HEFT + widest_path:    spreads across all 5 nodes (24.2s) — 31% faster
+
+scenario:
+  name: "Parallel Spread (Bidirectional)"
+
+  network:
+    nodes:
+      - {id: n0, compute_capacity: 80,  position: {x: 0,  y: 0}}
+      - {id: n1, compute_capacity: 90,  position: {x: 10, y: 0}}
+      - {id: n2, compute_capacity: 100, position: {x: 20, y: 0}}
+      - {id: n3, compute_capacity: 90,  position: {x: 30, y: 0}}
+      - {id: n4, compute_capacity: 80,  position: {x: 40, y: 0}}
+    links:
+      - {id: l01, from: n0, to: n1, bandwidth: 500, latency: 0.001}
+      - {id: l10, from: n1, to: n0, bandwidth: 500, latency: 0.001}
+      - {id: l12, from: n1, to: n2, bandwidth: 500, latency: 0.001}
+      - {id: l21, from: n2, to: n1, bandwidth: 500, latency: 0.001}
+      - {id: l23, from: n2, to: n3, bandwidth: 500, latency: 0.001}
+      - {id: l32, from: n3, to: n2, bandwidth: 500, latency: 0.001}
+      - {id: l34, from: n3, to: n4, bandwidth: 500, latency: 0.001}
+      - {id: l43, from: n4, to: n3, bandwidth: 500, latency: 0.001}
+
+  dags:
+    - id: dag1
+      inject_at: 0.0
+      tasks:
+        - {id: T_root, compute_cost: 100}
+        - {id: P0, compute_cost: 1000}
+        - {id: P1, compute_cost: 1000}
+        - {id: P2, compute_cost: 1000}
+        - {id: P3, compute_cost: 1000}
+        - {id: P4, compute_cost: 1000}
+        - {id: P5, compute_cost: 1000}
+        - {id: P6, compute_cost: 1000}
+        - {id: P7, compute_cost: 1000}
+        - {id: T_sink, compute_cost: 100}
+      edges:
+        - {from: T_root, to: P0, data_size: 1}
+        - {from: T_root, to: P1, data_size: 1}
+        - {from: T_root, to: P2, data_size: 1}
+        - {from: T_root, to: P3, data_size: 1}
+        - {from: T_root, to: P4, data_size: 1}
+        - {from: T_root, to: P5, data_size: 1}
+        - {from: T_root, to: P6, data_size: 1}
+        - {from: T_root, to: P7, data_size: 1}
+        - {from: P0, to: T_sink, data_size: 1}
+        - {from: P1, to: T_sink, data_size: 1}
+        - {from: P2, to: T_sink, data_size: 1}
+        - {from: P3, to: T_sink, data_size: 1}
+        - {from: P4, to: T_sink, data_size: 1}
+        - {from: P5, to: T_sink, data_size: 1}
+        - {from: P6, to: T_sink, data_size: 1}
+        - {from: P7, to: T_sink, data_size: 1}
+
+  config:
+    scheduler: heft
+    seed: 42

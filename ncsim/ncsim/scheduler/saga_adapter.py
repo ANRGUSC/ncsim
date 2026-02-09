@@ -5,10 +5,13 @@ Wraps the SAGA library's HEFT and CPOP schedulers for use with ncsim.
 """
 
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, TYPE_CHECKING
 
 from ncsim.scheduler.base import Scheduler, PlacementPlan, NetworkSnapshot
 from ncsim.models.dag import DAG
+
+if TYPE_CHECKING:
+    from ncsim.models.routing import WidestPathRouting
 
 logger = logging.getLogger(__name__)
 
@@ -35,22 +38,25 @@ class SagaScheduler(Scheduler):
     SAGA requires a fully-connected network graph. We construct one by:
     - Using LOCAL_SPEED for same-node transfers (essentially instant)
     - Using actual link bandwidth for connected node pairs
+    - Using widest-path bandwidth for multi-hop paths (if routing provided)
     - Using DISCONNECTED_SPEED for non-connected pairs (very expensive)
 
     HEFT will naturally avoid placing communicating tasks on disconnected
     nodes due to the high transfer cost.
     """
 
-    def __init__(self, algorithm: str = "heft"):
+    def __init__(self, algorithm: str = "heft", routing: Optional["WidestPathRouting"] = None):
         """Initialize SAGA scheduler.
 
         Args:
             algorithm: "heft" or "cpop"
+            routing: Optional WidestPathRouting for multi-hop bandwidth calculation
         """
         if not SAGA_AVAILABLE:
             raise RuntimeError("SAGA library not available. Install with: pip install anrg-saga")
 
         self.algorithm = algorithm.lower()
+        self.routing = routing
         if self.algorithm == "heft":
             self._scheduler = HeftScheduler()
         elif self.algorithm == "cpop":
@@ -103,6 +109,9 @@ class SagaScheduler(Scheduler):
 
         SAGA requires a fully-connected graph. We create edges for all
         node pairs with appropriate speeds.
+
+        If widest-path routing is configured, uses widest-path bandwidth
+        between all node pairs so HEFT makes better placement decisions.
         """
         node_ids = list(snapshot.nodes.keys())
         num_nodes = len(node_ids)
@@ -110,16 +119,48 @@ class SagaScheduler(Scheduler):
         # Create node name -> index mapping
         node_idx = {node_id: i for i, node_id in enumerate(node_ids)}
 
+        # Build Network object from snapshot for widest-path calculation
+        network_for_routing = None
+        if self.routing is not None:
+            from ncsim.models.network import Network, Node, Link, Position
+            nodes = {
+                node_id: Node(
+                    id=node_id,
+                    compute_capacity=node_snap.compute_capacity,
+                    position=Position(0, 0)
+                )
+                for node_id, node_snap in snapshot.nodes.items()
+            }
+            links = {
+                link_id: Link(
+                    id=link_id,
+                    from_node=link_snap.from_node,
+                    to_node=link_snap.to_node,
+                    bandwidth=link_snap.bandwidth,
+                    latency=link_snap.latency
+                )
+                for link_id, link_snap in snapshot.links.items()
+            }
+            network_for_routing = Network(nodes=nodes, links=links)
+
         # Build connectivity and speed matrices
-        # Use link bandwidth for connected pairs, DISCONNECTED_SPEED for others
+        # Use link bandwidth for connected pairs, widest-path bandwidth for
+        # multi-hop, DISCONNECTED_SPEED for unreachable pairs
         speed_matrix: Dict[tuple, float] = {}
         for i, src_id in enumerate(node_ids):
             for j, dst_id in enumerate(node_ids):
                 if i == j:
                     # Same node = local transfer (very fast)
                     speed_matrix[(src_id, dst_id)] = LOCAL_SPEED
+                elif self.routing is not None and network_for_routing is not None:
+                    # Use widest-path bandwidth
+                    bw = self.routing.get_path_bandwidth(src_id, dst_id, network_for_routing)
+                    if bw > 0 and bw != float('inf'):
+                        speed_matrix[(src_id, dst_id)] = bw
+                    else:
+                        speed_matrix[(src_id, dst_id)] = DISCONNECTED_SPEED
                 else:
-                    # Check for direct link
+                    # Check for direct link only
                     found_link = False
                     for link in snapshot.links.values():
                         if link.from_node == src_id and link.to_node == dst_id:
@@ -235,11 +276,15 @@ class SagaScheduler(Scheduler):
         return None
 
 
-def create_scheduler(algorithm: str = "heft") -> Scheduler:
+def create_scheduler(
+    algorithm: str = "heft",
+    routing: Optional["WidestPathRouting"] = None
+) -> Scheduler:
     """Factory function to create a scheduler.
 
     Args:
         algorithm: "heft", "cpop", or "round_robin"
+        routing: Optional WidestPathRouting for multi-hop bandwidth calculation
 
     Returns:
         Scheduler instance
@@ -255,4 +300,4 @@ def create_scheduler(algorithm: str = "heft") -> Scheduler:
         from ncsim.scheduler.base import RoundRobinScheduler
         return RoundRobinScheduler()
 
-    return SagaScheduler(algorithm=algorithm)
+    return SagaScheduler(algorithm=algorithm, routing=routing)

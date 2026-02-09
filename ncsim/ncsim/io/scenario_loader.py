@@ -23,9 +23,11 @@ class ScenarioConfig:
     Attributes:
         scheduler: Scheduling algorithm to use ("heft", "cpop", "round_robin")
         seed: Random seed for reproducibility
+        routing: Routing algorithm to use ("direct" or "widest_path")
     """
     scheduler: str = "heft"
     seed: int = 42
+    routing: str = "direct"
 
 
 @dataclass
@@ -158,7 +160,8 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
 
     return ScenarioConfig(
         scheduler=str(config_data.get("scheduler", "heft")),
-        seed=int(config_data.get("seed", 42))
+        seed=int(config_data.get("seed", 42)),
+        routing=str(config_data.get("routing", "direct"))
     )
 
 

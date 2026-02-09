@@ -64,6 +64,12 @@ def main(args: list = None) -> int:
         help="Scheduling algorithm (overrides scenario config)"
     )
     parser.add_argument(
+        "--routing",
+        choices=["direct", "widest_path"],
+        default=None,
+        help="Routing algorithm (overrides scenario config)"
+    )
+    parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable verbose logging"
@@ -90,10 +96,23 @@ def main(args: list = None) -> int:
         # Override config if specified
         seed = parsed.seed if parsed.seed is not None else scenario.config.seed
         scheduler_algo = parsed.scheduler if parsed.scheduler else scenario.config.scheduler
+        routing_type = parsed.routing if parsed.routing else scenario.config.routing
 
-        # Create scheduler
+        # Create routing model
+        logger.info(f"Creating routing model: {routing_type}")
+        if routing_type == "widest_path":
+            from ncsim.models.routing import WidestPathRouting
+            routing_model = WidestPathRouting()
+        else:
+            from ncsim.models.routing import DirectLinkRouting
+            routing_model = DirectLinkRouting()
+
+        # Create scheduler (pass routing model for SAGA to use widest-path bandwidth)
         logger.info(f"Creating scheduler: {scheduler_algo}")
-        scheduler = create_scheduler(scheduler_algo)
+        if routing_type == "widest_path":
+            scheduler = create_scheduler(scheduler_algo, routing=routing_model)
+        else:
+            scheduler = create_scheduler(scheduler_algo)
 
         # Create DAG source
         if len(scenario.dags) == 1:
@@ -106,6 +125,7 @@ def main(args: list = None) -> int:
             network=scenario.network,
             scheduler=scheduler,
             dag_source=dag_source,
+            routing_model=routing_model,
             seed=seed
         )
 
@@ -165,6 +185,7 @@ def main(args: list = None) -> int:
         print(f"\n=== Simulation Complete ===")
         print(f"Scenario: {scenario.name}")
         print(f"Scheduler: {scheduler_algo}")
+        print(f"Routing: {routing_type}")
         print(f"Seed: {seed}")
         print(f"Makespan: {result.makespan:.6f} seconds")
         print(f"Total events: {result.total_events}")

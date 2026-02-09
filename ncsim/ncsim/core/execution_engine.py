@@ -27,12 +27,15 @@ class ActiveTransfer:
         dag_id: DAG containing the transfer
         from_task: Source task ID
         to_task: Destination task ID
-        link_id: Link being used
+        link_id: Primary link ID (first link for single-hop, or bottleneck for multi-hop)
+        link_ids: All link IDs in the path (for multi-hop transfers)
         data_size: Total data to transfer (MB)
         data_remaining: Data left to transfer (MB)
         started_at: Sim time when transfer started
         scheduled_complete: Currently scheduled completion time
         event_id: Event ID for completion (for cancellation)
+        bottleneck_bandwidth: Bottleneck bandwidth of the path (MB/s)
+        total_latency: Sum of latencies across all links (seconds)
     """
     dag_id: str
     from_task: str
@@ -43,6 +46,9 @@ class ActiveTransfer:
     started_at: float
     scheduled_complete: float
     event_id: int
+    link_ids: List[str] = field(default_factory=list)
+    bottleneck_bandwidth: float = 0.0
+    total_latency: float = 0.0
 
 
 @dataclass
@@ -435,8 +441,18 @@ class ExecutionEngine:
             self._complete_local_transfer(dag_id, from_task, to_task)
             return
 
-        # Schedule transfer start (Phase 2: single-hop only, use first link)
+        # Use first link as primary (for trace events), store full path in data
         link_id = path[0]
+
+        # Calculate bottleneck bandwidth and total latency for multi-hop paths
+        if len(path) == 1:
+            # Single-hop: use link's bandwidth and latency directly
+            bottleneck_bw = self.network.links[link_id].bandwidth
+            total_latency = self.network.links[link_id].latency
+        else:
+            # Multi-hop: bottleneck = min bandwidth, latency = sum of all latencies
+            bottleneck_bw = min(self.network.links[lid].bandwidth for lid in path)
+            total_latency = sum(self.network.links[lid].latency for lid in path)
 
         self.event_queue.schedule(
             sim_time=self.sim_time,
@@ -445,7 +461,12 @@ class ExecutionEngine:
             from_task=from_task,
             to_task=to_task,
             link_id=link_id,
-            data={"data_size": edge.data_size}
+            data={
+                "data_size": edge.data_size,
+                "path": path,
+                "bottleneck_bandwidth": bottleneck_bw,
+                "total_latency": total_latency
+            }
         )
 
     def _complete_local_transfer(self, dag_id: str, from_task: str, to_task: str) -> None:
@@ -468,30 +489,41 @@ class ExecutionEngine:
     def _handle_transfer_start(self, event: Event) -> None:
         """Handle transfer start event.
 
-        Add transfer to link, recalculate all transfer completion times.
+        Add transfer to all links in path, recalculate transfer completion times.
+        For multi-hop paths, uses bottleneck bandwidth and summed latencies.
         """
         dag_id = event.dag_id
         from_task = event.from_task
         to_task = event.to_task
         link_id = event.link_id
         data_size = event.data.get("data_size", 0.0)
+        path = event.data.get("path", [link_id])
+        bottleneck_bw = event.data.get("bottleneck_bandwidth", 0.0)
+        total_latency = event.data.get("total_latency", 0.0)
 
-        link_state = self.link_states.get(link_id)
-        if link_state is None:
-            logger.error(f"TRANSFER_START: link {link_id} not found")
-            return
+        # Validate all links in path exist
+        for lid in path:
+            if lid not in self.link_states:
+                logger.error(f"TRANSFER_START: link {lid} not found in path")
+                return
+            if self.network.get_link(lid) is None:
+                logger.error(f"TRANSFER_START: link {lid} not in network")
+                return
 
-        link = self.network.get_link(link_id)
-        if link is None:
-            logger.error(f"TRANSFER_START: link {link_id} not in network")
-            return
+        # For bandwidth sharing, we need to find the effective bandwidth
+        # considering contention on ALL links in the path
+        # The bottleneck is the minimum effective bandwidth across all links
+        effective_bw = bottleneck_bw
+        for lid in path:
+            link_state = self.link_states[lid]
+            link = self.network.links[lid]
+            # Each link independently shares bandwidth among concurrent transfers
+            num_transfers_on_link = link_state.num_transfers + 1
+            link_effective_bw = link.bandwidth / num_transfers_on_link
+            effective_bw = min(effective_bw, link_effective_bw)
 
-        # Calculate effective bandwidth with new transfer
-        num_transfers = link_state.num_transfers + 1
-        effective_bw = link.bandwidth / num_transfers
-
-        # Calculate completion time
-        transfer_time = (data_size / effective_bw) + link.latency
+        # Calculate completion time: transfer time + total latency
+        transfer_time = (data_size / effective_bw) + total_latency
         complete_time = round_time(self.sim_time + transfer_time)
 
         # Schedule completion event
@@ -502,28 +534,40 @@ class ExecutionEngine:
             from_task=from_task,
             to_task=to_task,
             link_id=link_id,
-            data={"data_size": data_size}
+            data={"data_size": data_size, "path": path}
         )
 
-        # Track active transfer
+        # Track active transfer on ALL links in the path
         transfer = ActiveTransfer(
             dag_id=dag_id,
             from_task=from_task,
             to_task=to_task,
             link_id=link_id,
+            link_ids=path,
             data_size=data_size,
             data_remaining=data_size,
             started_at=self.sim_time,
             scheduled_complete=complete_time,
-            event_id=event_id
+            event_id=event_id,
+            bottleneck_bandwidth=bottleneck_bw,
+            total_latency=total_latency
         )
-        link_state.active_transfers.append(transfer)
 
-        logger.debug(f"Transfer {from_task}->{to_task} started on {link_id}, "
-                    f"effective_bw={effective_bw:.2f}, complete at {complete_time:.6f}")
+        # Add transfer to all links in path
+        for lid in path:
+            self.link_states[lid].active_transfers.append(transfer)
 
-        # Recalculate other transfers on this link (bandwidth sharing)
-        self._recalculate_link_transfers(link_id, transfer)
+        if len(path) == 1:
+            logger.debug(f"Transfer {from_task}->{to_task} started on {link_id}, "
+                        f"effective_bw={effective_bw:.2f}, complete at {complete_time:.6f}")
+        else:
+            logger.debug(f"Transfer {from_task}->{to_task} started on multi-hop path {path}, "
+                        f"bottleneck_bw={bottleneck_bw:.2f}, effective_bw={effective_bw:.2f}, "
+                        f"complete at {complete_time:.6f}")
+
+        # Recalculate other transfers on all links in path (bandwidth sharing)
+        for lid in path:
+            self._recalculate_link_transfers(lid, transfer)
 
     def _recalculate_link_transfers(
         self,
@@ -533,6 +577,7 @@ class ExecutionEngine:
         """Recalculate completion times for all transfers on a link.
 
         Called when a transfer starts or completes to update bandwidth sharing.
+        For multi-hop transfers, recalculates effective bandwidth across entire path.
         """
         link_state = self.link_states.get(link_id)
         link = self.network.get_link(link_id)
@@ -544,30 +589,51 @@ class ExecutionEngine:
         if num_transfers == 0:
             return
 
-        effective_bw = link.bandwidth / num_transfers
+        # Track transfers we've already recalculated to avoid duplicates
+        recalculated: set = set()
 
         for transfer in link_state.active_transfers:
             if transfer is exclude_transfer:
                 continue  # Don't recalculate the one we just added
 
+            # Use transfer identity to track recalculation
+            transfer_key = (transfer.dag_id, transfer.from_task, transfer.to_task)
+            if transfer_key in recalculated:
+                continue
+            recalculated.add(transfer_key)
+
             # Cancel old completion event
             self.event_queue.cancel(transfer.event_id)
+
+            # For multi-hop, calculate effective bandwidth across ALL links in path
+            path = transfer.link_ids if transfer.link_ids else [transfer.link_id]
+            effective_bw = transfer.bottleneck_bandwidth if transfer.bottleneck_bandwidth > 0 else link.bandwidth
+
+            for lid in path:
+                lid_state = self.link_states.get(lid)
+                lid_link = self.network.get_link(lid)
+                if lid_state and lid_link:
+                    num_on_link = lid_state.num_transfers
+                    if num_on_link > 0:
+                        link_bw = lid_link.bandwidth / num_on_link
+                        effective_bw = min(effective_bw, link_bw)
 
             # Calculate how much data has been transferred
             elapsed = self.sim_time - transfer.started_at
             if elapsed > 0:
-                # Calculate data transferred at old effective bandwidth
-                # This is approximate - for exact we'd need to track rate history
-                old_rate = link.bandwidth / (num_transfers if exclude_transfer else num_transfers + 1)
-                data_transferred = old_rate * elapsed
+                # Approximate data transferred (for exact we'd need rate history)
+                # Use simple approximation based on old effective bandwidth
+                old_effective_bw = transfer.bottleneck_bandwidth if transfer.bottleneck_bandwidth > 0 else link.bandwidth
+                data_transferred = old_effective_bw * elapsed
                 transfer.data_remaining = max(0, transfer.data_size - data_transferred)
 
             # Calculate new completion time
+            total_latency = transfer.total_latency if transfer.total_latency > 0 else link.latency
             if transfer.data_remaining > 0:
-                remaining_time = transfer.data_remaining / effective_bw
+                remaining_time = (transfer.data_remaining / effective_bw) + total_latency
                 new_complete_time = round_time(self.sim_time + remaining_time)
             else:
-                new_complete_time = round_time(self.sim_time)
+                new_complete_time = round_time(self.sim_time + total_latency)
 
             # Schedule new completion event
             transfer.event_id = self.event_queue.schedule(
@@ -576,8 +642,8 @@ class ExecutionEngine:
                 dag_id=transfer.dag_id,
                 from_task=transfer.from_task,
                 to_task=transfer.to_task,
-                link_id=link_id,
-                data={"data_size": transfer.data_size}
+                link_id=transfer.link_id,
+                data={"data_size": transfer.data_size, "path": path}
             )
             transfer.scheduled_complete = new_complete_time
             transfer.started_at = self.sim_time  # Reset start time for next recalc
@@ -588,7 +654,7 @@ class ExecutionEngine:
     def _handle_transfer_complete(self, event: Event) -> None:
         """Handle transfer completion event.
 
-        1. Remove transfer from link
+        1. Remove transfer from all links in path
         2. Recalculate other transfers (more bandwidth available)
         3. Check if destination task is now ready
         """
@@ -597,20 +663,28 @@ class ExecutionEngine:
         to_task = event.to_task
         link_id = event.link_id
         data_size = event.data.get("data_size", 0.0)
+        path = event.data.get("path", [link_id])
 
-        link_state = self.link_states.get(link_id)
-        if link_state is None:
-            logger.error(f"TRANSFER_COMPLETE: link {link_id} not found")
-            return
-
-        # Find and remove completed transfer
+        # Find and remove completed transfer from ALL links in path
         transfer_found = None
-        for i, transfer in enumerate(link_state.active_transfers):
-            if (transfer.dag_id == dag_id and
-                transfer.from_task == from_task and
-                transfer.to_task == to_task):
-                transfer_found = link_state.active_transfers.pop(i)
-                break
+        affected_links = []
+
+        for lid in path:
+            link_state = self.link_states.get(lid)
+            if link_state is None:
+                logger.error(f"TRANSFER_COMPLETE: link {lid} not found")
+                continue
+
+            # Find and remove transfer from this link
+            for i, transfer in enumerate(link_state.active_transfers):
+                if (transfer.dag_id == dag_id and
+                    transfer.from_task == from_task and
+                    transfer.to_task == to_task):
+                    if transfer_found is None:
+                        transfer_found = transfer
+                    link_state.active_transfers.pop(i)
+                    affected_links.append(lid)
+                    break
 
         if transfer_found is None:
             logger.warning(f"TRANSFER_COMPLETE: transfer not found in active list")
@@ -618,15 +692,24 @@ class ExecutionEngine:
             # Calculate actual duration
             duration = self.sim_time - transfer_found.started_at
 
-            # Update stats
-            link_state.total_data_transferred += data_size
+            # Update stats on all links
+            for lid in path:
+                link_state = self.link_states.get(lid)
+                if link_state:
+                    link_state.total_data_transferred += data_size
 
-            logger.debug(f"Transfer {from_task}->{to_task} completed on {link_id} "
-                        f"after {duration:.6f}s")
+            if len(path) == 1:
+                logger.debug(f"Transfer {from_task}->{to_task} completed on {link_id} "
+                            f"after {duration:.6f}s")
+            else:
+                logger.debug(f"Transfer {from_task}->{to_task} completed on multi-hop path {path} "
+                            f"after {duration:.6f}s")
 
-        # Recalculate remaining transfers (they now have more bandwidth)
-        if link_state.active_transfers:
-            self._recalculate_link_transfers(link_id)
+        # Recalculate remaining transfers on all affected links
+        for lid in affected_links:
+            link_state = self.link_states.get(lid)
+            if link_state and link_state.active_transfers:
+                self._recalculate_link_transfers(lid)
 
         # Check if destination task is now ready
         to_state = self.get_task_state(dag_id, to_task)

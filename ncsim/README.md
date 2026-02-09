@@ -41,13 +41,15 @@ python -m ncsim --scenario scenarios/demo_simple.yaml --output results/
 ### CLI Options
 
 ```
-ncsim --scenario PATH --output DIR [--seed N] [--verbose]
+ncsim --scenario PATH --output DIR [--seed N] [--scheduler ALGO] [--routing ROUTING] [--verbose]
 
 Options:
-  --scenario PATH    Scenario YAML file (required)
-  --output DIR       Output directory for results (required)
-  --seed N           Random seed (default: from scenario or 42)
-  --verbose          Enable verbose logging
+  --scenario PATH       Scenario YAML file (required)
+  --output DIR          Output directory for results (required)
+  --seed N              Random seed (default: from scenario or 42)
+  --scheduler ALGO      heft | cpop | round_robin (default: from scenario)
+  --routing ROUTING     direct | widest_path (default: from scenario or direct)
+  --verbose             Enable verbose logging
 ```
 
 ### Output Files
@@ -115,6 +117,26 @@ Tests fair bandwidth sharing:
 - Multiple concurrent transfers on the same link
 - Each transfer gets `bandwidth / num_concurrent_transfers`
 
+### multi_hop_forced.yaml / multi_hop_test.yaml
+
+Three nodes in a line (n0─n1─n2) with no direct n0─n2 link:
+- `multi_hop_forced`: Tasks pinned to n0 and n2, forces multi-hop transfer
+- `multi_hop_test`: Tasks unpinned, scheduler decides placement
+
+### multihop_advantage.yaml
+
+Heterogeneous nodes: n_src(10 cu/s) → n_relay(10) → n_fast(1000).
+Demonstrates that multi-hop routing enables reaching a 100x faster node:
+- Without multi-hop: both tasks on slow node → 200s
+- With widest-path: T1 reaches n_fast → 101.12s (49% faster)
+
+### parallel_spread.yaml
+
+Five nodes in a bidirectional line, 8 parallel tasks in fan-out/fan-in DAG.
+Key scenario for HEFT + multi-hop advantage:
+- HEFT + direct routing: uses 3 adjacent nodes → 35.3s
+- HEFT + widest-path: spreads across all 5 nodes → 24.2s (31% faster)
+
 ## Trace Format
 
 The trace file contains one JSON object per line:
@@ -133,12 +155,51 @@ See the project specification for the complete trace format.
 
 ## Running Tests
 
+### Unit & Integration Tests
+
 ```bash
 cd ncsim
 python -m pytest tests/ -v
 
 # With coverage
 python -m pytest tests/ --cov=ncsim --cov-report=term-missing
+```
+
+### Routing Comparison (Full Test Suite)
+
+Runs all 121 unit tests, then executes every scenario with both `direct` and
+`widest_path` routing, prints a summary table, and generates ASCII Gantt charts:
+
+```bash
+cd ncsim
+bash run_routing_comparison.sh            # output to /tmp/ncsim_routing_comparison/
+bash run_routing_comparison.sh ./results  # or specify output directory
+```
+
+Expected output summary:
+
+```
+Scenario                           Direct WidestPath    Speedup
+--------                           ------ ----------    -------
+A: demo_simple                     3.000s     3.000s       same
+B: bandwidth_contention            2.010s     2.010s       same
+C: multi_hop_forced                2.000s     2.520s     -26.0%
+D: multi_hop_test                  2.000s     2.000s       same
+E: multihop_advantage            101.000s   101.120s      -0.1%
+F: parallel_spread                35.343s    24.232s      31.4%
+```
+
+- **A, B, D**: Direct links exist, both modes produce identical results
+- **C**: Direct routing silently skips the transfer (incorrect); widest-path is slower but correct
+- **E**: Pinned tasks on heterogeneous nodes; direct skips the multi-hop transfer
+- **F**: HEFT + widest-path spreads 8 parallel tasks across 5 nodes instead of 3, yielding a 31% speedup
+
+### Trace Analysis
+
+Inspect any trace with the built-in analyzer:
+
+```bash
+python analyze_trace.py results/trace.jsonl --gantt --timeline --tasks
 ```
 
 ## Architecture
@@ -154,16 +215,19 @@ ncsim/
 │   ├── models/
 │   │   ├── network.py       # Node, Link, Network
 │   │   ├── task.py          # Task
-│   │   └── dag.py           # DAG, Edge
+│   │   ├── dag.py           # DAG, Edge
+│   │   └── routing.py       # DirectLinkRouting, WidestPathRouting
 │   ├── scheduler/
-│   │   ├── base.py          # TaskMapper interface
+│   │   ├── base.py          # Scheduler interface
 │   │   └── saga_adapter.py  # SAGA HEFT/CPOP integration
 │   └── io/
 │       ├── scenario_loader.py   # YAML parsing
 │       ├── trace_writer.py      # JSONL trace output
 │       └── results_writer.py    # Metrics JSON output
 ├── scenarios/               # Example scenarios
-└── tests/                   # Test suite
+├── tests/                   # Test suite
+├── analyze_trace.py         # Trace analysis tool (Gantt, timeline, stats)
+└── run_routing_comparison.sh  # Full routing comparison test suite
 ```
 
 ## License
