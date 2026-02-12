@@ -75,6 +75,12 @@ run_scenario "advantage_wp"       "scenarios/multihop_advantage.yaml" "widest_pa
 run_scenario "advantage_sp"       "scenarios/multihop_advantage.yaml" "shortest_path" "round_robin"
 
 echo ""
+echo "--- Test G: widest_vs_shortest (diamond, asymmetric paths — WP and SP diverge) ---"
+run_scenario "wvs_direct" "scenarios/widest_vs_shortest.yaml" "direct" "round_robin"
+run_scenario "wvs_wp"     "scenarios/widest_vs_shortest.yaml" "widest_path" "round_robin"
+run_scenario "wvs_sp"     "scenarios/widest_vs_shortest.yaml" "shortest_path" "round_robin"
+
+echo ""
 echo "--- Test F: parallel_spread (HEFT, 5 nodes, 8 parallel tasks) ---"
 run_scenario "parallel_direct" "scenarios/parallel_spread.yaml" "direct"
 run_scenario "parallel_wp"     "scenarios/parallel_spread.yaml" "widest_path"
@@ -115,6 +121,7 @@ print_comparison "B: bandwidth_contention" "bw_contention_direct" "bw_contention
 print_comparison "C: multi_hop_forced"    "mhop_forced_direct"   "mhop_forced_wp"     "mhop_forced_sp"
 print_comparison "D: multi_hop_test"      "mhop_test_direct"     "mhop_test_wp"       "mhop_test_sp"
 print_comparison "E: multihop_advantage"  "advantage_baseline"   "advantage_wp"       "advantage_sp"
+print_comparison "G: widest_vs_shortest"  "wvs_direct"           "wvs_wp"             "wvs_sp"
 print_comparison "F: parallel_spread"     "parallel_direct"      "parallel_wp"        "parallel_sp"
 
 echo ""
@@ -126,6 +133,14 @@ echo ""
 echo "============================================"
 echo " Gantt Charts (Key Scenarios)"
 echo "============================================"
+
+echo ""
+echo "--- G: widest_vs_shortest (widest_path — picks wide/slow route, 2.6s) ---"
+python analyze_trace.py "$OUTDIR/wvs_wp/trace.jsonl" --gantt
+
+echo ""
+echo "--- G: widest_vs_shortest (shortest_path — picks fast/narrow route, 7.0s) ---"
+python analyze_trace.py "$OUTDIR/wvs_sp/trace.jsonl" --gantt
 
 echo ""
 echo "--- E: multihop_advantage (baseline=direct, errored — no direct link) ---"
