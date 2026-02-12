@@ -4,7 +4,7 @@ Unit tests for execution engine.
 
 import pytest
 from ncsim.core.event_queue import EventQueue, EventType
-from ncsim.core.execution_engine import ExecutionEngine, NodeState, LinkState
+from ncsim.core.execution_engine import ExecutionEngine, NodeState, LinkState, SimulationError
 from ncsim.models.network import Node, Link, Network
 from ncsim.models.task import Task, TaskStatus
 from ncsim.models.dag import DAG, Edge
@@ -237,3 +237,87 @@ class TestLinkState:
             )
         )
         assert state.num_transfers == 1
+
+
+class TestSimulationErrorOnNoRoute:
+    """Tests that SimulationError is raised when no route exists."""
+
+    def test_raises_on_no_route(self):
+        """3-node chain with DirectLinkRouting: tasks on n0 and n2 should fail."""
+        from ncsim.models.routing import DirectLinkRouting
+
+        nodes = {
+            "n0": Node(id="n0", compute_capacity=100),
+            "n1": Node(id="n1", compute_capacity=100),
+            "n2": Node(id="n2", compute_capacity=100),
+        }
+        links = {
+            "l01": Link(id="l01", from_node="n0", to_node="n1", bandwidth=100, latency=0.001),
+            "l12": Link(id="l12", from_node="n1", to_node="n2", bandwidth=100, latency=0.001),
+        }
+        network = Network(nodes=nodes, links=links)
+
+        tasks = {
+            "T0": Task(id="T0", compute_cost=100, dag_id="dag_1", pinned_to="n0"),
+            "T1": Task(id="T1", compute_cost=100, dag_id="dag_1", pinned_to="n2"),
+        }
+        edges = [Edge(from_task="T0", to_task="T1", data_size=50)]
+        dag = DAG(id="dag_1", tasks=tasks, edges=edges)
+
+        event_queue = EventQueue()
+        scheduler = RoundRobinScheduler()
+        engine = ExecutionEngine(
+            network=network,
+            scheduler=scheduler,
+            event_queue=event_queue,
+            routing_model=DirectLinkRouting(),
+        )
+
+        # Inject DAG — should raise SimulationError during placement validation
+        event_queue.schedule(
+            sim_time=0.0,
+            event_type=EventType.DAG_INJECT,
+            dag_id="dag_1",
+            data={"dag": dag},
+        )
+
+        event = event_queue.pop()
+        with pytest.raises(SimulationError, match="unreachable transfer"):
+            engine.handle_event(event)
+
+    def test_validates_placement_unreachable(self):
+        """Test _validate_placement directly for error message content."""
+        from ncsim.models.routing import DirectLinkRouting
+        from ncsim.scheduler.base import PlacementPlan
+
+        nodes = {
+            "n0": Node(id="n0", compute_capacity=100),
+            "n1": Node(id="n1", compute_capacity=100),
+            "n2": Node(id="n2", compute_capacity=100),
+        }
+        links = {
+            "l01": Link(id="l01", from_node="n0", to_node="n1", bandwidth=100, latency=0.001),
+            "l12": Link(id="l12", from_node="n1", to_node="n2", bandwidth=100, latency=0.001),
+        }
+        network = Network(nodes=nodes, links=links)
+
+        tasks = {
+            "T0": Task(id="T0", compute_cost=100, dag_id="dag_1"),
+            "T1": Task(id="T1", compute_cost=100, dag_id="dag_1"),
+        }
+        edges = [Edge(from_task="T0", to_task="T1", data_size=50)]
+        dag = DAG(id="dag_1", tasks=tasks, edges=edges)
+
+        event_queue = EventQueue()
+        scheduler = RoundRobinScheduler()
+        engine = ExecutionEngine(
+            network=network,
+            scheduler=scheduler,
+            event_queue=event_queue,
+            routing_model=DirectLinkRouting(),
+        )
+
+        plan = PlacementPlan(assignments={"T0": "n0", "T1": "n2"})
+
+        with pytest.raises(SimulationError, match="T0.*n0.*T1.*n2"):
+            engine._validate_placement(dag, plan)

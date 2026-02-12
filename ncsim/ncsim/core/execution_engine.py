@@ -19,6 +19,11 @@ from ncsim.scheduler.base import Scheduler, PlacementPlan, NetworkSnapshot
 logger = logging.getLogger(__name__)
 
 
+class SimulationError(Exception):
+    """Raised when a simulation encounters an unrecoverable error."""
+    pass
+
+
 @dataclass
 class ActiveTransfer:
     """State of an in-progress data transfer.
@@ -234,6 +239,7 @@ class ExecutionEngine:
         snapshot = self.get_network_snapshot()
         plan = self.scheduler.on_dag_inject(dag, snapshot)
         self.placement_plans[dag_id] = plan
+        self._validate_placement(dag, plan)
 
         logger.info(f"DAG {dag_id} injected with {len(dag.tasks)} tasks")
         logger.debug(f"Placement plan: {plan.assignments}")
@@ -266,6 +272,28 @@ class ExecutionEngine:
                 task_id=task_id
             )
             logger.debug(f"Scheduled TASK_READY for root task {task_id}")
+
+    def _validate_placement(self, dag: DAG, plan: PlacementPlan) -> None:
+        """Validate that all DAG edges have valid routes under current routing."""
+        errors = []
+        for edge in dag.edges:
+            src_node = plan.get_node_for_task(edge.from_task)
+            dst_node = plan.get_node_for_task(edge.to_task)
+            if src_node is None or dst_node is None:
+                continue  # Missing assignments caught elsewhere
+            if src_node == dst_node:
+                continue  # Local transfer, no routing needed
+            path = self.routing_model.get_path(src_node, dst_node, self.network)
+            if path is None or len(path) == 0:
+                errors.append(
+                    f"  {edge.from_task}({src_node}) -> {edge.to_task}({dst_node}): "
+                    f"no route via {type(self.routing_model).__name__}"
+                )
+        if errors:
+            raise SimulationError(
+                f"Placement plan for DAG {dag.id} has {len(errors)} unreachable transfer(s):\n"
+                + "\n".join(errors)
+            )
 
     def _handle_task_ready(self, event: Event) -> None:
         """Handle task ready event.
@@ -434,12 +462,11 @@ class ExecutionEngine:
         path = self.routing_model.get_path(src_node, dst_node, self.network)
 
         if path is None or len(path) == 0:
-            # No path available - log warning but still mark as complete
-            # (This shouldn't happen with DirectLinkRouting if network is configured correctly)
-            logger.warning(f"No path from {src_node} to {dst_node} for transfer {from_task}->{to_task}")
-            # Still mark complete to avoid deadlock
-            self._complete_local_transfer(dag_id, from_task, to_task)
-            return
+            raise SimulationError(
+                f"No route from {src_node} to {dst_node} for transfer "
+                f"{from_task}->{to_task} (routing={type(self.routing_model).__name__}). "
+                f"Check that the routing model supports this topology."
+            )
 
         # Use first link as primary (for trace events), store full path in data
         link_id = path[0]

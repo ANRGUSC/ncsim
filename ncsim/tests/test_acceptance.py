@@ -18,6 +18,7 @@ from ncsim.models.task import Task
 from ncsim.models.dag import DAG, Edge
 from ncsim.core.simulation import Simulation, run_simulation
 from ncsim.scheduler.base import RoundRobinScheduler
+from ncsim.models.routing import DirectLinkRouting
 from ncsim.scheduler.saga_adapter import create_scheduler, SAGA_AVAILABLE
 
 
@@ -270,3 +271,45 @@ class TestHEFTScheduling:
 
         assert result.status == "completed"
         assert result.makespan > 0
+
+
+class TestDirectRoutingUnreachable:
+    """Direct routing on topology requiring multi-hop should report error."""
+
+    def test_direct_routing_multi_hop_forced_reports_error(self):
+        """multi_hop_forced topology with direct routing should fail, not silently succeed."""
+        # 3-node chain: n0 -> n1 -> n2 (no direct n0 -> n2 link)
+        nodes = {
+            "n0": Node(id="n0", compute_capacity=100),
+            "n1": Node(id="n1", compute_capacity=100),
+            "n2": Node(id="n2", compute_capacity=100),
+        }
+        links = {
+            "l01": Link(id="l01", from_node="n0", to_node="n1", bandwidth=100, latency=0.01),
+            "l12": Link(id="l12", from_node="n1", to_node="n2", bandwidth=100, latency=0.01),
+        }
+        network = Network(nodes=nodes, links=links)
+
+        # Pin T0 to n0, T1 to n2 — forces transfer across n0->n2 (no direct link)
+        tasks = {
+            "T0": Task(id="T0", compute_cost=100, dag_id="dag1", pinned_to="n0"),
+            "T1": Task(id="T1", compute_cost=100, dag_id="dag1", pinned_to="n2"),
+        }
+        edges = [Edge(from_task="T0", to_task="T1", data_size=50)]
+        dag = DAG(id="dag1", tasks=tasks, edges=edges)
+
+        scheduler = RoundRobinScheduler()
+        dag_source = SingleDAGSource(dag)
+
+        sim = Simulation(
+            network=network,
+            scheduler=scheduler,
+            dag_source=dag_source,
+            routing_model=DirectLinkRouting(),
+            seed=42,
+        )
+
+        result = sim.run()
+
+        assert result.status == "error"
+        assert "unreachable" in result.error_message.lower() or "no route" in result.error_message.lower()
