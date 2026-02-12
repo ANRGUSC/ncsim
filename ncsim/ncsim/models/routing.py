@@ -2,7 +2,8 @@
 Network routing model definitions.
 
 Defines how data is routed between nodes.
-Supports direct links (Phase 2) and multi-hop widest-path routing.
+Supports direct links (Phase 2), multi-hop widest-path routing,
+and shortest-path (minimum latency) routing.
 """
 
 from abc import ABC, abstractmethod
@@ -224,6 +225,165 @@ class WidestPathRouting(RoutingModel):
                     bandwidth[neighbor] = new_bw
                     predecessor[neighbor] = (current, link.id)
                     heapq.heappush(heap, (-new_bw, neighbor))
+
+        # Reconstruct path
+        if predecessor[dst] is None:
+            return None  # No path exists
+
+        path: List[str] = []
+        current = dst
+        while predecessor[current] is not None:
+            prev_node, link_id = predecessor[current]
+            path.append(link_id)
+            current = prev_node
+
+        path.reverse()
+        return path
+
+    def clear_cache(self) -> None:
+        """Clear the path and bandwidth caches.
+
+        Call this if the network topology changes.
+        """
+        self._path_cache.clear()
+        self._bandwidth_cache.clear()
+
+
+class ShortestPathRouting(RoutingModel):
+    """Multi-hop routing using shortest-path (minimum total latency) algorithm.
+
+    Finds paths that minimize the sum of link latencies along the path.
+    Uses standard Dijkstra's algorithm. If all latencies are equal, this
+    degenerates to minimum hop count.
+
+    For transfers, latencies are summed across all links (store-and-forward model),
+    and the bottleneck bandwidth determines transfer rate.
+    """
+
+    def __init__(self):
+        """Initialize shortest-path routing with caches."""
+        self._path_cache: Dict[Tuple[str, str], Optional[List[str]]] = {}
+        self._bandwidth_cache: Dict[Tuple[str, str], float] = {}
+
+    def get_path(
+        self,
+        src_node: str,
+        dst_node: str,
+        network: "Network",
+        network_state: Optional["NetworkState"] = None
+    ) -> Optional[List[str]]:
+        """Find shortest path (minimum total latency) from source to destination.
+
+        Args:
+            src_node: Source node ID
+            dst_node: Destination node ID
+            network: Network topology
+            network_state: Unused (for interface compatibility)
+
+        Returns:
+            List of link IDs forming the shortest path, or None if no path exists.
+            Empty list for same-node (local) transfers.
+        """
+        # Same node = local transfer
+        if src_node == dst_node:
+            return []
+
+        # Check cache
+        cache_key = (src_node, dst_node)
+        if cache_key in self._path_cache:
+            return self._path_cache[cache_key]
+
+        # Compute path
+        path = self._compute_shortest_path(src_node, dst_node, network)
+        self._path_cache[cache_key] = path
+
+        return path
+
+    def get_path_bandwidth(self, src_node: str, dst_node: str, network: "Network") -> float:
+        """Get the bottleneck bandwidth of the shortest path.
+
+        Args:
+            src_node: Source node ID
+            dst_node: Destination node ID
+            network: Network topology
+
+        Returns:
+            Bottleneck bandwidth (min bandwidth along path), or 0.0 if no path exists.
+            Returns infinity for same-node transfers (local).
+        """
+        # Same node = local transfer (effectively infinite bandwidth)
+        if src_node == dst_node:
+            return float('inf')
+
+        # Check cache
+        cache_key = (src_node, dst_node)
+        if cache_key in self._bandwidth_cache:
+            return self._bandwidth_cache[cache_key]
+
+        # Compute path and bandwidth
+        path = self.get_path(src_node, dst_node, network)
+        if path is None or len(path) == 0:
+            bandwidth = 0.0
+        else:
+            bandwidth = min(network.links[lid].bandwidth for lid in path)
+
+        self._bandwidth_cache[cache_key] = bandwidth
+        return bandwidth
+
+    def _compute_shortest_path(
+        self,
+        src: str,
+        dst: str,
+        network: "Network"
+    ) -> Optional[List[str]]:
+        """Compute shortest path using Dijkstra's algorithm on link latencies.
+
+        Args:
+            src: Source node ID
+            dst: Destination node ID
+            network: Network topology
+
+        Returns:
+            List of link IDs forming the path, or None if no path exists.
+        """
+        # dist[node] = minimum total latency to reach this node
+        dist: Dict[str, float] = {node_id: float('inf') for node_id in network.nodes}
+        dist[src] = 0.0
+
+        # predecessor[node] = (prev_node, link_id) for path reconstruction
+        predecessor: Dict[str, Optional[Tuple[str, str]]] = {
+            node_id: None for node_id in network.nodes
+        }
+
+        # Min-heap: (total_latency, node_id)
+        heap: List[Tuple[float, str]] = [(0.0, src)]
+        visited: set = set()
+
+        while heap:
+            current_dist, current = heapq.heappop(heap)
+
+            if current in visited:
+                continue
+            visited.add(current)
+
+            # Found destination
+            if current == dst:
+                break
+
+            # Explore outgoing links
+            for link in network.get_links_from(current):
+                neighbor = link.to_node
+                if neighbor in visited:
+                    continue
+
+                # Total latency through this link
+                new_dist = current_dist + link.latency
+
+                # Update if this gives lower latency
+                if new_dist < dist[neighbor]:
+                    dist[neighbor] = new_dist
+                    predecessor[neighbor] = (current, link.id)
+                    heapq.heappush(heap, (new_dist, neighbor))
 
         # Reconstruct path
         if predecessor[dst] is None:

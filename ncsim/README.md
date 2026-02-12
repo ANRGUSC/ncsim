@@ -48,7 +48,7 @@ Options:
   --output DIR          Output directory for results (required)
   --seed N              Random seed (default: from scenario or 42)
   --scheduler ALGO      heft | cpop | round_robin (default: from scenario)
-  --routing ROUTING     direct | widest_path (default: from scenario or direct)
+  --routing ROUTING     direct | widest_path | shortest_path (default: from scenario or direct)
   --verbose             Enable verbose logging
 ```
 
@@ -167,8 +167,9 @@ python -m pytest tests/ --cov=ncsim --cov-report=term-missing
 
 ### Routing Comparison (Full Test Suite)
 
-Runs all 121 unit tests, then executes every scenario with both `direct` and
-`widest_path` routing, prints a summary table, and generates ASCII Gantt charts:
+Runs all unit tests, then executes every scenario with `direct`, `widest_path`,
+and `shortest_path` routing, prints a makespan comparison table, and generates
+ASCII Gantt charts:
 
 ```bash
 cd ncsim
@@ -179,20 +180,21 @@ bash run_routing_comparison.sh ./results  # or specify output directory
 Expected output summary:
 
 ```
-Scenario                           Direct WidestPath    Speedup
---------                           ------ ----------    -------
-A: demo_simple                     3.000s     3.000s       same
-B: bandwidth_contention            2.010s     2.010s       same
-C: multi_hop_forced                2.000s     2.520s     -26.0%
-D: multi_hop_test                  2.000s     2.000s       same
-E: multihop_advantage            101.000s   101.120s      -0.1%
-F: parallel_spread                35.343s    24.232s      31.4%
+Scenario                           Direct WidestPath ShortestPath    WP vs D    SP vs D
+--------                           ------ ---------- ------------    -------    -------
+A: demo_simple                     3.000s     3.000s       3.000s       same       same
+B: bandwidth_contention            2.010s     2.010s       2.010s       same       same
+C: multi_hop_forced                2.000s     2.520s       2.520s     -26.0%     -26.0%
+D: multi_hop_test                  2.000s     2.000s       2.000s       same       same
+E: multihop_advantage            101.000s   101.120s     101.120s      -0.1%      -0.1%
+F: parallel_spread                35.343s    24.232s      24.232s      31.4%      31.4%
 ```
 
-- **A, B, D**: Direct links exist, both modes produce identical results
-- **C**: Direct routing silently skips the transfer (incorrect); widest-path is slower but correct
+- **A, B, D**: Direct links exist, all three modes produce identical results
+- **C**: Direct routing silently skips the transfer (incorrect); widest-path and shortest-path are slower but correct
 - **E**: Pinned tasks on heterogeneous nodes; direct skips the multi-hop transfer
-- **F**: HEFT + widest-path spreads 8 parallel tasks across 5 nodes instead of 3, yielding a 31% speedup
+- **F**: HEFT + multi-hop routing spreads 8 parallel tasks across 5 nodes instead of 3, yielding a 31% speedup
+- **WP vs SP**: Widest-path maximizes bottleneck bandwidth; shortest-path minimizes total latency. They diverge on networks with bandwidth/latency tradeoffs
 
 ### Trace Analysis
 
@@ -216,7 +218,7 @@ ncsim/
 │   │   ├── network.py       # Node, Link, Network
 │   │   ├── task.py          # Task
 │   │   ├── dag.py           # DAG, Edge
-│   │   └── routing.py       # DirectLinkRouting, WidestPathRouting
+│   │   └── routing.py       # DirectLinkRouting, WidestPathRouting, ShortestPathRouting
 │   ├── scheduler/
 │   │   ├── base.py          # Scheduler interface
 │   │   └── saga_adapter.py  # SAGA HEFT/CPOP integration

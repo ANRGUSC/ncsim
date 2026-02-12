@@ -23,7 +23,7 @@ class ScenarioConfig:
     Attributes:
         scheduler: Scheduling algorithm to use ("heft", "cpop", "round_robin")
         seed: Random seed for reproducibility
-        routing: Routing algorithm to use ("direct" or "widest_path")
+        routing: Routing algorithm to use ("direct", "widest_path", or "shortest_path")
     """
     scheduler: str = "heft"
     seed: int = 42

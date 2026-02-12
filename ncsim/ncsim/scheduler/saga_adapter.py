@@ -11,7 +11,8 @@ from ncsim.scheduler.base import Scheduler, PlacementPlan, NetworkSnapshot
 from ncsim.models.dag import DAG
 
 if TYPE_CHECKING:
-    from ncsim.models.routing import WidestPathRouting
+    from typing import Union
+    from ncsim.models.routing import WidestPathRouting, ShortestPathRouting
 
 logger = logging.getLogger(__name__)
 

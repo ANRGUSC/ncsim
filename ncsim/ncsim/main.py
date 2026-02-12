@@ -65,7 +65,7 @@ def main(args: list = None) -> int:
     )
     parser.add_argument(
         "--routing",
-        choices=["direct", "widest_path"],
+        choices=["direct", "widest_path", "shortest_path"],
         default=None,
         help="Routing algorithm (overrides scenario config)"
     )
@@ -103,13 +103,16 @@ def main(args: list = None) -> int:
         if routing_type == "widest_path":
             from ncsim.models.routing import WidestPathRouting
             routing_model = WidestPathRouting()
+        elif routing_type == "shortest_path":
+            from ncsim.models.routing import ShortestPathRouting
+            routing_model = ShortestPathRouting()
         else:
             from ncsim.models.routing import DirectLinkRouting
             routing_model = DirectLinkRouting()
 
-        # Create scheduler (pass routing model for SAGA to use widest-path bandwidth)
+        # Create scheduler (pass routing model for SAGA bandwidth awareness)
         logger.info(f"Creating scheduler: {scheduler_algo}")
-        if routing_type == "widest_path":
+        if routing_type in ("widest_path", "shortest_path"):
             scheduler = create_scheduler(scheduler_algo, routing=routing_model)
         else:
             scheduler = create_scheduler(scheduler_algo)
