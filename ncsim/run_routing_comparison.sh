@@ -94,7 +94,14 @@ print_comparison() {
     local dir_d="$2"
     local dir_w="$3"
     local dir_s="$4"
-    local ms_d ms_w ms_s speedup_w speedup_s
+    local ms_d ms_w ms_s speedup_w speedup_s status_d
+    status_d=$(python -c "import json; print(json.load(open('$OUTDIR/$dir_d/metrics.json')).get('status','completed'))")
+    if [ "$status_d" = "error" ]; then
+        ms_w=$(python -c "import json; print(json.load(open('$OUTDIR/$dir_w/metrics.json'))['makespan'])")
+        ms_s=$(python -c "import json; print(json.load(open('$OUTDIR/$dir_s/metrics.json'))['makespan'])")
+        printf "%-30s %10s %9.3fs %11.3fs %10s %10s\n" "$label" "ERROR" "$ms_w" "$ms_s" "n/a" "n/a"
+        return
+    fi
     ms_d=$(python -c "import json; print(json.load(open('$OUTDIR/$dir_d/metrics.json'))['makespan'])")
     ms_w=$(python -c "import json; print(json.load(open('$OUTDIR/$dir_w/metrics.json'))['makespan'])")
     ms_s=$(python -c "import json; print(json.load(open('$OUTDIR/$dir_s/metrics.json'))['makespan'])")
@@ -111,8 +118,8 @@ print_comparison "E: multihop_advantage"  "advantage_baseline"   "advantage_wp" 
 print_comparison "F: parallel_spread"     "parallel_direct"      "parallel_wp"        "parallel_sp"
 
 echo ""
-echo "NOTE: Negative speedup in C means direct routing silently skipped"
-echo "the transfer (incorrect result). Widest-path and shortest-path are slower but correct."
+echo "NOTE: ERROR means the routing model has no path for that topology."
+echo "Direct routing requires explicit links; multi-hop topologies need widest_path or shortest_path."
 echo ""
 
 # ── Step 4: Gantt charts for key scenarios ──
@@ -121,8 +128,8 @@ echo " Gantt Charts (Key Scenarios)"
 echo "============================================"
 
 echo ""
-echo "--- E: multihop_advantage (baseline, both on slow node) ---"
-python analyze_trace.py "$OUTDIR/advantage_baseline/trace.jsonl" --gantt
+echo "--- E: multihop_advantage (baseline=direct, errored — no direct link) ---"
+echo "  Skipped: direct routing has no path for this topology"
 
 echo ""
 echo "--- E: multihop_advantage (widest_path, T1 on fast node) ---"
