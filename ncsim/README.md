@@ -206,7 +206,7 @@ python analyze_trace.py results/trace.jsonl --gantt --timeline --tasks
 
 ## Architecture
 
-For a detailed interactive overview, see [architecture.html](architecture.html).
+For a detailed interactive overview, see [architecture.html](https://htmlpreview.github.io/?https://github.com/ANRGUSC/ncsim-mg/blob/main/ncsim/architecture.html).
 
 ```
 ncsim/
