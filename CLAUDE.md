@@ -78,13 +78,15 @@ Example: 200 MB transfer on link with `bandwidth=100` MB/s and `latency=0.005` t
 
 ### 2.5 Bandwidth Sharing Model
 
-**Fair share among concurrent flows:**
-- If N transfers share a link simultaneously, each gets `bandwidth / N`
+**Fair share among concurrent flows (composes with interference, see §2.7):**
+- If N transfers share a link simultaneously, each gets `base_bandwidth / N`
+- `base_bandwidth` = `link.bandwidth * interference_factor` (see §2.7)
 - Transfer times are recalculated when flows start or complete
 - Transfers in progress have their completion times updated dynamically
 
 ```python
-effective_bandwidth = link.bandwidth / num_concurrent_transfers
+base_bandwidth = link.bandwidth * interference_factor  # §2.7, default=1.0
+effective_bandwidth = base_bandwidth / num_concurrent_transfers
 remaining_data = original_data_size - data_already_transferred
 new_completion_time = current_time + (remaining_data / effective_bandwidth)
 ```
@@ -99,6 +101,49 @@ def round_time(t: float) -> float:
 ```
 
 This applies at event scheduling, event completion, and any time comparison.
+
+### 2.7 Inter-Link Interference Model
+
+**Modular, orthogonal to per-link fair sharing.**
+
+Inter-link interference models reduce a link's effective base bandwidth when nearby links are simultaneously active (e.g., wireless spectrum contention). This is composed with per-link fair sharing:
+
+```
+effective_per_flow = (link.bandwidth * interference_factor) / num_flows_on_link
+```
+
+**Interface** (`ncsim/ncsim/models/interference.py`):
+
+```python
+class InterferenceModel(ABC):
+    def get_interference_factor(self, link_id, active_link_ids, network) -> float:
+        """Returns multiplier in (0, 1.0]. 1.0 = no interference."""
+
+    def get_affected_links(self, changed_link_id, active_link_ids, network) -> Set[str]:
+        """Returns other active links whose factor changed (for recalculation)."""
+```
+
+**Built-in models:**
+
+| Model | Class | Behavior | Default |
+|-------|-------|----------|---------|
+| `none` | `NoInterference` | Always returns 1.0, no cross-link effects | |
+| `proximity` | `ProximityInterference(radius)` | Counts k active links within radius of link midpoint, returns 1/k | **Yes (radius=15)** |
+
+**How proximity interference works:**
+1. Compute midpoint of each link from its endpoint node positions
+2. Count k = number of active links (including self) whose midpoints are within `interference_radius`
+3. Each interfering link gets bandwidth multiplied by 1/k
+4. When a transfer starts/completes, nearby links are recalculated via `_recalculate_interfered_transfers()`
+
+**Example:** Two parallel links with midpoints 5 units apart, radius=15:
+- Both active simultaneously → k=2 → each gets bandwidth/2
+- Transfers take 2x longer than without interference
+
+**Configuration:**
+- CLI: `--interference {none,proximity} --interference-radius N`
+- YAML: `config.interference` and `config.interference_radius`
+- Default (when unspecified): `proximity` with `radius=15`
 
 ---
 
@@ -168,10 +213,12 @@ When a task completes:
 When a transfer starts:
 1. Recalculate all concurrent transfers on that link (bandwidth sharing)
 2. Schedule `TRANSFER_COMPLETE` based on effective bandwidth
+3. Recalculate transfers on interfered links (§2.7 cross-link effects)
 
 When a transfer completes:
 1. Recalculate remaining transfers on that link
-2. Check if destination task has all inputs → schedule `TASK_READY`
+2. Recalculate transfers on interfered links (§2.7 cross-link effects)
+3. Check if destination task has all inputs → schedule `TASK_READY`
 
 ### 3.4 Event Types
 
@@ -349,8 +396,8 @@ The status panel shows:
 - Single DAG injected at t=0
 - Deterministic event queue with trace writer
 - Single-server FIFO queue per node
-- Single-hop transfers only (no routing)
-- Fair bandwidth sharing
+- Multi-hop routing (direct, widest-path, shortest-path)
+- Fair bandwidth sharing with inter-link interference (§2.7)
 - SAGA integration (HEFT scheduler)
 - CLI: `ncsim --scenario X.yaml --output dir/`
 
@@ -580,6 +627,9 @@ scenario:
   config:
     scheduler: string       # "heft" | "cpop" | "round_robin"
     seed: int               # Random seed for reproducibility
+    routing: string         # "direct" | "widest_path" | "shortest_path"
+    interference: string    # "none" | "proximity" (default: "proximity")
+    interference_radius: float  # Radius for proximity model (default: 15.0)
 ```
 
 ### 8.2 Metrics JSON Schema
@@ -634,7 +684,9 @@ iobt-ncsim/
 │   │   ├── models/
 │   │   │   ├── network.py
 │   │   │   ├── task.py
-│   │   │   └── dag.py
+│   │   │   ├── dag.py
+│   │   │   ├── routing.py
+│   │   │   └── interference.py
 │   │   ├── scheduler/
 │   │   │   ├── base.py
 │   │   │   └── saga_adapter.py
@@ -647,9 +699,16 @@ iobt-ncsim/
 │   │   ├── test_execution_engine.py
 │   │   ├── test_saga_adapter.py
 │   │   └── test_acceptance.py
+│   ├── run_interference_comparison.py
 │   └── scenarios/
 │       ├── demo_simple.yaml
-│       └── bandwidth_contention.yaml
+│       ├── bandwidth_contention.yaml
+│       ├── multi_hop_forced.yaml
+│       ├── multi_hop_test.yaml
+│       ├── multihop_advantage.yaml
+│       ├── parallel_spread.yaml
+│       ├── widest_vs_shortest.yaml
+│       └── interference_test.yaml
 ```
 
 ---
@@ -664,7 +723,7 @@ The following are planned for future phases but explicitly out of scope for Phas
 - **Mobility**: Node movement during simulation
 - **Dynamic topology**: Link up/down, jammers, disruptions
 - **Multi-DAG**: Multiple DAGs with rescheduling
-- **Multi-hop routing**: Shortest-path routing across network
+- **Additional interference models**: TDMA, SINR-based, or learned interference patterns
 
 ---
 
