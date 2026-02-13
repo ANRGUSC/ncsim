@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ncsim Architecture</title>
+<style>
+  :root {
+    --bg: #fdfdfd;
+    --fg: #1a1a1a;
+    --accent: #2d5aa0;
+    --accent-light: #e8f0fe;
+    --border: #d0d0d0;
+    --code-bg: #f5f5f5;
+    --pre-bg: #1e1e2e;
+    --pre-fg: #cdd6f4;
+    --kw: #89b4fa;
+    --str: #a6e3a1;
+    --cmt: #6c7086;
+    --num: #fab387;
+    --table-stripe: #f8f8f8;
+    --table-head: #2d5aa0;
+    --table-head-fg: #fff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.65;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem; color: var(--accent); }
+  .subtitle { font-size: 1.05rem; color: #555; margin-bottom: 2rem; }
+  h2 {
+    font-size: 1.35rem; font-weight: 600; color: var(--accent);
+    margin: 2.5rem 0 0.75rem; padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--accent-light);
+  }
+  h3 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
+  p { margin-bottom: 0.75rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.88em; background: var(--code-bg);
+    padding: 0.15em 0.4em; border-radius: 3px;
+  }
+  pre {
+    background: var(--pre-bg); color: var(--pre-fg);
+    padding: 1rem 1.25rem; border-radius: 6px;
+    overflow-x: auto; margin: 0.75rem 0 1rem;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+  .kw { color: var(--kw); }
+  .str { color: var(--str); }
+  .cmt { color: var(--cmt); font-style: italic; }
+  .num { color: var(--num); }
+  table {
+    width: 100%; border-collapse: collapse;
+    margin: 0.75rem 0 1rem; font-size: 0.92rem;
+  }
+  th {
+    background: var(--table-head); color: var(--table-head-fg);
+    font-weight: 600; text-align: left;
+    padding: 0.5rem 0.75rem;
+  }
+  td {
+    padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: var(--table-stripe); }
+  .diagram {
+    background: var(--pre-bg); color: var(--pre-fg);
+    padding: 1.25rem 1.5rem; border-radius: 6px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.82rem; line-height: 1.6;
+    overflow-x: auto; margin: 0.75rem 0 1rem;
+    white-space: pre;
+  }
+  .note {
+    background: var(--accent-light); border-left: 3px solid var(--accent);
+    padding: 0.6rem 1rem; border-radius: 0 4px 4px 0;
+    margin: 0.75rem 0 1rem; font-size: 0.92rem;
+  }
+  ul, ol { margin: 0.5rem 0 0.75rem 1.5rem; }
+  li { margin-bottom: 0.25rem; }
+  .toc { margin: 1rem 0 2rem; }
+  .toc ol { list-style: none; counter-reset: toc; margin-left: 0; }
+  .toc li { counter-increment: toc; margin-bottom: 0.35rem; }
+  .toc li::before {
+    content: counter(toc) ".";
+    color: var(--accent); font-weight: 600;
+    display: inline-block; width: 1.5rem;
+  }
+  .formula {
+    background: var(--code-bg); padding: 0.6rem 1rem;
+    border-radius: 4px; margin: 0.5rem 0 0.75rem;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9rem;
+  }
+  footer {
+    margin-top: 3rem; padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem; color: #888;
+  }
+</style>
+</head>
+<body>
+
+<h1>ncsim</h1>
+<p class="subtitle">Headless Discrete Event Simulator for Networked Computing</p>
+
+<nav class="toc">
+<ol>
+  <li><a href="#overview">Overview</a></li>
+  <li><a href="#architecture">Architecture Diagram</a></li>
+  <li><a href="#modules">Module Map</a></li>
+  <li><a href="#dataflow">Data Flow</a></li>
+  <li><a href="#abstractions">Key Abstractions</a></li>
+  <li><a href="#cli">CLI Reference</a></li>
+  <li><a href="#scenario">Scenario YAML Format</a></li>
+  <li><a href="#scenarios">Built-in Scenarios</a></li>
+  <li><a href="#models">Simulation Models</a></li>
+  <li><a href="#testing">Testing</a></li>
+</ol>
+</nav>
+
+<!-- ─── 1. OVERVIEW ─── -->
+<h2 id="overview">1. Overview</h2>
+<p>
+  <strong>ncsim</strong> is a headless, deterministic discrete-event simulator for
+  networked computing research. Given a network topology and a task DAG described in
+  YAML, it schedules tasks onto nodes (using HEFT, CPOP, or round-robin), simulates
+  execution and data transfers with bandwidth sharing and wireless interference, and
+  produces a JSONL event trace and JSON metrics.
+</p>
+<p>
+  Same inputs + same seed = identical output, every time. The simulator is designed for
+  reproducible experiments comparing scheduling algorithms, routing strategies, and
+  interference models.
+</p>
+
+<!-- ─── 2. ARCHITECTURE DIAGRAM ─── -->
+<h2 id="architecture">2. Architecture Diagram</h2>
+<div class="diagram">                          ncsim pipeline
+                          ────────────────
+
+  scenario.yaml          ScenarioLoader         Scheduler (HEFT/CPOP/RR)
+  ┌──────────┐           ┌─────────────┐        ┌──────────────────────┐
+  │ network:  │──parse──▶│  Network     │───┐    │  on_dag_inject()     │
+  │ dags:     │          │  DAG(s)      │   │    │  → PlacementPlan     │
+  │ config:   │          │  Config      │   │    │    {task → node}     │
+  └──────────┘           └─────────────┘   │    └──────────────────────┘
+                                           │               │
+                                           ▼               ▼
+                                    ┌─────────────────────────────────┐
+                                    │       Execution Engine          │
+                                    │                                 │
+                                    │  EventQueue (heapq min-heap)    │
+                                    │  ┌─────────────────────────┐    │
+                                    │  │ (time, priority, id)    │    │
+                                    │  │ DAG_INJECT → TASK_READY │    │
+                                    │  │ → TASK_START → COMPLETE │    │
+                                    │  │ → TRANSFER_START → ...  │    │
+                                    │  └─────────────────────────┘    │
+                                    │                                 │
+                                    │  RoutingModel  InterferenceModel│
+                                    │  NodeState[]   LinkState[]      │
+                                    └────────────┬────────────────────┘
+                                                 │
+                              ┌──────────────────┼──────────────────┐
+                              ▼                  ▼                  ▼
+                       trace.jsonl        metrics.json         stdout
+                       (TraceWriter)      (ResultsWriter)      summary</div>
+
+<!-- ─── 3. MODULE MAP ─── -->
+<h2 id="modules">3. Module Map</h2>
+
+<h3>ncsim/ncsim/core/</h3>
+<table>
+  <tr><th>File</th><th>Role</th></tr>
+  <tr><td><code>simulation.py</code></td><td>Top-level simulation driver. Wires up event queue, engine, DAG injection, and telemetry. Runs the main event loop.</td></tr>
+  <tr><td><code>event_queue.py</code></td><td>Priority queue (<code>heapq</code>) with <code>(time, priority, id)</code> ordering, event cancellation, and microsecond time rounding.</td></tr>
+  <tr><td><code>execution_engine.py</code></td><td>Processes events, manages node/link state, handles bandwidth sharing and interference recalculation. The heart of the simulator.</td></tr>
+  <tr><td><code>telemetry.py</code></td><td>Pluggable telemetry collection (trace-only by default).</td></tr>
+</table>
+
+<h3>ncsim/ncsim/models/</h3>
+<table>
+  <tr><th>File</th><th>Role</th></tr>
+  <tr><td><code>network.py</code></td><td>Node, Link, Position, and Network dataclasses. Adjacency helpers (<code>get_links_from</code>, <code>get_link_between</code>).</td></tr>
+  <tr><td><code>task.py</code></td><td>Task model with <code>compute_cost</code>, <code>pinned_to</code>, <code>execution_time()</code>. TaskState tracks runtime status. FIFOQueueModel for node queues.</td></tr>
+  <tr><td><code>dag.py</code></td><td>DAG model with tasks, edges, topological sort, predecessor/successor queries. DAGSource interface and SingleDAGSource/MultiDAGSource implementations.</td></tr>
+  <tr><td><code>routing.py</code></td><td>RoutingModel ABC with three implementations: DirectLinkRouting, WidestPathRouting (max-min bandwidth Dijkstra), ShortestPathRouting (min-latency Dijkstra).</td></tr>
+  <tr><td><code>interference.py</code></td><td>InterferenceModel ABC with NoInterference and ProximityInterference (1/k factor within radius). Factory function.</td></tr>
+</table>
+
+<h3>ncsim/ncsim/scheduler/</h3>
+<table>
+  <tr><th>File</th><th>Role</th></tr>
+  <tr><td><code>base.py</code></td><td>Scheduler ABC, PlacementPlan, NetworkSnapshot, RoundRobinScheduler. Defines the WHERE interface.</td></tr>
+  <tr><td><code>saga_adapter.py</code></td><td>Wraps <code>anrg-saga</code> library (HEFT/CPOP). Converts ncsim models to SAGA format, extracts assignments. Factory: <code>create_scheduler()</code>.</td></tr>
+</table>
+
+<h3>ncsim/ncsim/io/</h3>
+<table>
+  <tr><th>File</th><th>Role</th></tr>
+  <tr><td><code>scenario_loader.py</code></td><td>Parses YAML scenario files into Scenario objects (network + DAGs + config). Validates structure.</td></tr>
+  <tr><td><code>trace_writer.py</code></td><td>Writes JSONL trace with sim_start/sim_end framing. TraceEventAdapter converts engine events to trace lines.</td></tr>
+  <tr><td><code>results_writer.py</code></td><td>Writes metrics.json with makespan, utilization, event counts.</td></tr>
+</table>
+
+<h3>ncsim/</h3>
+<table>
+  <tr><th>File</th><th>Role</th></tr>
+  <tr><td><code>main.py</code></td><td>CLI entry point. Argument parsing, component wiring, output writing, summary printing.</td></tr>
+  <tr><td><code>run_interference_comparison.py</code></td><td>Script that runs scenarios with/without interference and compares results.</td></tr>
+</table>
+
+<!-- ─── 4. DATA FLOW ─── -->
+<h2 id="dataflow">4. Data Flow</h2>
+<ol>
+  <li><strong>Load</strong> &mdash; <code>ScenarioLoader</code> reads the YAML file and produces a <code>Scenario</code> with <code>Network</code>, <code>DAG</code>(s), and <code>Config</code>.</li>
+  <li><strong>Configure</strong> &mdash; CLI overrides (seed, scheduler, routing, interference) are applied on top of the scenario config.</li>
+  <li><strong>Wire</strong> &mdash; <code>Simulation</code> is constructed with the network, a <code>Scheduler</code>, a <code>DAGSource</code>, a <code>RoutingModel</code>, and an optional <code>InterferenceModel</code>.</li>
+  <li><strong>Inject</strong> &mdash; DAGs are injected at their <code>inject_at</code> times as <code>DAG_INJECT</code> events. The scheduler's <code>on_dag_inject()</code> returns a <code>PlacementPlan</code>.</li>
+  <li><strong>Execute</strong> &mdash; The event loop pops events from the priority queue. The engine handles each event type, updating node/link state and scheduling follow-on events.</li>
+  <li><strong>Trace</strong> &mdash; Each processed event is forwarded to the <code>TraceWriter</code>, which appends a JSON line to <code>trace.jsonl</code>.</li>
+  <li><strong>Results</strong> &mdash; After the queue is empty, makespan and utilization metrics are written to <code>metrics.json</code>.</li>
+</ol>
+
+<!-- ─── 5. KEY ABSTRACTIONS ─── -->
+<h2 id="abstractions">5. Key Abstractions</h2>
+<p>Each extension point is an abstract base class. Swap implementations via CLI flags or scenario config.</p>
+
+<table>
+  <tr><th>Abstraction</th><th>Interface</th><th>Implementations</th><th>Configured by</th></tr>
+  <tr>
+    <td><strong>Scheduler</strong></td>
+    <td><code>Scheduler.on_dag_inject(dag, snapshot) &rarr; PlacementPlan</code></td>
+    <td><code>RoundRobinScheduler</code>, <code>SagaScheduler</code> (HEFT, CPOP)</td>
+    <td><code>--scheduler</code></td>
+  </tr>
+  <tr>
+    <td><strong>RoutingModel</strong></td>
+    <td><code>RoutingModel.get_path(src, dst, network) &rarr; [link_ids]</code></td>
+    <td><code>DirectLinkRouting</code>, <code>WidestPathRouting</code>, <code>ShortestPathRouting</code></td>
+    <td><code>--routing</code></td>
+  </tr>
+  <tr>
+    <td><strong>InterferenceModel</strong></td>
+    <td><code>InterferenceModel.get_interference_factor(link, actives, net) &rarr; float</code></td>
+    <td><code>NoInterference</code>, <code>ProximityInterference(radius)</code></td>
+    <td><code>--interference</code></td>
+  </tr>
+  <tr>
+    <td><strong>DAGSource</strong></td>
+    <td><code>DAGSource.get_next_injection(after_time) &rarr; (time, dag)</code></td>
+    <td><code>SingleDAGSource</code>, <code>MultiDAGSource</code></td>
+    <td>Scenario YAML (one or multiple DAGs)</td>
+  </tr>
+</table>
+
+<!-- ─── 6. CLI REFERENCE ─── -->
+<h2 id="cli">6. CLI Reference</h2>
+
+<pre><code>ncsim --scenario PATH --output DIR [options]</code></pre>
+
+<table>
+  <tr><th>Argument</th><th>Required</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>--scenario PATH</code></td><td>Yes</td><td>&mdash;</td><td>Path to scenario YAML file</td></tr>
+  <tr><td><code>--output DIR</code></td><td>Yes</td><td>&mdash;</td><td>Output directory for trace.jsonl and metrics.json</td></tr>
+  <tr><td><code>--seed N</code></td><td>No</td><td>from YAML</td><td>Random seed (overrides scenario config)</td></tr>
+  <tr><td><code>--scheduler ALGO</code></td><td>No</td><td>from YAML</td><td>Scheduling algorithm: <code>heft</code>, <code>cpop</code>, <code>round_robin</code></td></tr>
+  <tr><td><code>--routing MODE</code></td><td>No</td><td>from YAML</td><td>Routing: <code>direct</code>, <code>widest_path</code>, <code>shortest_path</code></td></tr>
+  <tr><td><code>--interference MODEL</code></td><td>No</td><td>from YAML</td><td>Interference model: <code>none</code>, <code>proximity</code></td></tr>
+  <tr><td><code>--interference-radius N</code></td><td>No</td><td>15.0</td><td>Radius for proximity interference model</td></tr>
+  <tr><td><code>--verbose, -v</code></td><td>No</td><td>off</td><td>Enable debug logging</td></tr>
+  <tr><td><code>--version</code></td><td>No</td><td>&mdash;</td><td>Print version and exit</td></tr>
+</table>
+
+<h3>Example Commands</h3>
+<pre><code><span class="cmt"># Basic run</span>
+ncsim --scenario scenarios/demo_simple.yaml --output results/demo/
+
+<span class="cmt"># Override scheduler and routing</span>
+ncsim --scenario scenarios/parallel_spread.yaml --output results/spread/ \
+      --scheduler heft --routing widest_path
+
+<span class="cmt"># Disable interference</span>
+ncsim --scenario scenarios/interference_test.yaml --output results/no_interf/ \
+      --interference none
+
+<span class="cmt"># Custom interference radius with verbose logging</span>
+ncsim --scenario scenarios/interference_test.yaml --output results/radius20/ \
+      --interference proximity --interference-radius 20 -v
+
+<span class="cmt"># Determinism check: two runs with same seed produce identical traces</span>
+ncsim --scenario scenarios/demo_simple.yaml --seed 42 --output /tmp/a/
+ncsim --scenario scenarios/demo_simple.yaml --seed 42 --output /tmp/b/
+diff /tmp/a/trace.jsonl /tmp/b/trace.jsonl  <span class="cmt"># empty = identical</span></code></pre>
+
+<!-- ─── 7. SCENARIO YAML FORMAT ─── -->
+<h2 id="scenario">7. Scenario YAML Format</h2>
+
+<pre><code><span class="kw">scenario</span>:
+  <span class="kw">name</span>: <span class="str">"My Experiment"</span>
+
+  <span class="kw">network</span>:
+    <span class="kw">nodes</span>:
+      - <span class="kw">id</span>: n0
+        <span class="kw">compute_capacity</span>: <span class="num">100</span>      <span class="cmt"># compute_units/second</span>
+        <span class="kw">position</span>: {<span class="kw">x</span>: <span class="num">0</span>, <span class="kw">y</span>: <span class="num">0</span>}  <span class="cmt"># for visualization & interference</span>
+      - <span class="kw">id</span>: n1
+        <span class="kw">compute_capacity</span>: <span class="num">50</span>
+        <span class="kw">position</span>: {<span class="kw">x</span>: <span class="num">10</span>, <span class="kw">y</span>: <span class="num">0</span>}
+
+    <span class="kw">links</span>:
+      - <span class="kw">id</span>: l01
+        <span class="kw">from</span>: n0                   <span class="cmt"># directional: n0 → n1</span>
+        <span class="kw">to</span>: n1
+        <span class="kw">bandwidth</span>: <span class="num">100</span>             <span class="cmt"># MB/second</span>
+        <span class="kw">latency</span>: <span class="num">0.001</span>            <span class="cmt"># seconds</span>
+
+  <span class="kw">dags</span>:
+    - <span class="kw">id</span>: dag_1
+      <span class="kw">inject_at</span>: <span class="num">0.0</span>             <span class="cmt"># simulation time to inject</span>
+      <span class="kw">tasks</span>:
+        - <span class="kw">id</span>: T0
+          <span class="kw">compute_cost</span>: <span class="num">100</span>       <span class="cmt"># compute_units (runtime = cost / capacity)</span>
+        - <span class="kw">id</span>: T1
+          <span class="kw">compute_cost</span>: <span class="num">200</span>
+          <span class="kw">pinned_to</span>: n1            <span class="cmt"># optional: force assignment to this node</span>
+      <span class="kw">edges</span>:
+        - <span class="kw">from</span>: T0
+          <span class="kw">to</span>: T1
+          <span class="kw">data_size</span>: <span class="num">50</span>           <span class="cmt"># MB to transfer</span>
+
+  <span class="kw">config</span>:
+    <span class="kw">scheduler</span>: heft             <span class="cmt"># heft | cpop | round_robin</span>
+    <span class="kw">seed</span>: <span class="num">42</span>
+    <span class="kw">routing</span>: direct             <span class="cmt"># direct | widest_path | shortest_path</span>
+    <span class="kw">interference</span>: proximity      <span class="cmt"># none | proximity (default: proximity)</span>
+    <span class="kw">interference_radius</span>: <span class="num">15.0</span>   <span class="cmt"># default: 15.0</span></code></pre>
+
+<!-- ─── 8. BUILT-IN SCENARIOS ─── -->
+<h2 id="scenarios">8. Built-in Scenarios</h2>
+
+<table>
+  <tr><th>File</th><th>Nodes</th><th>Description</th></tr>
+  <tr>
+    <td><code>demo_simple.yaml</code></td>
+    <td>2</td>
+    <td>Minimal 2-task chain on 2 nodes. Baseline sanity test. Expected makespan ~3.501s with HEFT.</td>
+  </tr>
+  <tr>
+    <td><code>bandwidth_contention.yaml</code></td>
+    <td>3</td>
+    <td>Two concurrent transfers on a shared link. Tests fair bandwidth sharing (each gets 50 MB/s). Makespan ~2.02s.</td>
+  </tr>
+  <tr>
+    <td><code>multi_hop_test.yaml</code></td>
+    <td>3</td>
+    <td>Linear 3-node chain (n0&rarr;n1&rarr;n2). Tests multi-hop widest-path routing.</td>
+  </tr>
+  <tr>
+    <td><code>multi_hop_forced.yaml</code></td>
+    <td>3</td>
+    <td>Same topology with pinned tasks forcing a multi-hop transfer n0&rarr;n2 through n1.</td>
+  </tr>
+  <tr>
+    <td><code>multihop_advantage.yaml</code></td>
+    <td>3</td>
+    <td>Heterogeneous nodes (10/10/1000 cu/s). Shows multi-hop reaching a fast node yields 49% speedup.</td>
+  </tr>
+  <tr>
+    <td><code>parallel_spread.yaml</code></td>
+    <td>5</td>
+    <td>Fan-out/fan-in DAG with 8 parallel tasks across 5 nodes. HEFT + widest_path spreads load for 31% improvement.</td>
+  </tr>
+  <tr>
+    <td><code>widest_vs_shortest.yaml</code></td>
+    <td>4</td>
+    <td>Diamond topology where widest-path and shortest-path diverge. Widest wins ~2.7x on large transfers.</td>
+  </tr>
+  <tr>
+    <td><code>interference_test.yaml</code></td>
+    <td>4</td>
+    <td>Two parallel links 5 units apart. Tests proximity interference: makespan doubles (1.02s &rarr; 2.02s) with radius=10.</td>
+  </tr>
+</table>
+
+<!-- ─── 9. SIMULATION MODELS ─── -->
+<h2 id="models">9. Simulation Models</h2>
+
+<h3>9.1 Compute Time</h3>
+<div class="formula">task_runtime = compute_cost / node.compute_capacity</div>
+<p>Each node runs at most one task at a time (single-server FIFO queue). No preemption.</p>
+
+<h3>9.2 Transfer Time</h3>
+<div class="formula">transfer_time = (data_size / effective_bandwidth) + total_latency</div>
+<p>For multi-hop paths, <code>total_latency</code> is the sum of all link latencies (store-and-forward), and
+<code>effective_bandwidth</code> is the bottleneck across all links after sharing and interference.</p>
+
+<h3>9.3 Bandwidth Sharing (Per-Link)</h3>
+<p>If N transfers share a link simultaneously, each gets <code>base_bandwidth / N</code>.
+When a transfer starts or completes, all co-resident transfers are recalculated with updated completion times.</p>
+
+<h3>9.4 Inter-Link Interference</h3>
+<p>Orthogonal to per-link sharing. Reduces a link's base bandwidth when nearby links are active.</p>
+<div class="formula">effective_per_flow = (link.bandwidth &times; interference_factor) / num_flows_on_link</div>
+
+<p><strong>Proximity model</strong> (default, radius=15): compute the midpoint of each link from endpoint positions.
+Count k = active links (including self) whose midpoints are within <code>interference_radius</code>.
+Factor = <code>1/k</code>. When a transfer starts or finishes, nearby links are recalculated.</p>
+
+<table>
+  <tr><th>Model</th><th>Class</th><th>Behavior</th></tr>
+  <tr><td><code>none</code></td><td><code>NoInterference</code></td><td>Always returns factor 1.0. No cross-link effects.</td></tr>
+  <tr><td><code>proximity</code></td><td><code>ProximityInterference(radius)</code></td><td>Counts k active links within radius of midpoint. Factor = 1/k.</td></tr>
+</table>
+
+<h3>9.5 Routing Modes</h3>
+<table>
+  <tr><th>Mode</th><th>Algorithm</th><th>Best for</th></tr>
+  <tr><td><code>direct</code></td><td>Single-hop only. Requires explicit link between nodes.</td><td>Simple topologies with full connectivity</td></tr>
+  <tr><td><code>widest_path</code></td><td>Modified Dijkstra maximizing bottleneck bandwidth (max-min). Cached.</td><td>Large transfers where bandwidth dominates</td></tr>
+  <tr><td><code>shortest_path</code></td><td>Standard Dijkstra minimizing total latency. Cached.</td><td>Small transfers or latency-sensitive workloads</td></tr>
+</table>
+
+<h3>9.6 Event Ordering &amp; Determinism</h3>
+<p>Events are ordered by a three-level key:</p>
+<div class="formula">(round(sim_time, 6), event_type.priority, event_id)</div>
+<p>All times are rounded to microsecond precision (6 decimal places). Event types have fixed priorities:</p>
+<table>
+  <tr><th>Event Type</th><th>Priority</th><th>Description</th></tr>
+  <tr><td><code>DAG_INJECT</code></td><td>0</td><td>New DAG arrives</td></tr>
+  <tr><td><code>TASK_COMPLETE</code></td><td>1</td><td>Task finishes execution</td></tr>
+  <tr><td><code>TRANSFER_COMPLETE</code></td><td>2</td><td>Data transfer finishes</td></tr>
+  <tr><td><code>TASK_READY</code></td><td>3</td><td>Task ready to execute</td></tr>
+  <tr><td><code>TASK_START</code></td><td>4</td><td>Task begins execution</td></tr>
+  <tr><td><code>TRANSFER_START</code></td><td>5</td><td>Data transfer begins</td></tr>
+</table>
+<p>Same inputs + same seed = identical event sequence. The <code>event_id</code> (monotonic counter)
+breaks ties for insertion-order FIFO at the same time and priority.</p>
+
+<!-- ─── 10. TESTING ─── -->
+<h2 id="testing">10. Testing</h2>
+
+<pre><code><span class="cmt"># Run all tests</span>
+cd ncsim
+python -m pytest tests/ -v
+
+<span class="cmt"># Run a specific test file</span>
+python -m pytest tests/test_acceptance.py -v</code></pre>
+
+<table>
+  <tr><th>Test File</th><th>Coverage</th></tr>
+  <tr><td><code>test_event_queue.py</code></td><td>Event ordering, cancellation, priority correctness, time rounding</td></tr>
+  <tr><td><code>test_models.py</code></td><td>Node, Link, Network, Task, DAG dataclass creation and methods</td></tr>
+  <tr><td><code>test_routing.py</code></td><td>DirectLink, WidestPath, and ShortestPath routing on various topologies</td></tr>
+  <tr><td><code>test_saga_adapter.py</code></td><td>SAGA HEFT/CPOP integration, model conversion, valid assignments</td></tr>
+  <tr><td><code>test_scenario_loader.py</code></td><td>YAML parsing, config defaults, validation</td></tr>
+  <tr><td><code>test_execution_engine.py</code></td><td>Event handlers, bandwidth sharing, node queuing, transfer mechanics</td></tr>
+  <tr><td><code>test_acceptance.py</code></td><td>End-to-end: determinism, dependency ordering, bandwidth contention, makespan</td></tr>
+</table>
+
+<div class="note">
+  <strong>Determinism test:</strong> Runs the same scenario twice with the same seed and asserts
+  that the resulting traces are byte-identical.
+</div>
+
+<footer>
+  ncsim &mdash; Autonomous Networks Research Group (ANRG), University of Southern California
+</footer>
+
+</body>
+</html>
