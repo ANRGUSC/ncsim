@@ -75,6 +75,9 @@ Settings.md
 openra.6
 update.log
 
+# Simulation output
+ncsim/results/
+
 # Test results
 TestResult.xml
 TestResults/
