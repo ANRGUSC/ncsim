@@ -81,6 +81,7 @@ Example: 200 MB transfer on link with `bandwidth=100` MB/s and `latency=0.005` t
 **Fair share among concurrent flows (composes with interference, see §2.7):**
 - If N transfers share a link simultaneously, each gets `base_bandwidth / N`
 - `base_bandwidth` = `link.bandwidth * interference_factor` (see §2.7)
+- **Note:** Interference is enabled by default (`proximity` model, radius=15), so `interference_factor < 1.0` whenever nearby links are active
 - Transfer times are recalculated when flows start or complete
 - Transfers in progress have their completion times updated dynamically
 
@@ -389,6 +390,8 @@ The status panel shows:
 
 ## 6. PHASE 2: NCSIM CORE ENGINE
 
+**Architecture overview:** See [`ncsim/architecture.html`](https://htmlpreview.github.io/?https://github.com/ANRGUSC/iobt-ncsim/blob/master/ncsim/architecture.html) for a visual diagram of the engine components and data flow.
+
 ### 6.1 Scope (EXACTLY THIS)
 
 **Included:**
@@ -405,7 +408,6 @@ The status panel shows:
 - Mobility / node movement
 - Link up/down events / jammers
 - Multiple DAGs / rescheduling
-- Multi-hop routing
 - Gymnasium environment / RL
 
 ### 6.2 Checkpoints
@@ -674,6 +676,7 @@ iobt-ncsim/
 │
 ├── ncsim/                          # Headless simulator (✅ Phase 2 Complete)
 │   ├── pyproject.toml
+│   ├── architecture.html           # Visual architecture overview
 │   ├── ncsim/
 │   │   ├── __init__.py
 │   │   ├── main.py                 # CLI entry point
