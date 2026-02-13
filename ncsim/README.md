@@ -206,6 +206,8 @@ python analyze_trace.py results/trace.jsonl --gantt --timeline --tasks
 
 ## Architecture
 
+For a detailed interactive overview, see [architecture.html](architecture.html).
+
 ```
 ncsim/
 ├── ncsim/
