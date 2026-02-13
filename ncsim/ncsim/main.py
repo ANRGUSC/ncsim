@@ -70,6 +70,18 @@ def main(args: list = None) -> int:
         help="Routing algorithm (overrides scenario config)"
     )
     parser.add_argument(
+        "--interference",
+        choices=["none", "proximity"],
+        default=None,
+        help="Inter-link interference model (overrides scenario config)"
+    )
+    parser.add_argument(
+        "--interference-radius",
+        type=float,
+        default=None,
+        help="Radius for proximity interference model (overrides scenario config)"
+    )
+    parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable verbose logging"
@@ -110,6 +122,18 @@ def main(args: list = None) -> int:
             from ncsim.models.routing import DirectLinkRouting
             routing_model = DirectLinkRouting()
 
+        # Create interference model
+        interference_type = parsed.interference if parsed.interference else scenario.config.interference
+        interference_radius = parsed.interference_radius if parsed.interference_radius is not None else scenario.config.interference_radius
+        interference_model = None
+        if interference_type != "none":
+            from ncsim.models.interference import create_interference_model
+            logger.info(f"Creating interference model: {interference_type} (radius={interference_radius})")
+            interference_model = create_interference_model(
+                interference_type,
+                interference_radius=interference_radius
+            )
+
         # Create scheduler (pass routing model for SAGA bandwidth awareness)
         logger.info(f"Creating scheduler: {scheduler_algo}")
         if routing_type in ("widest_path", "shortest_path"):
@@ -129,6 +153,7 @@ def main(args: list = None) -> int:
             scheduler=scheduler,
             dag_source=dag_source,
             routing_model=routing_model,
+            interference_model=interference_model,
             seed=seed
         )
 
@@ -189,6 +214,10 @@ def main(args: list = None) -> int:
         print(f"Scenario: {scenario.name}")
         print(f"Scheduler: {scheduler_algo}")
         print(f"Routing: {routing_type}")
+        if interference_type != "none":
+            print(f"Interference: {interference_type} (radius={interference_radius})")
+        else:
+            print(f"Interference: none")
         print(f"Seed: {seed}")
         print(f"Makespan: {result.makespan:.6f} seconds")
         print(f"Total events: {result.total_events}")

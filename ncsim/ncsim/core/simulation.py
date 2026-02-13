@@ -14,6 +14,7 @@ from ncsim.core.telemetry import TelemetryCollector, TraceOnlyCollector
 from ncsim.models.network import Network
 from ncsim.models.dag import DAG, DAGSource, SingleDAGSource
 from ncsim.models.routing import RoutingModel
+from ncsim.models.interference import InterferenceModel
 from ncsim.scheduler.base import Scheduler
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ class Simulation:
         dag_source: Optional[DAGSource] = None,
         telemetry: Optional[TelemetryCollector] = None,
         routing_model: Optional[RoutingModel] = None,
+        interference_model: Optional[InterferenceModel] = None,
         seed: int = 42
     ):
         """Initialize simulation.
@@ -64,6 +66,7 @@ class Simulation:
             dag_source: Source of DAGs to inject (optional if using inject_dag)
             telemetry: Telemetry collector (default: TraceOnlyCollector)
             routing_model: Routing model for multi-hop paths (default: DirectLinkRouting)
+            interference_model: Optional inter-link interference model
             seed: Random seed for reproducibility
         """
         self.network = network
@@ -71,6 +74,7 @@ class Simulation:
         self.dag_source = dag_source
         self.telemetry = telemetry or TraceOnlyCollector()
         self.routing_model = routing_model
+        self.interference_model = interference_model
         self.seed = seed
 
         # Create event queue and execution engine
@@ -79,7 +83,8 @@ class Simulation:
             network=network,
             scheduler=scheduler,
             event_queue=self.event_queue,
-            routing_model=routing_model
+            routing_model=routing_model,
+            interference_model=interference_model
         )
 
         # Track events for trace

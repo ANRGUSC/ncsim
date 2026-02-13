@@ -24,10 +24,14 @@ class ScenarioConfig:
         scheduler: Scheduling algorithm to use ("heft", "cpop", "round_robin")
         seed: Random seed for reproducibility
         routing: Routing algorithm to use ("direct", "widest_path", or "shortest_path")
+        interference: Interference model type ("none" or "proximity")
+        interference_radius: Radius for proximity interference model
     """
     scheduler: str = "heft"
     seed: int = 42
     routing: str = "direct"
+    interference: str = "proximity"
+    interference_radius: float = 15.0
 
 
 @dataclass
@@ -161,7 +165,9 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
     return ScenarioConfig(
         scheduler=str(config_data.get("scheduler", "heft")),
         seed=int(config_data.get("seed", 42)),
-        routing=str(config_data.get("routing", "direct"))
+        routing=str(config_data.get("routing", "direct")),
+        interference=str(config_data.get("interference", "proximity")),
+        interference_radius=float(config_data.get("interference_radius", 15.0))
     )
 
 
