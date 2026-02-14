@@ -7,7 +7,7 @@ Parses scenario YAML files and creates Network/DAG objects.
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Set, Tuple
 
 import yaml
 
@@ -24,14 +24,16 @@ class ScenarioConfig:
         scheduler: Scheduling algorithm to use ("heft", "cpop", "round_robin")
         seed: Random seed for reproducibility
         routing: Routing algorithm to use ("direct", "widest_path", or "shortest_path")
-        interference: Interference model type ("none" or "proximity")
+        interference: Interference model type ("none", "proximity", "csma_clique", "csma_bianchi")
         interference_radius: Radius for proximity interference model
+        rf_config: Raw dict of RF parameters for WiFi models (from YAML rf: section)
     """
     scheduler: str = "heft"
     seed: int = 42
     routing: str = "direct"
     interference: str = "proximity"
     interference_radius: float = 15.0
+    rf_config: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -45,6 +47,7 @@ class Scenario:
         config: Scenario configuration
         file_path: Path to source YAML file
         file_hash: SHA256 hash of scenario file
+        explicit_bandwidth_links: Link IDs that had bandwidth specified in YAML
     """
     name: str
     network: Network
@@ -52,6 +55,7 @@ class Scenario:
     config: ScenarioConfig
     file_path: Optional[str] = None
     file_hash: Optional[str] = None
+    explicit_bandwidth_links: Set[str] = field(default_factory=set)
 
 
 def _compute_file_hash(file_path: Path) -> str:
@@ -86,27 +90,42 @@ def _parse_nodes(nodes_data: List[Dict]) -> Dict[str, Node]:
     return nodes
 
 
-def _parse_links(links_data: List[Dict]) -> Dict[str, Link]:
-    """Parse links from YAML list."""
+def _parse_links(links_data: List[Dict]) -> Tuple[Dict[str, Link], Set[str]]:
+    """Parse links from YAML list.
+
+    Returns:
+        Tuple of (links dict, set of link IDs with explicit bandwidth).
+        Links without explicit bandwidth get a placeholder of 1.0 MB/s
+        (to be overwritten by WiFi model before simulation starts).
+    """
     links = {}
+    explicit_bw: Set[str] = set()
     for link_data in links_data:
         link_id = str(link_data["id"])
+        has_bw = "bandwidth" in link_data
+        bandwidth = float(link_data["bandwidth"]) if has_bw else 1.0
         link = Link(
             id=link_id,
             from_node=str(link_data["from"]),
             to_node=str(link_data["to"]),
-            bandwidth=float(link_data["bandwidth"]),
+            bandwidth=bandwidth,
             latency=float(link_data.get("latency", 0.0))
         )
         links[link_id] = link
-    return links
+        if has_bw:
+            explicit_bw.add(link_id)
+    return links, explicit_bw
 
 
-def _parse_network(network_data: Dict) -> Network:
-    """Parse network topology from YAML."""
+def _parse_network(network_data: Dict) -> Tuple[Network, Set[str]]:
+    """Parse network topology from YAML.
+
+    Returns:
+        Tuple of (Network, set of link IDs with explicit bandwidth).
+    """
     nodes = _parse_nodes(network_data.get("nodes", []))
-    links = _parse_links(network_data.get("links", []))
-    return Network(nodes=nodes, links=links)
+    links, explicit_bw = _parse_links(network_data.get("links", []))
+    return Network(nodes=nodes, links=links), explicit_bw
 
 
 def _parse_tasks(tasks_data: List[Dict], dag_id: str) -> Dict[str, Task]:
@@ -167,7 +186,8 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
         seed=int(config_data.get("seed", 42)),
         routing=str(config_data.get("routing", "direct")),
         interference=str(config_data.get("interference", "proximity")),
-        interference_radius=float(config_data.get("interference_radius", 15.0))
+        interference_radius=float(config_data.get("interference_radius", 15.0)),
+        rf_config=config_data.get("rf"),
     )
 
 
@@ -208,7 +228,7 @@ def load_scenario(file_path: str) -> Scenario:
     network_data = scenario_data.get("network")
     if network_data is None:
         raise ValueError(f"Scenario missing 'network' section: {file_path}")
-    network = _parse_network(network_data)
+    network, explicit_bw_links = _parse_network(network_data)
 
     # Parse DAGs
     dags_data = scenario_data.get("dags", [])
@@ -226,7 +246,8 @@ def load_scenario(file_path: str) -> Scenario:
         dags=dags,
         config=config,
         file_path=str(path.absolute()),
-        file_hash=file_hash
+        file_hash=file_hash,
+        explicit_bandwidth_links=explicit_bw_links,
     )
 
 

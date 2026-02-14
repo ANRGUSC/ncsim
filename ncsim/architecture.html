@@ -125,7 +125,7 @@
   <li><a href="#cli">CLI Reference</a></li>
   <li><a href="#scenario">Scenario YAML Format</a></li>
   <li><a href="#scenarios">Built-in Scenarios</a></li>
-  <li><a href="#models">Simulation Models</a></li>
+  <li><a href="#models">Simulation Models</a> (incl. <a href="#wifi">802.11 WiFi Model</a>)</li>
   <li><a href="#testing">Testing</a></li>
 </ol>
 </nav>
@@ -197,7 +197,8 @@
   <tr><td><code>task.py</code></td><td>Task model with <code>compute_cost</code>, <code>pinned_to</code>, <code>execution_time()</code>. TaskState tracks runtime status. FIFOQueueModel for node queues.</td></tr>
   <tr><td><code>dag.py</code></td><td>DAG model with tasks, edges, topological sort, predecessor/successor queries. DAGSource interface and SingleDAGSource/MultiDAGSource implementations.</td></tr>
   <tr><td><code>routing.py</code></td><td>RoutingModel ABC with three implementations: DirectLinkRouting, WidestPathRouting (max-min bandwidth Dijkstra), ShortestPathRouting (min-latency Dijkstra).</td></tr>
-  <tr><td><code>interference.py</code></td><td>InterferenceModel ABC with NoInterference and ProximityInterference (1/k factor within radius). Factory function.</td></tr>
+  <tr><td><code>interference.py</code></td><td>InterferenceModel ABC with NoInterference, ProximityInterference (1/k within radius), CsmaCliqueInterference (static clique fair share), and CsmaBianchiInterference (dynamic SINR + Bianchi MAC). Factory function.</td></tr>
+  <tr><td><code>wifi.py</code></td><td>802.11 RF physics: log-distance path loss, MCS rate tables (n/ac/ax), Bianchi saturation throughput, conflict graph (Bron-Kerbosch), carrier sensing range, shadow fading. See <a href="#wifi">WiFi Model</a>.</td></tr>
 </table>
 
 <h3>ncsim/ncsim/scheduler/</h3>
@@ -255,7 +256,7 @@
   <tr>
     <td><strong>InterferenceModel</strong></td>
     <td><code>InterferenceModel.get_interference_factor(link, actives, net) &rarr; float</code></td>
-    <td><code>NoInterference</code>, <code>ProximityInterference(radius)</code></td>
+    <td><code>NoInterference</code>, <code>ProximityInterference(radius)</code>, <code>CsmaCliqueInterference</code>, <code>CsmaBianchiInterference</code></td>
     <td><code>--interference</code></td>
   </tr>
   <tr>
@@ -278,8 +279,15 @@
   <tr><td><code>--seed N</code></td><td>No</td><td>from YAML</td><td>Random seed (overrides scenario config)</td></tr>
   <tr><td><code>--scheduler ALGO</code></td><td>No</td><td>from YAML</td><td>Scheduling algorithm: <code>heft</code>, <code>cpop</code>, <code>round_robin</code></td></tr>
   <tr><td><code>--routing MODE</code></td><td>No</td><td>from YAML</td><td>Routing: <code>direct</code>, <code>widest_path</code>, <code>shortest_path</code></td></tr>
-  <tr><td><code>--interference MODEL</code></td><td>No</td><td>from YAML</td><td>Interference model: <code>none</code>, <code>proximity</code></td></tr>
+  <tr><td><code>--interference MODEL</code></td><td>No</td><td>from YAML</td><td>Interference model: <code>none</code>, <code>proximity</code>, <code>csma_clique</code>, <code>csma_bianchi</code></td></tr>
   <tr><td><code>--interference-radius N</code></td><td>No</td><td>15.0</td><td>Radius for proximity interference model</td></tr>
+  <tr><td colspan="4" style="background:#f0f4ff;font-weight:600;border-bottom:2px solid var(--accent-light)">WiFi RF Parameters (for csma_clique / csma_bianchi)</td></tr>
+  <tr><td><code>--tx-power N</code></td><td>No</td><td>20</td><td>WiFi transmit power in dBm</td></tr>
+  <tr><td><code>--freq N</code></td><td>No</td><td>5.0</td><td>Carrier frequency in GHz</td></tr>
+  <tr><td><code>--path-loss-exponent N</code></td><td>No</td><td>3.0</td><td>Path loss exponent (2=free space, 3&ndash;4=indoor)</td></tr>
+  <tr><td><code>--wifi-standard STD</code></td><td>No</td><td>ax</td><td>MCS table selection: <code>n</code>, <code>ac</code>, <code>ax</code></td></tr>
+  <tr><td><code>--rts-cts</code></td><td>No</td><td>false</td><td>Enable RTS/CTS (extends conflict graph to protect receivers)</td></tr>
+  <tr><td colspan="4" style="background:#f0f4ff;font-weight:600;border-bottom:2px solid var(--accent-light)">General</td></tr>
   <tr><td><code>--verbose, -v</code></td><td>No</td><td>off</td><td>Enable debug logging</td></tr>
   <tr><td><code>--version</code></td><td>No</td><td>&mdash;</td><td>Print version and exit</td></tr>
 </table>
@@ -299,6 +307,19 @@ ncsim --scenario scenarios/interference_test.yaml --output results/no_interf/ \
 <span class="cmt"># Custom interference radius with verbose logging</span>
 ncsim --scenario scenarios/interference_test.yaml --output results/radius20/ \
       --interference proximity --interference-radius 20 -v
+
+<span class="cmt"># WiFi with Bianchi dynamic model (link bandwidth derived from RF)</span>
+ncsim --scenario scenarios/wifi_test.yaml --output results/wifi_bianchi/
+
+<span class="cmt"># WiFi with static clique model</span>
+ncsim --scenario scenarios/wifi_clique_test.yaml --output results/wifi_clique/
+
+<span class="cmt"># Override WiFi RF parameters from CLI</span>
+ncsim --scenario scenarios/wifi_test.yaml --output results/wifi_custom/ \
+      --tx-power 23 --freq 2.4 --path-loss-exponent 3.5 --wifi-standard ac
+
+<span class="cmt"># Enable RTS/CTS (extends conflict graph to protect receivers)</span>
+ncsim --scenario scenarios/wifi_test.yaml --output results/wifi_rtscts/ --rts-cts
 
 <span class="cmt"># Determinism check: two runs with same seed produce identical traces</span>
 ncsim --scenario scenarios/demo_simple.yaml --seed 42 --output /tmp/a/
@@ -345,8 +366,25 @@ diff /tmp/a/trace.jsonl /tmp/b/trace.jsonl  <span class="cmt"># empty = identica
     <span class="kw">scheduler</span>: heft             <span class="cmt"># heft | cpop | round_robin</span>
     <span class="kw">seed</span>: <span class="num">42</span>
     <span class="kw">routing</span>: direct             <span class="cmt"># direct | widest_path | shortest_path</span>
-    <span class="kw">interference</span>: proximity      <span class="cmt"># none | proximity (default: proximity)</span>
-    <span class="kw">interference_radius</span>: <span class="num">15.0</span>   <span class="cmt"># default: 15.0</span></code></pre>
+    <span class="kw">interference</span>: proximity      <span class="cmt"># none | proximity | csma_clique | csma_bianchi</span>
+    <span class="kw">interference_radius</span>: <span class="num">15.0</span>   <span class="cmt"># for proximity model (default: 15.0)</span>
+    <span class="kw">rf</span>:                          <span class="cmt"># optional: 802.11 RF parameters (for csma_* models)</span>
+      <span class="kw">tx_power_dBm</span>: <span class="num">20</span>          <span class="cmt"># transmit power (dBm)</span>
+      <span class="kw">freq_ghz</span>: <span class="num">5.0</span>              <span class="cmt"># carrier frequency (GHz)</span>
+      <span class="kw">path_loss_exponent</span>: <span class="num">3.0</span>   <span class="cmt"># n (2=free space, 3-4=indoor)</span>
+      <span class="kw">noise_floor_dBm</span>: <span class="num">-95</span>      <span class="cmt"># receiver noise floor (dBm)</span>
+      <span class="kw">cca_threshold_dBm</span>: <span class="num">-82</span>    <span class="cmt"># clear channel assessment threshold (dBm)</span>
+      <span class="kw">channel_width_mhz</span>: <span class="num">20</span>     <span class="cmt"># 20 | 40 | 80 | 160</span>
+      <span class="kw">wifi_standard</span>: <span class="str">"ax"</span>       <span class="cmt"># "n" | "ac" | "ax" (selects MCS table)</span>
+      <span class="kw">shadow_fading_sigma</span>: <span class="num">0.0</span>  <span class="cmt"># 0 = deterministic, >0 = log-normal std dev (dB)</span>
+      <span class="kw">rts_cts</span>: <span class="num">false</span>             <span class="cmt"># extend conflict graph to protect receivers</span></code></pre>
+
+<div class="note">
+  <strong>WiFi link bandwidth:</strong> When using <code>csma_clique</code> or <code>csma_bianchi</code>,
+  links without an explicit <code>bandwidth</code> field derive their rate from RF parameters (distance &rarr;
+  SNR &rarr; MCS &rarr; MB/s). Links with explicit bandwidth keep their specified value, allowing
+  wired and wireless links in the same scenario.
+</div>
 
 <!-- ─── 8. BUILT-IN SCENARIOS ─── -->
 <h2 id="scenarios">8. Built-in Scenarios</h2>
@@ -393,6 +431,16 @@ diff /tmp/a/trace.jsonl /tmp/b/trace.jsonl  <span class="cmt"># empty = identica
     <td>4</td>
     <td>Two parallel links 5 units apart. Tests proximity interference: makespan doubles (1.02s &rarr; 2.02s) with radius=10.</td>
   </tr>
+  <tr>
+    <td><code>wifi_test.yaml</code></td>
+    <td>4</td>
+    <td>Two parallel 30m WiFi links using <code>csma_bianchi</code>. No explicit bandwidth&mdash;derived from 802.11ax RF model. Tests SINR + Bianchi contention. Makespan ~13.2s.</td>
+  </tr>
+  <tr>
+    <td><code>wifi_clique_test.yaml</code></td>
+    <td>4</td>
+    <td>Same topology as <code>wifi_test</code> but using <code>csma_clique</code> (static clique fair share). Makespan ~11.6s. Faster because 1/&omega; &gt; &eta;(2)/2.</td>
+  </tr>
 </table>
 
 <!-- ─── 9. SIMULATION MODELS ─── -->
@@ -415,15 +463,96 @@ When a transfer starts or completes, all co-resident transfers are recalculated 
 <p>Orthogonal to per-link sharing. Reduces a link's base bandwidth when nearby links are active.</p>
 <div class="formula">effective_per_flow = (link.bandwidth &times; interference_factor) / num_flows_on_link</div>
 
-<p><strong>Proximity model</strong> (default, radius=15): compute the midpoint of each link from endpoint positions.
-Count k = active links (including self) whose midpoints are within <code>interference_radius</code>.
-Factor = <code>1/k</code>. When a transfer starts or finishes, nearby links are recalculated.</p>
-
 <table>
   <tr><th>Model</th><th>Class</th><th>Behavior</th></tr>
   <tr><td><code>none</code></td><td><code>NoInterference</code></td><td>Always returns factor 1.0. No cross-link effects.</td></tr>
   <tr><td><code>proximity</code></td><td><code>ProximityInterference(radius)</code></td><td>Counts k active links within radius of midpoint. Factor = 1/k.</td></tr>
+  <tr><td><code>csma_clique</code></td><td><code>CsmaCliqueInterference</code></td><td>Static: link.bandwidth = PHY_rate / max_clique_size at setup. Factor = 1.0 always. See <a href="#wifi">WiFi Model</a>.</td></tr>
+  <tr><td><code>csma_bianchi</code></td><td><code>CsmaBianchiInterference</code></td><td>Dynamic: separates CSMA contention (Bianchi &eta;(n)/n) from hidden terminal SINR degradation. See <a href="#wifi">WiFi Model</a>.</td></tr>
 </table>
+
+<!-- ─── 9.4.1 WiFi Model ─── -->
+<h3 id="wifi">9.4.1 802.11 WiFi Link &amp; Interference Model</h3>
+
+<p>The WiFi model (<code>csma_clique</code> and <code>csma_bianchi</code>) replaces manually specified
+  link bandwidths with physically-grounded rates derived from RF parameters, node positions, and
+  IEEE 802.11 MCS tables. It is defined in <code>models/wifi.py</code> and <code>models/interference.py</code>.</p>
+
+<p>For full mathematical details, see <code>docs/wifi_interference_model.tex</code>.</p>
+
+<h3>9.4.2 Path Loss &amp; Received Power</h3>
+<p>Log-distance path loss with Friis free-space reference at d<sub>0</sub> = 1m:</p>
+<div class="formula">PL(d<sub>0</sub>) = 20 &middot; log<sub>10</sub>(4&pi; &middot; d<sub>0</sub> &middot; f / c)</div>
+<div class="formula">PL(d) = PL(d<sub>0</sub>) + 10 &middot; n &middot; log<sub>10</sub>(d / d<sub>0</sub>)</div>
+<div class="formula">P<sub>rx</sub>(d) = P<sub>tx</sub> &minus; PL(d) &minus; X<sub>SF</sub></div>
+<p>where X<sub>SF</sub> is the shadow fading component (0 by default). SNR = P<sub>rx</sub> &minus; N<sub>0</sub>.</p>
+
+<h3>9.4.3 MCS Rate Adaptation</h3>
+<p>SNR selects the highest MCS whose minimum threshold is met from IEEE 802.11n/ac/ax tables
+  (1 spatial stream, 20 MHz base). Rates scale linearly with channel width.</p>
+
+<table>
+  <tr><th>Standard</th><th>MCS Range</th><th>Peak Rate (20 MHz)</th><th>Modulation Range</th></tr>
+  <tr><td>802.11n</td><td>0&ndash;7</td><td>65.0 Mbps</td><td>BPSK&ndash;64-QAM</td></tr>
+  <tr><td>802.11ac</td><td>0&ndash;9</td><td>86.7 Mbps</td><td>BPSK&ndash;256-QAM</td></tr>
+  <tr><td>802.11ax</td><td>0&ndash;11</td><td>143.4 Mbps</td><td>BPSK&ndash;1024-QAM</td></tr>
+</table>
+
+<p>If SNR &lt; 5 dB (below MCS 0 threshold), the link is not viable (rate = 0).
+  Rates are converted to MB/s: <code>rate_MBps = rate_Mbps / 8</code>.</p>
+
+<h3>9.4.4 Conflict Graph</h3>
+<p>The conflict graph determines which links cannot transmit simultaneously under CSMA.
+  Carrier sensing range: d<sub>CS</sub> = d<sub>0</sub> &middot; 10<sup>(P<sub>tx</sub> &minus; &theta;<sub>CCA</sub> &minus; PL(d<sub>0</sub>)) / (10n)</sup>.</p>
+
+<p><strong>Without RTS/CTS:</strong> Two links conflict if either transmitter can sense any node of the other link
+  (distance &le; d<sub>CS</sub>).</p>
+<p><strong>With RTS/CTS:</strong> Two links conflict if <em>any</em> node of one link can sense <em>any</em> node
+  of the other link. This extends the conflict zone to protect receivers.</p>
+
+<p>Max clique sizes are computed per-link using Bron-Kerbosch (exact, &le;50 links) or greedy approximation.</p>
+
+<h3>9.4.5 Bianchi MAC Efficiency</h3>
+<p>Bianchi's saturation throughput model (IEEE JSAC, 2000) gives the MAC efficiency &eta;(n) for
+  n contending stations. Solves coupled equations for transmission probability &tau; and collision
+  probability p:</p>
+<div class="formula">&tau; = 2(1&minus;2p) / [(1&minus;2p)(W+1) + pW(1&minus;(2p)<sup>m</sup>)]</div>
+<div class="formula">p = 1 &minus; (1&minus;&tau;)<sup>n&minus;1</sup></div>
+<p>where W = 16 (CWmin) and m = 6 (max backoff stage). Efficiency:</p>
+<div class="formula">&eta;(n) = P<sub>success</sub> &middot; T<sub>success</sub> / E[T<sub>slot</sub>]</div>
+<p>Properties: &eta;(1) = 1.0, monotonically decreasing, always positive. Typical: &eta;(2) &asymp; 0.88, &eta;(10) &asymp; 0.59.</p>
+
+<h3>9.4.6 CSMA Clique Model</h3>
+<p>Static model: all contention effects baked into link bandwidth at setup time.</p>
+<div class="formula">link.bandwidth = PHY_rate / &omega;(&ell;)</div>
+<div class="formula">interference_factor = 1.0 (always)</div>
+<p>where &omega;(&ell;) is the max clique size containing link &ell;. Conservative worst-case bound.
+  No dynamic recalculation needed.</p>
+
+<h3>9.4.7 CSMA Bianchi Model</h3>
+<p>Dynamic model that correctly separates two interference mechanisms:</p>
+<ol>
+  <li><strong>Contention domain</strong> (conflict graph neighbors): CSMA prevents simultaneous TX.
+    These links share airtime: each of n contending links gets &eta;(n)/n of the channel.</li>
+  <li><strong>Hidden terminals</strong> (active links <em>not</em> in conflict graph): May transmit
+    simultaneously, causing SINR degradation at the receiver.</li>
+</ol>
+<div class="formula">link.bandwidth = PHY_rate (base SNR-only rate)</div>
+<div class="formula">factor = (R<sub>SINR</sub> / R<sub>base</sub>) &middot; (&eta;(n) / n)</div>
+<p>where R<sub>SINR</sub> accounts for hidden terminal interference only (SINR from interfering
+  transmitters &rarr; MCS lookup), and n = 1 + |active contending neighbors|. If no hidden terminals
+  are active, R<sub>SINR</sub>/R<sub>base</sub> = 1.0. When a transfer starts/completes, all active
+  conflict graph neighbors are recalculated.</p>
+
+<div class="note">
+  <strong>Key insight:</strong> CSMA prevents simultaneous transmission within the contention domain,
+  so contending links affect throughput via time-sharing (&eta;(n)/n), <em>not</em> via SINR degradation.
+  Only hidden terminals (outside the conflict graph) contribute to SINR reduction.
+</div>
+
+<h3>9.4.8 Shadow Fading</h3>
+<p>Optional log-normal shadow fading (Gaussian in dB domain). Per-node-pair, symmetric, deterministic from seed.
+  Configured via <code>shadow_fading_sigma</code> in the <code>rf:</code> section. Default 0.0 (no fading).</p>
 
 <h3>9.5 Routing Modes</h3>
 <table>
@@ -468,6 +597,7 @@ python -m pytest tests/test_acceptance.py -v</code></pre>
   <tr><td><code>test_scenario_loader.py</code></td><td>YAML parsing, config defaults, validation</td></tr>
   <tr><td><code>test_execution_engine.py</code></td><td>Event handlers, bandwidth sharing, node queuing, transfer mechanics</td></tr>
   <tr><td><code>test_acceptance.py</code></td><td>End-to-end: determinism, dependency ordering, bandwidth contention, makespan</td></tr>
+  <tr><td><code>test_wifi.py</code></td><td>WiFi RF physics: path loss, SNR/SINR, MCS selection, Bianchi efficiency, conflict graph, shadow fading, PHY rate computation (43 tests)</td></tr>
 </table>
 
 <div class="note">

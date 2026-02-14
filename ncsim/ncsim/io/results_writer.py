@@ -19,7 +19,8 @@ def write_results(
     scenario_name: str,
     seed: int,
     total_tasks: int = 0,
-    total_transfers: int = 0
+    total_transfers: int = 0,
+    extra_metrics: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Write simulation results to a JSON file.
 
@@ -30,6 +31,7 @@ def write_results(
         seed: Random seed used
         total_tasks: Number of tasks in DAG(s)
         total_transfers: Number of data transfers
+        extra_metrics: Optional dict of additional metrics (e.g., WiFi RF info)
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +56,9 @@ def write_results(
 
     if result.error_message:
         metrics["error_message"] = result.error_message
+
+    if extra_metrics:
+        metrics.update(extra_metrics)
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
