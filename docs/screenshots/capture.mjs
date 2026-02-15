@@ -257,8 +257,8 @@ async function run() {
   // ── 12: Simulation tab ──
   console.log("12. Simulation tab");
   try {
-    const simBtn = page.getByRole("button", { name: /simulation/i }).first();
-    await simBtn.click();
+    // Use keyboard shortcut '5' — getByRole matches "Close simulation" X button
+    await page.keyboard.press("5");
     await page.waitForTimeout(1000);
     await shot(page, "12-simulation.png", "Simulation view");
   } catch (e) {
@@ -268,7 +268,6 @@ async function run() {
   // ── 13: Parameters tab ──
   console.log("13. Parameters tab");
   try {
-    // Use keyboard shortcut '6' to switch to Parameters tab
     await page.keyboard.press("6");
     await page.waitForTimeout(500);
     await shot(page, "13-parameters.png", "Parameters panel");
@@ -305,18 +304,9 @@ async function run() {
       await cards.first().click();
       await page.waitForTimeout(1500);
     }
-    // Go to simulation tab
-    const simBtn = page.getByRole("button", { name: /simulation/i }).first();
-    if (await simBtn.isVisible().catch(() => false)) {
-      await simBtn.click();
-      await page.waitForTimeout(1000);
-    }
-    // Try to hit play briefly
-    const playBtn = page.locator('button').filter({ hasText: /play|▶/i }).first();
-    if (await playBtn.isVisible().catch(() => false)) {
-      await playBtn.click();
-      await page.waitForTimeout(800);
-    }
+    // Go to simulation tab via keyboard shortcut
+    await page.keyboard.press("5");
+    await page.waitForTimeout(1000);
     await shot(page, "15-simulation-controls.png", "Simulation playback controls");
   } catch (e) {
     console.warn(`  ⚠ Step 15 failed: ${e.message}`);
@@ -325,11 +315,9 @@ async function run() {
   // ── 16: Overview of loaded experiment ──
   console.log("16. Loaded experiment overview");
   try {
-    const overviewBtn = page.getByRole("button", { name: /overview/i }).first();
-    if (await overviewBtn.isVisible().catch(() => false)) {
-      await overviewBtn.click();
-      await page.waitForTimeout(500);
-    }
+    // Switch to overview tab via keyboard shortcut
+    await page.keyboard.press("1");
+    await page.waitForTimeout(500);
     await shot(page, "16-loaded-overview.png", "Overview of loaded saved experiment");
   } catch (e) {
     console.warn(`  ⚠ Step 16 failed: ${e.message}`);
