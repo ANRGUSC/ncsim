@@ -42,6 +42,9 @@ test_output/
 viz/public/sample-runs/*
 !viz/public/sample-runs/demo-simple/
 
+# E2E test screenshots
+viz/e2e-screenshots/
+
 # LaTeX build artifacts
 docs/*.aux
 docs/*.log
