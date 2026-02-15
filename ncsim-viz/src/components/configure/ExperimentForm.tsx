@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ArrowLeft, Play, Loader2, AlertCircle } from 'lucide-react';
 import yaml from 'js-yaml';
 import type { NodeDef, LinkDef, TaskDef, EdgeDef } from '../../types/scenario';
@@ -8,7 +8,7 @@ import { InterferenceSection } from './InterferenceSection';
 import type { RFFormState } from './InterferenceSection';
 import { YamlPreview } from './YamlPreview';
 import { useRunExperiment } from '../../hooks/useRunExperiment';
-import type { TopologyPreset, TopologyParams } from './topologyPresets';
+import type { TopologyPreset, TopologyParams, RFParams } from './topologyPresets';
 import type { DagPreset, DagParams } from './dagPresets';
 import { generateTopology } from './topologyPresets';
 import { generateDag } from './dagPresets';
@@ -68,6 +68,23 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
   const initialDag = generateDag('chain', DEFAULT_DAG_PARAMS);
   const [tasks, setTasks] = useState<TaskDef[]>(initialDag.tasks);
   const [edges, setEdges] = useState<EdgeDef[]>(initialDag.edges);
+
+  // RF params subset for radio range calculation
+  const rfParams: RFParams = useMemo(() => ({
+    tx_power_dBm: rf.tx_power_dBm,
+    freq_ghz: rf.freq_ghz,
+    path_loss_exponent: rf.path_loss_exponent,
+    noise_floor_dBm: rf.noise_floor_dBm,
+  }), [rf.tx_power_dBm, rf.freq_ghz, rf.path_loss_exponent, rf.noise_floor_dBm]);
+
+  // Regenerate random topology when RF params or seed change
+  useEffect(() => {
+    if (topoPreset === 'random') {
+      const { nodes: n, links: l } = generateTopology('random', topoParams, rfParams, seed);
+      setNodes(n);
+      setLinks(l);
+    }
+  }, [rfParams, seed, topoPreset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Run state
   const { run, running, error: runError } = useRunExperiment();
@@ -211,6 +228,8 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
           params={topoParams}
           nodes={nodes}
           links={links}
+          rfParams={rfParams}
+          seed={seed}
           onPresetChange={setTopoPreset}
           onParamsChange={setTopoParams}
           onNodesChange={setNodes}

@@ -1,7 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { NodeDef, LinkDef } from '../../types/scenario';
-import type { TopologyPreset, TopologyParams } from './topologyPresets';
-import { generateTopology } from './topologyPresets';
+import type { TopologyPreset, TopologyParams, RFParams } from './topologyPresets';
+import { generateTopology, computeRadioRange } from './topologyPresets';
 
 const PRESETS: { value: TopologyPreset; label: string }[] = [
   { value: 'line', label: 'Line' },
@@ -9,6 +9,7 @@ const PRESETS: { value: TopologyPreset; label: string }[] = [
   { value: 'star', label: 'Star' },
   { value: 'mesh', label: 'Mesh (fully connected)' },
   { value: 'grid', label: 'Grid' },
+  { value: 'random', label: 'Random (radio-range)' },
   { value: 'custom', label: 'Custom' },
 ];
 
@@ -17,6 +18,8 @@ interface Props {
   params: TopologyParams;
   nodes: NodeDef[];
   links: LinkDef[];
+  rfParams?: RFParams;
+  seed?: number;
   onPresetChange: (preset: TopologyPreset) => void;
   onParamsChange: (params: TopologyParams) => void;
   onNodesChange: (nodes: NodeDef[]) => void;
@@ -24,13 +27,13 @@ interface Props {
 }
 
 export function TopologySection({
-  preset, params, nodes, links,
+  preset, params, nodes, links, rfParams, seed,
   onPresetChange, onParamsChange, onNodesChange, onLinksChange,
 }: Props) {
   const handlePresetChange = (newPreset: TopologyPreset) => {
     onPresetChange(newPreset);
     if (newPreset !== 'custom') {
-      const { nodes: n, links: l } = generateTopology(newPreset, params);
+      const { nodes: n, links: l } = generateTopology(newPreset, params, rfParams, seed);
       onNodesChange(n);
       onLinksChange(l);
     }
@@ -40,11 +43,13 @@ export function TopologySection({
     const newParams = { ...params, [key]: value };
     onParamsChange(newParams);
     if (preset !== 'custom') {
-      const { nodes: n, links: l } = generateTopology(preset, newParams);
+      const { nodes: n, links: l } = generateTopology(preset, newParams, rfParams, seed);
       onNodesChange(n);
       onLinksChange(l);
     }
   };
+
+  const radioRange = rfParams ? computeRadioRange(rfParams) : undefined;
 
   const updateNode = (idx: number, field: keyof NodeDef | 'x' | 'y', value: string | number) => {
     const updated = [...nodes];
@@ -89,6 +94,12 @@ export function TopologySection({
   return (
     <section>
       <h3 className="text-base font-semibold mb-3">Network Topology</h3>
+
+      {preset === 'random' && radioRange !== undefined && (
+        <p className="text-xs text-[var(--color-text-secondary)] mb-3 italic">
+          Links auto-generated between nodes within radio range ({radioRange.toFixed(1)} m, from PHY config above).
+        </p>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <label className="flex flex-col gap-1">
