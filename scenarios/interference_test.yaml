@@ -1,0 +1,68 @@
+# Interference Test Scenario
+# Tests that two parallel transfers on NEARBY links experience interference
+#
+# Topology:
+#   n0 (0,0) ---l01---> n1 (5,0)
+#   n2 (0,5) ---l23---> n3 (5,5)
+#
+# l01 midpoint: (2.5, 0), l23 midpoint: (2.5, 5)
+# Distance between midpoints: 5.0
+#
+# With interference_radius=10:
+#   Both links interfere (distance 5.0 < 10.0), k=2
+#   Each link gets bandwidth/2 = 50 MB/s
+#
+# Without interference (or interference=none):
+#   T0 (0.01s) -> transfer l01 (100/100 = 1.0s) -> T1 (0.01s)
+#   T2 (0.01s) -> transfer l23 (100/100 = 1.0s) -> T3 (0.01s)
+#   Makespan: 1.02s
+#
+# With proximity interference (radius=10):
+#   T0 (0.01s) -> transfer l01 (100/50 = 2.0s) -> T1 (0.01s)
+#   T2 (0.01s) -> transfer l23 (100/50 = 2.0s) -> T3 (0.01s)
+#   Makespan: 2.02s (transfers take 2x longer due to k=2 interference)
+
+scenario:
+  name: "Interference Test"
+
+  network:
+    nodes:
+      - id: n0
+        compute_capacity: 1000
+        position: {x: 0, y: 0}
+      - id: n1
+        compute_capacity: 1000
+        position: {x: 5, y: 0}
+      - id: n2
+        compute_capacity: 1000
+        position: {x: 0, y: 5}
+      - id: n3
+        compute_capacity: 1000
+        position: {x: 5, y: 5}
+    links:
+      - id: l01
+        from: n0
+        to: n1
+        bandwidth: 100
+        latency: 0.0
+      - id: l23
+        from: n2
+        to: n3
+        bandwidth: 100
+        latency: 0.0
+
+  dags:
+    - id: dag_1
+      inject_at: 0.0
+      tasks:
+        - {id: T0, compute_cost: 10, pinned_to: n0}
+        - {id: T1, compute_cost: 10, pinned_to: n1}
+        - {id: T2, compute_cost: 10, pinned_to: n2}
+        - {id: T3, compute_cost: 10, pinned_to: n3}
+      edges:
+        - {from: T0, to: T1, data_size: 100}
+        - {from: T2, to: T3, data_size: 100}
+
+  config:
+    scheduler: round_robin
+    seed: 42

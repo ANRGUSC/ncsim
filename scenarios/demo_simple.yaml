@@ -1,0 +1,39 @@
+# Demo Simple Scenario
+# Two nodes, one link, simple 2-task DAG
+# Expected (HEFT assigns both to n0): T0 runs 0->1s, transfer 1->1.501s, T1 runs 1.501->3.501s
+# Makespan: 3.501
+
+scenario:
+  name: "Simple Demo"
+
+  network:
+    nodes:
+      - id: n0
+        compute_capacity: 100
+        position: {x: 0, y: 0}
+      - id: n1
+        compute_capacity: 50
+        position: {x: 10, y: 0}
+    links:
+      - id: l01
+        from: n0
+        to: n1
+        bandwidth: 100
+        latency: 0.001
+
+  dags:
+    - id: dag_1
+      inject_at: 0.0
+      tasks:
+        - id: T0
+          compute_cost: 100
+        - id: T1
+          compute_cost: 200
+      edges:
+        - from: T0
+          to: T1
+          data_size: 50
+
+  config:
+    scheduler: heft
+    seed: 42

@@ -1,0 +1,33 @@
+# Multi-hop advantage scenario (pinned tasks, heterogeneous nodes)
+#
+# Topology: n_src(10 cu/s) -> n_relay(10 cu/s) -> n_fast(1000 cu/s)
+# No direct n_src -> n_fast link — forces multi-hop routing
+#
+# Without multi-hop: both tasks stuck on n_src -> 200s
+# With multi-hop: T1 reaches n_fast (100x faster) -> 101.12s (49% faster)
+
+scenario:
+  name: "Multi-Hop Advantage Demo"
+
+  network:
+    nodes:
+      - {id: n_src,   compute_capacity: 10,   position: {x: 0,  y: 0}}
+      - {id: n_relay, compute_capacity: 10,   position: {x: 10, y: 0}}
+      - {id: n_fast,  compute_capacity: 1000, position: {x: 20, y: 0}}
+    links:
+      - {id: l01, from: n_src,   to: n_relay, bandwidth: 100, latency: 0.01}
+      - {id: l12, from: n_relay, to: n_fast,  bandwidth: 100, latency: 0.01}
+
+  dags:
+    - id: dag1
+      inject_at: 0.0
+      tasks:
+        - {id: T0, compute_cost: 1000, pinned_to: n_src}
+        - {id: T1, compute_cost: 1000, pinned_to: n_fast}
+      edges:
+        - {from: T0, to: T1, data_size: 10}
+
+  config:
+    scheduler: round_robin
+    routing: widest_path
+    seed: 42

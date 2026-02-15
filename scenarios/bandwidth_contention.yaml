@@ -1,0 +1,67 @@
+# Bandwidth Contention Test Scenario
+# Tests that two concurrent transfers SHARE bandwidth correctly
+#
+# Topology:  n0 --\
+#                  >-- l_shared --> n2
+#            n1 --/
+#
+# Both T0->T2 and T1->T2 must go through the shared link.
+# Each transfer is 100 MB. Link is 100 MB/s.
+# - If sequential: 1 second each = 2 seconds total
+# - If concurrent with sharing: each gets 50 MB/s = 2 seconds each (parallel)
+# Expected makespan: ~2.02 seconds (0.01 compute + 2.0 transfer + 0.01 compute)
+
+scenario:
+  name: "Bandwidth Contention Test"
+
+  network:
+    nodes:
+      - id: n0
+        compute_capacity: 1000  # Very fast to minimize compute time
+        position: {x: 0, y: 0}
+      - id: n1
+        compute_capacity: 1000
+        position: {x: 0, y: 10}
+      - id: n2
+        compute_capacity: 1000
+        position: {x: 20, y: 5}
+    links:
+      # Single shared link - both transfers must use this
+      # In reality this models a bottleneck (e.g., shared uplink to n2)
+      - id: l_shared
+        from: n0
+        to: n2
+        bandwidth: 100
+        latency: 0.0
+      # n1 also connects to n2 through the same logical bottleneck
+      # For now, we route n1->n2 through n0 conceptually,
+      # but since we only have direct links, we need n1->n0->n2
+      # Actually, let's make n1 send to n0, and n0 sends to n2
+      # This way both T0->T2 and T1->T2 go through l_shared
+
+  dags:
+    - id: dag_1
+      inject_at: 0.0
+      tasks:
+        - id: T0
+          compute_cost: 10  # 0.01 seconds
+          pinned_to: n0
+        - id: T1
+          compute_cost: 10  # 0.01 seconds
+          pinned_to: n0     # CHANGED: T1 also on n0 so both outputs use same link
+        - id: T2
+          compute_cost: 10  # 0.01 seconds
+          pinned_to: n2
+      edges:
+        # 100 MB each on 100 MB/s link
+        # When concurrent, each gets 50 MB/s = 2 seconds each
+        - from: T0
+          to: T2
+          data_size: 100
+        - from: T1
+          to: T2
+          data_size: 100
+
+  config:
+    scheduler: round_robin
+    seed: 42

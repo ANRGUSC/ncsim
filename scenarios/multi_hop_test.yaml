@@ -1,0 +1,26 @@
+scenario:
+  name: "Multi-Hop Test"
+
+  network:
+    nodes:
+      - {id: n0, compute_capacity: 100, position: {x: 0, y: 0}}
+      - {id: n1, compute_capacity: 100, position: {x: 5, y: 0}}
+      - {id: n2, compute_capacity: 100, position: {x: 10, y: 0}}
+    links:
+      # n0 -> n1 -> n2 (no direct n0 -> n2 link)
+      - {id: l01, from: n0, to: n1, bandwidth: 100, latency: 0.01}
+      - {id: l12, from: n1, to: n2, bandwidth: 100, latency: 0.01}
+
+  dags:
+    - id: dag1
+      inject_at: 0.0
+      tasks:
+        - {id: T0, compute_cost: 100}   # 1 second on any node
+        - {id: T1, compute_cost: 100}   # 1 second on any node
+      edges:
+        - {from: T0, to: T1, data_size: 50}  # 50 MB transfer
+
+  config:
+    scheduler: heft
+    routing: widest_path
+    seed: 42
