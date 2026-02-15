@@ -150,4 +150,4 @@ docs/                   # Architecture diagrams
 [PolyForm Noncommercial 1.0.0](LICENSE)
 
 ## Contributors
-**Bhaskar Krishnamachari, Maya Gutierrez**,  — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California
+**Bhaskar Krishnamachari, Maya Gutierrez**  — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California
