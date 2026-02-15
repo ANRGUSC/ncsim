@@ -33,7 +33,10 @@ Requires Python 3.10+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.0.0.
 python -m ncsim --scenario scenarios/demo_simple.yaml --output results/
 ```
 
-Output: `results/trace.jsonl` (event trace) + `results/metrics.json` (summary metrics).
+Output: three files needed as inputs to the [viz/](viz/) web UI:
+- `results/trace.jsonl` — event trace
+- `results/metrics.json` — summary metrics
+- `results/scenario.yaml` — copy of the input scenario
 
 ### CLI options
 
@@ -144,8 +147,9 @@ docs/                   # Architecture diagrams
 
 ## License
 
-[GPL-3.0-or-later](LICENSE)
+[PolyForm Noncommercial 1.0.0](LICENSE)
 
-## Author
+## Contributors
 
-**Bhaskar Krishnamachari** — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California
+- **Bhaskar Krishnamachari** — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California
+- **Maya Gutierrez** — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California
