@@ -1,0 +1,26 @@
+{
+  "scenario": "parallel_spread.yaml",
+  "seed": 42,
+  "makespan": 35.352833,
+  "total_tasks": 10,
+  "total_transfers": 16,
+  "total_events": 51,
+  "status": "completed",
+  "node_utilization": {
+    "n0": 0.0,
+    "n1": 0.629,
+    "n2": 0.905,
+    "n3": 0.943,
+    "n4": 0.0
+  },
+  "link_utilization": {
+    "l01": 0.0,
+    "l10": 0.0,
+    "l12": 0.0,
+    "l21": 0.0,
+    "l23": 0.0,
+    "l32": 0.0,
+    "l34": 0.0,
+    "l43": 0.0
+  }
+}

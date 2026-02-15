@@ -1,0 +1,9 @@
+{"sim_time":0.0,"type":"sim_start","trace_version":"1.0","seed":42,"scenario":"demo_simple.yaml","scenario_hash":"7c96514022196f2f","seq":0}
+{"sim_time":0.0,"type":"dag_inject","dag_id":"dag_1","task_ids":["T0","T1"],"seq":1}
+{"sim_time":0.0,"type":"task_scheduled","dag_id":"dag_1","task_id":"T0","node_id":"n0","seq":2}
+{"sim_time":0.0,"type":"task_start","dag_id":"dag_1","task_id":"T0","node_id":"n0","seq":3}
+{"sim_time":1.0,"type":"task_complete","dag_id":"dag_1","task_id":"T0","node_id":"n0","duration":1.0,"seq":4}
+{"sim_time":1.0,"type":"task_scheduled","dag_id":"dag_1","task_id":"T1","node_id":"n0","seq":5}
+{"sim_time":1.0,"type":"task_start","dag_id":"dag_1","task_id":"T1","node_id":"n0","seq":6}
+{"sim_time":3.0,"type":"task_complete","dag_id":"dag_1","task_id":"T1","node_id":"n0","duration":2.0,"seq":7}
+{"sim_time":3.0,"type":"sim_end","status":"completed","makespan":3.0,"total_events":8,"seq":8}

@@ -7,6 +7,7 @@ Usage:
 
 import argparse
 import logging
+import shutil
 import sys
 from pathlib import Path
 
@@ -314,6 +315,10 @@ def main(args: list = None) -> int:
         output_dir.mkdir(parents=True, exist_ok=True)
         trace_path = output_dir / "trace.jsonl"
         metrics_path = output_dir / "metrics.json"
+
+        # Copy scenario YAML to output dir for self-contained run folders
+        scenario_src = Path(parsed.scenario)
+        shutil.copy2(scenario_src, output_dir / "scenario.yaml")
 
         # Set up trace writer
         trace_writer = TraceWriter(
