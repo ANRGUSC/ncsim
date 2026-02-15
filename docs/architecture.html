@@ -113,7 +113,7 @@
 <body>
 
 <h1>ncsim</h1>
-<p class="subtitle">Headless Discrete Event Simulator for Networked Computing</p>
+<p class="subtitle">Discrete Event Simulator for Networked Computing &mdash; with Interactive Visualization</p>
 
 <nav class="toc">
 <ol>
@@ -127,28 +127,32 @@
   <li><a href="#scenarios">Built-in Scenarios</a></li>
   <li><a href="#models">Simulation Models</a> (incl. <a href="#wifi">802.11 WiFi Model</a>)</li>
   <li><a href="#testing">Testing</a></li>
+  <li><a href="#viz">Visualization Platform</a></li>
 </ol>
 </nav>
 
 <!-- ─── 1. OVERVIEW ─── -->
 <h2 id="overview">1. Overview</h2>
 <p>
-  <strong>ncsim</strong> is a headless, deterministic discrete-event simulator for
-  networked computing research. Given a network topology and a task DAG described in
-  YAML, it schedules tasks onto nodes (using HEFT, CPOP, or round-robin), simulates
-  execution and data transfers with bandwidth sharing and wireless interference, and
-  produces a JSONL event trace and JSON metrics.
+  <strong>ncsim</strong> is a deterministic discrete-event simulator for
+  networked computing research, paired with an interactive web-based visualization platform.
+  Given a network topology and a task DAG described in YAML, the simulator schedules tasks
+  onto nodes (using HEFT, CPOP, or round-robin), simulates execution and data transfers
+  with bandwidth sharing and wireless interference, and produces a JSONL event trace and
+  JSON metrics.
 </p>
 <p>
   Same inputs + same seed = identical output, every time. The simulator is designed for
   reproducible experiments comparing scheduling algorithms, routing strategies, and
-  interference models.
+  interference models. The <strong>viz</strong> platform provides a browser-based UI for
+  configuring scenarios, running simulations, and exploring results through interactive
+  network topology views, DAG layouts, Gantt charts, and animated event replay.
 </p>
 
 <!-- ─── 2. ARCHITECTURE DIAGRAM ─── -->
 <h2 id="architecture">2. Architecture Diagram</h2>
-<div class="diagram">                          ncsim pipeline
-                          ────────────────
+<div class="diagram">                          ncsim + viz pipeline
+                          ─────────────────────
 
   scenario.yaml          ScenarioLoader         Scheduler (HEFT/CPOP/RR)
   ┌──────────┐           ┌─────────────┐        ┌──────────────────────┐
@@ -176,7 +180,27 @@
                               ┌──────────────────┼──────────────────┐
                               ▼                  ▼                  ▼
                        trace.jsonl        metrics.json         stdout
-                       (TraceWriter)      (ResultsWriter)      summary</div>
+                       (TraceWriter)      (ResultsWriter)      summary
+                              │                  │
+                              └──────┬───────────┘
+                                     ▼
+                        ┌───────────────────────────┐
+                        │  viz (React + FastAPI)     │
+                        │                           │
+                        │  FastAPI backend (:8000)   │
+                        │  ├─ POST /api/run          │
+                        │  │  (runs ncsim subprocess)│
+                        │  ├─ GET /api/experiments   │
+                        │  └─ GET /api/experiments/… │
+                        │                           │
+                        │  Vite dev server (:5173)   │
+                        │  ├─ Overview (metrics)     │
+                        │  ├─ Network (D3 topology)  │
+                        │  ├─ DAG (Dagre layout)     │
+                        │  ├─ Schedule (Gantt chart)  │
+                        │  ├─ Simulation (animated)  │
+                        │  └─ Parameters (config)    │
+                        └───────────────────────────┘</div>
 
 <!-- ─── 3. MODULE MAP ─── -->
 <h2 id="modules">3. Module Map</h2>
@@ -221,6 +245,32 @@
   <tr><th>File</th><th>Role</th></tr>
   <tr><td><code>main.py</code></td><td>CLI entry point. Argument parsing, component wiring, output writing, summary printing.</td></tr>
   <tr><td><code>run_interference_comparison.py</code></td><td>Script that runs scenarios with/without interference and compares results.</td></tr>
+</table>
+
+<h3>viz/server/ &mdash; FastAPI Backend</h3>
+<table>
+  <tr><th>File</th><th>Role</th></tr>
+  <tr><td><code>main.py</code></td><td>FastAPI app with <code>/api/run</code> (execute ncsim subprocess), <code>/api/experiments</code> (list saved runs), <code>/api/experiments/{name}</code> (fetch run data). Serves on port 8000.</td></tr>
+  <tr><td><code>run.py</code></td><td>Startup script that launches the uvicorn ASGI server.</td></tr>
+</table>
+
+<h3>viz/src/ &mdash; React Frontend</h3>
+<table>
+  <tr><th>File / Directory</th><th>Role</th></tr>
+  <tr><td><code>App.tsx</code></td><td>Main app shell. Routes between home page and visualization tabs.</td></tr>
+  <tr><td><code>main.tsx</code></td><td>React entry point (Vite).</td></tr>
+  <tr><td><code>components/home/</code></td><td><code>HomePage</code>: two-column layout with configure+run (left) and experiment browser (right).</td></tr>
+  <tr><td><code>components/configure/</code></td><td><code>ExperimentForm</code>, <code>TopologySection</code>, <code>DagSection</code>, <code>InterferenceSection</code>, <code>YamlPreview</code>. Build scenarios from presets (line, ring, star, mesh, grid topologies; chain, fork-join, diamond, parallel DAGs) or manual editing.</td></tr>
+  <tr><td><code>components/overview/</code></td><td><code>OverviewPanel</code>: summary metrics, node/link utilization bars, WiFi config display.</td></tr>
+  <tr><td><code>components/network/</code></td><td><code>NetworkView</code>: D3 force-directed topology graph with pan/zoom, node details on click.</td></tr>
+  <tr><td><code>components/dag/</code></td><td><code>DagView</code>: Dagre automatic DAG layout, tasks colored by assigned node.</td></tr>
+  <tr><td><code>components/gantt/</code></td><td><code>GanttChart</code>: static D3 Gantt chart (x=time, y=node, bars=tasks and transfers).</td></tr>
+  <tr><td><code>components/simulation/</code></td><td><code>SimulationView</code>: animated replay with network overlay, live Gantt bars, event log, and timeline controls (play/pause, speed, step).</td></tr>
+  <tr><td><code>components/parameters/</code></td><td><code>ParametersPanel</code>: full configuration inspector for the loaded scenario.</td></tr>
+  <tr><td><code>engine/SimulationState.ts</code></td><td>Animation state machine tracking current event index and playback speed.</td></tr>
+  <tr><td><code>hooks/</code></td><td><code>useExperiments</code> (load/list runs), <code>usePlayback</code> (replay controls), <code>useRunExperiment</code> (call <code>/api/run</code>), <code>useSimulation</code> (process trace into animation frames).</td></tr>
+  <tr><td><code>loaders/</code></td><td><code>scenarioLoader</code> (parse YAML), <code>traceLoader</code> (parse JSONL), <code>metricsLoader</code> (parse JSON metrics).</td></tr>
+  <tr><td><code>types/</code></td><td>TypeScript interfaces for scenarios, traces, metrics, and UI state.</td></tr>
 </table>
 
 <!-- ─── 4. DATA FLOW ─── -->
@@ -604,6 +654,135 @@ python -m pytest tests/test_acceptance.py -v</code></pre>
   <strong>Determinism test:</strong> Runs the same scenario twice with the same seed and asserts
   that the resulting traces are byte-identical.
 </div>
+
+<!-- ─── 11. VISUALIZATION PLATFORM ─── -->
+<h2 id="viz">11. Visualization Platform</h2>
+
+<p>The <strong>viz</strong> directory contains a full-stack web application for configuring, running, and
+  exploring ncsim simulations interactively. It consists of a React/TypeScript frontend served by Vite
+  and a FastAPI/Python backend that invokes the ncsim CLI as a subprocess.</p>
+
+<h3>11.1 Tech Stack</h3>
+<table>
+  <tr><th>Layer</th><th>Technology</th><th>Details</th></tr>
+  <tr><td>Frontend</td><td>React 19 + TypeScript</td><td>Vite dev server (:5173), Tailwind CSS 4, Lucide React icons</td></tr>
+  <tr><td>Visualization</td><td>D3.js 7 + Dagre</td><td>Network topology (force-directed), DAG layout (hierarchical), Gantt chart (bar chart)</td></tr>
+  <tr><td>Backend</td><td>FastAPI + uvicorn</td><td>ASGI server (:8000), runs ncsim via <code>subprocess.run()</code></td></tr>
+  <tr><td>Build</td><td>Vite</td><td>Dev proxy forwards <code>/api/*</code> to FastAPI; production build outputs to <code>dist/</code></td></tr>
+  <tr><td>Testing</td><td>Playwright</td><td>E2E tests for the full viz pipeline</td></tr>
+</table>
+
+<h3>11.2 Architecture</h3>
+<div class="diagram">  Browser (localhost:5173)                    FastAPI (localhost:8000)
+  ─────────────────────────                  ───────────────────────────
+  ┌─────────────────────┐                    ┌───────────────────────┐
+  │  HomePage            │                    │  POST /api/run        │
+  │  ┌────────┬────────┐ │   POST /api/run    │  ├─ Write YAML to    │
+  │  │Configure│Browse  │ │──────────────────▶│  │  temp directory    │
+  │  │& Run   │Existing│ │                    │  ├─ subprocess.run()  │
+  │  └────────┴────────┘ │◀──────────────────│  │  python -m ncsim   │
+  │         │             │   {scenario,       │  └─ Return outputs   │
+  │         ▼             │    trace, metrics}  │                      │
+  │  ┌─────────────────┐ │                    │  GET /api/experiments │
+  │  │  Tab Navigation  │ │                    │  └─ List sample-runs/ │
+  │  │  ┌────────────┐  │ │                    │                      │
+  │  │  │ Overview   │  │ │   GET /api/        │  GET /api/experiments │
+  │  │  │ Network    │  │ │   experiments/{n}   │  /{name}             │
+  │  │  │ DAG        │  │ │──────────────────▶│  └─ Return run data  │
+  │  │  │ Schedule   │  │ │                    │                      │
+  │  │  │ Simulation │  │ │                    └───────────────────────┘
+  │  │  │ Parameters │  │ │
+  │  │  └────────────┘  │ │
+  │  └─────────────────┘ │
+  └─────────────────────┘</div>
+
+<h3>11.3 Data Flow</h3>
+<ol>
+  <li><strong>Configure</strong> &mdash; The user builds a scenario via the <code>ExperimentForm</code> UI
+    (topology presets, DAG presets, scheduler/routing/interference settings) or loads a saved run from
+    <code>public/sample-runs/</code>.</li>
+  <li><strong>Run</strong> &mdash; The frontend POSTs the experiment name and scenario YAML to
+    <code>/api/run</code>. The backend writes the YAML to a temp directory, invokes
+    <code>python -m ncsim --scenario ... --output ...</code> as a subprocess, and returns the
+    <code>scenario.yaml</code>, <code>trace.jsonl</code>, and <code>metrics.json</code> contents.</li>
+  <li><strong>Parse</strong> &mdash; Frontend loaders (<code>scenarioLoader</code>, <code>traceLoader</code>,
+    <code>metricsLoader</code>) parse the raw text into typed TypeScript objects.</li>
+  <li><strong>Visualize</strong> &mdash; The parsed data flows into six visualization tabs, each rendering
+    a different aspect of the simulation results.</li>
+</ol>
+
+<h3>11.4 Visualization Tabs</h3>
+<table>
+  <tr><th>Tab</th><th>Component</th><th>What It Shows</th></tr>
+  <tr>
+    <td><strong>Overview</strong></td>
+    <td><code>OverviewPanel</code></td>
+    <td>Summary metrics (makespan, total tasks/transfers/events), per-node and per-link utilization bar charts, WiFi RF configuration if applicable.</td>
+  </tr>
+  <tr>
+    <td><strong>Network</strong></td>
+    <td><code>NetworkView</code></td>
+    <td>D3 force-directed network topology. Nodes sized by compute capacity, links labeled with bandwidth. Pan, zoom, and click for details.</td>
+  </tr>
+  <tr>
+    <td><strong>DAG</strong></td>
+    <td><code>DagView</code></td>
+    <td>Dagre hierarchical layout of the task dependency graph. Tasks colored by their assigned node. Edges labeled with data sizes.</td>
+  </tr>
+  <tr>
+    <td><strong>Schedule</strong></td>
+    <td><code>GanttChart</code></td>
+    <td>Static Gantt chart: x-axis = simulation time, y-axis = nodes. Task bars show execution periods, transfer bars show data movement.</td>
+  </tr>
+  <tr>
+    <td><strong>Simulation</strong></td>
+    <td><code>SimulationView</code></td>
+    <td>Animated event replay. Network overlay highlights active nodes/links in real time, live Gantt bars grow as tasks execute, event log shows each event with click-to-jump. Controls: play/pause, speed (0.5x&ndash;16x), step forward/backward.</td>
+  </tr>
+  <tr>
+    <td><strong>Parameters</strong></td>
+    <td><code>ParametersPanel</code></td>
+    <td>Full read-only inspector showing all scenario configuration: network definition, DAG structure, scheduler, routing, interference, and RF parameters.</td>
+  </tr>
+</table>
+
+<h3>11.5 Experiment Configuration Presets</h3>
+<p>The <code>ExperimentForm</code> provides built-in presets for quick scenario construction:</p>
+
+<table>
+  <tr><th>Category</th><th>Presets</th><th>Description</th></tr>
+  <tr>
+    <td>Topologies</td>
+    <td><code>line</code>, <code>ring</code>, <code>star</code>, <code>mesh</code>, <code>grid</code></td>
+    <td>Common network shapes with configurable node count and link properties.</td>
+  </tr>
+  <tr>
+    <td>DAGs</td>
+    <td><code>chain</code>, <code>fork-join</code>, <code>diamond</code>, <code>parallel</code></td>
+    <td>Standard task dependency patterns with configurable task counts and data sizes.</td>
+  </tr>
+</table>
+
+<h3>11.6 Running the Viz Platform</h3>
+<pre><code><span class="cmt"># Start the backend (from viz/server/)</span>
+pip install -r viz/server/requirements.txt
+python viz/server/run.py                <span class="cmt"># FastAPI on http://localhost:8000</span>
+
+<span class="cmt"># Start the frontend (from viz/)</span>
+cd viz && npm install && npm run dev    <span class="cmt"># Vite on http://localhost:5173</span>
+
+<span class="cmt"># Open http://localhost:5173 in a browser</span></code></pre>
+
+<div class="note">
+  <strong>Proxy:</strong> Vite's dev server proxies <code>/api/*</code> requests to the FastAPI backend
+  on port 8000, so both servers must be running during development. In production, build with
+  <code>npm run build</code> and serve the <code>dist/</code> output alongside the backend.
+</div>
+
+<h3>11.7 Sample Runs</h3>
+<p>Pre-generated simulation results are stored in <code>viz/public/sample-runs/</code>. Each
+  subdirectory contains <code>scenario.yaml</code>, <code>trace.jsonl</code>, and <code>metrics.json</code>.
+  These load instantly in the experiment browser without needing the backend.</p>
 
 <footer>
   ncsim &mdash; Autonomous Networks Research Group (ANRG), University of Southern California
