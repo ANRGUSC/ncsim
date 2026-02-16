@@ -115,6 +115,7 @@ class EventQueue:
         self._heap: list[Event] = []
         self._next_id: int = 0
         self._cancelled: set[int] = set()
+        self._pending_ids: set[int] = set()
         self._size: int = 0  # Track non-cancelled events
 
     def schedule(self, sim_time: float, event_type: EventType, **kwargs) -> int:
@@ -139,6 +140,7 @@ class EventQueue:
         )
 
         heapq.heappush(self._heap, event)
+        self._pending_ids.add(event_id)
         self._size += 1
 
         return event_id
@@ -154,9 +156,10 @@ class EventQueue:
         Returns:
             True if event was cancelled, False if already cancelled or not found
         """
-        if event_id in self._cancelled:
+        if event_id in self._cancelled or event_id not in self._pending_ids:
             return False
         self._cancelled.add(event_id)
+        self._pending_ids.remove(event_id)
         self._size -= 1
         return True
 
@@ -171,6 +174,8 @@ class EventQueue:
         while self._heap:
             event = heapq.heappop(self._heap)
             if event.event_id not in self._cancelled:
+                self._pending_ids.discard(event.event_id)
+                self._size -= 1
                 return event
             # Event was cancelled, discard and continue
         return None
@@ -208,6 +213,7 @@ class EventQueue:
         """Remove all events from the queue."""
         self._heap.clear()
         self._cancelled.clear()
+        self._pending_ids.clear()
         self._size = 0
 
     @property
