@@ -1,0 +1,49 @@
+# Widest-path vs Shortest-path divergence scenario
+#
+# Diamond topology with asymmetric paths:
+#
+#            relay_fast (low latency, low BW)
+#           /                                \
+#    src ---                                  --- dst
+#           \                                /
+#            relay_wide (high latency, high BW)
+#
+# Shortest-path picks: src->relay_fast->dst  (latency=0.002s, bottleneck BW=20 MB/s)
+# Widest-path picks:   src->relay_wide->dst  (latency=0.1s,   bottleneck BW=200 MB/s)
+#
+# With 100 MB transfer:
+#   Shortest: 1.0 + (100/20 + 0.002) + 1.0 = 7.002s
+#   Widest:   1.0 + (100/200 + 0.1)  + 1.0 = 2.6s
+#
+# Widest-path ~2.7x faster because the large transfer dominates over latency.
+
+scenario:
+  name: "Widest vs Shortest Path Divergence"
+
+  network:
+    nodes:
+      - {id: src,        compute_capacity: 100, position: {x: 0,  y: 5}}
+      - {id: relay_fast, compute_capacity: 100, position: {x: 5,  y: 0}}
+      - {id: relay_wide, compute_capacity: 100, position: {x: 5,  y: 10}}
+      - {id: dst,        compute_capacity: 100, position: {x: 10, y: 5}}
+    links:
+      # Fast path: low latency, low bandwidth
+      - {id: l_src_fast, from: src,        to: relay_fast, bandwidth: 20,  latency: 0.001}
+      - {id: l_fast_dst, from: relay_fast, to: dst,        bandwidth: 20,  latency: 0.001}
+      # Wide path: high latency, high bandwidth
+      - {id: l_src_wide, from: src,        to: relay_wide, bandwidth: 200, latency: 0.05}
+      - {id: l_wide_dst, from: relay_wide, to: dst,        bandwidth: 200, latency: 0.05}
+
+  dags:
+    - id: dag1
+      inject_at: 0.0
+      tasks:
+        - {id: T0, compute_cost: 100, pinned_to: src}
+        - {id: T1, compute_cost: 100, pinned_to: dst}
+      edges:
+        - {from: T0, to: T1, data_size: 100}
+
+  config:
+    scheduler: round_robin
+    routing: widest_path
+    seed: 42

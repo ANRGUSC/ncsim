@@ -1,0 +1,51 @@
+scenario:
+  name: "WiFi CSMA Clique Test"
+  description: >
+    Tests the csma_clique interference model. Same topology as wifi_test
+    but using the simpler static clique model. Link bandwidth =
+    PHY_rate / max_clique_size. No dynamic SINR or Bianchi efficiency.
+
+  network:
+    nodes:
+      - id: n0
+        compute_capacity: 1000
+        position: {x: 0, y: 0}
+      - id: n1
+        compute_capacity: 1000
+        position: {x: 30, y: 0}
+      - id: n2
+        compute_capacity: 1000
+        position: {x: 0, y: 30}
+      - id: n3
+        compute_capacity: 1000
+        position: {x: 30, y: 30}
+    links:
+      - {id: l01, from: n0, to: n1, latency: 0.0}
+      - {id: l23, from: n2, to: n3, latency: 0.0}
+
+  dags:
+    - id: dag_1
+      inject_at: 0.0
+      tasks:
+        - {id: T0, compute_cost: 10, pinned_to: n0}
+        - {id: T1, compute_cost: 10, pinned_to: n1}
+        - {id: T2, compute_cost: 10, pinned_to: n2}
+        - {id: T3, compute_cost: 10, pinned_to: n3}
+      edges:
+        - {from: T0, to: T1, data_size: 50}
+        - {from: T2, to: T3, data_size: 50}
+
+  config:
+    scheduler: round_robin
+    seed: 42
+    interference: csma_clique
+    rf:
+      tx_power_dBm: 20
+      freq_ghz: 5.0
+      path_loss_exponent: 3.0
+      noise_floor_dBm: -95
+      cca_threshold_dBm: -82
+      channel_width_mhz: 20
+      wifi_standard: "ax"
+      shadow_fading_sigma: 0.0
+      rts_cts: false
