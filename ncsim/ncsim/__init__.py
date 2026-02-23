@@ -5,7 +5,7 @@ This package provides a deterministic DES for simulating DAG execution
 on heterogeneous networked compute nodes.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from ncsim.core.simulation import Simulation
 from ncsim.models.network import Node, Link, Network

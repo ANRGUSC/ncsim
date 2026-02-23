@@ -1,0 +1,16 @@
+{
+  "scenario": "demo_simple.yaml",
+  "seed": 42,
+  "makespan": 3.0,
+  "total_tasks": 2,
+  "total_transfers": 1,
+  "total_events": 7,
+  "status": "completed",
+  "node_utilization": {
+    "n0": 1.0,
+    "n1": 0.0
+  },
+  "link_utilization": {
+    "l01": 0.0
+  }
+}

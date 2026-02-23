@@ -1,79 +1,86 @@
 # ncsim
 
-**Headless Discrete Event Simulator for Networked Computing Research**
+**Networked Compute Simulator** — a headless discrete-event simulator for evaluating task scheduling algorithms on heterogeneous networked systems.
 
-ncsim is a fast, deterministic simulator for evaluating task scheduling algorithms on networked computing systems. It models compute nodes, network links, DAG task graphs, and produces detailed traces for analysis.
+ncsim models compute nodes, network links with WiFi interference, and DAG task graphs. It produces detailed JSONL traces and JSON metrics for analysis. An interactive web UI ([viz/](viz/)) provides topology visualization, Gantt charts, animated replay, and a "Configure & Run" interface.
 
 ## Features
 
 - **Deterministic simulation**: Same inputs + same seed = identical results
 - **HEFT/CPOP scheduling**: Integrated with [anrg-saga](https://github.com/ANRGUSC/saga) schedulers
-- **Bandwidth sharing**: Fair share model when multiple transfers share a link
-- **Single-server queues**: FIFO task queuing at each node
-- **Trace output**: JSONL event traces for analysis and visualization
-- **Metrics**: Makespan, node utilization, link utilization
+- **Multi-hop routing**: Direct, widest-path (max-min bandwidth), and shortest-path (min-latency)
+- **802.11 WiFi PHY/MAC**: Log-distance path loss, SNR-based MCS rate adaptation (802.11n/ac/ax)
+- **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (dynamic SINR)
+- **Fair bandwidth sharing** when multiple transfers share a link
+- **Web visualization** with topology, DAG, Gantt, and animated replay ([viz/](viz/))
 
-## Installation
+## Quick Start
+
+### Install ncsim
 
 ```bash
-cd ncsim
 pip install -e .
 
 # For development (includes pytest)
 pip install -e ".[dev]"
 ```
 
-### Dependencies
+Requires Python 3.10+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.0.0.
 
-- Python 3.10+
-- anrg-saga >= 2.0.0
-- networkx >= 3.0
-- pyyaml >= 6.0
-
-## Usage
-
-### Basic Simulation
+### Run a simulation
 
 ```bash
 python -m ncsim --scenario scenarios/demo_simple.yaml --output results/
 ```
 
-### CLI Options
+Output: three files needed as inputs to the [viz/](viz/) web UI:
+- `results/trace.jsonl` — event trace
+- `results/metrics.json` — summary metrics
+- `results/scenario.yaml` — copy of the input scenario
+
+### CLI options
 
 ```
-ncsim --scenario PATH --output DIR [--seed N] [--scheduler ALGO] [--routing ROUTING] [--verbose]
+ncsim --scenario PATH --output DIR [options]
 
 Options:
-  --scenario PATH       Scenario YAML file (required)
-  --output DIR          Output directory for results (required)
   --seed N              Random seed (default: from scenario or 42)
-  --scheduler ALGO      heft | cpop | round_robin (default: from scenario)
-  --routing ROUTING     direct | widest_path | shortest_path (default: from scenario or direct)
+  --scheduler ALGO      heft | cpop | round_robin
+  --routing ROUTING     direct | widest_path | shortest_path
+  --interference MODEL  none | proximity | csma_clique | csma_bianchi
   --verbose             Enable verbose logging
+
+WiFi / RF options (for csma_clique or csma_bianchi):
+  --tx-power DBM        Transmit power in dBm (default: 20)
+  --freq GHZ            Carrier frequency in GHz (default: 5.0)
+  --path-loss-exp N     Path loss exponent (default: 3.0)
+  --wifi-standard STD   n | ac | ax (default: ax)
+  --rts-cts             Enable RTS/CTS
 ```
 
-### Output Files
+### Launch the web UI
 
-| File | Description |
-|------|-------------|
-| `trace.jsonl` | Event trace (JSON Lines format) |
-| `metrics.json` | Summary metrics (makespan, utilization) |
+```bash
+# Terminal 1: Backend API server
+cd viz/server && pip install -r requirements.txt && python run.py
+
+# Terminal 2: Frontend dev server
+cd viz && npm install && npm run dev
+```
+
+Open **http://localhost:5173** to configure experiments, run simulations, and visualize results interactively. See [viz/README.md](viz/README.md) for full documentation.
 
 ## Scenario Format
-
-Scenarios are defined in YAML:
 
 ```yaml
 scenario:
   name: "Simple Demo"
-
   network:
     nodes:
       - {id: n0, compute_capacity: 100, position: {x: 0, y: 0}}
       - {id: n1, compute_capacity: 50, position: {x: 10, y: 0}}
     links:
       - {id: l01, from: n0, to: n1, bandwidth: 100, latency: 0.001}
-
   dags:
     - id: dag_1
       inject_at: 0.0
@@ -82,156 +89,65 @@ scenario:
         - {id: T1, compute_cost: 200}
       edges:
         - {from: T0, to: T1, data_size: 50}
-
   config:
     scheduler: heft
     seed: 42
 ```
 
-### Scenario Fields
+See [scenarios/](scenarios/) for more examples including WiFi interference, multi-hop routing, and parallel spread topologies.
 
-**Network:**
-- `nodes[].compute_capacity`: Compute units per second
-- `links[].bandwidth`: MB/second
-- `links[].latency`: Seconds (added to each transfer)
-
-**Tasks:**
-- `tasks[].compute_cost`: Total compute units required
-- `edges[].data_size`: MB to transfer between tasks
-
-**Timing:**
-- `task_runtime = compute_cost / node.compute_capacity`
-- `transfer_time = (data_size / bandwidth) + latency`
-
-## Example Scenarios
-
-### demo_simple.yaml
-
-Two nodes, two tasks with a dependency:
-- T0 runs on n0, T1 depends on T0's output
-- Tests basic scheduling and transfer
-
-### bandwidth_contention.yaml
-
-Tests fair bandwidth sharing:
-- Multiple concurrent transfers on the same link
-- Each transfer gets `bandwidth / num_concurrent_transfers`
-
-### multi_hop_forced.yaml / multi_hop_test.yaml
-
-Three nodes in a line (n0─n1─n2) with no direct n0─n2 link:
-- `multi_hop_forced`: Tasks pinned to n0 and n2, forces multi-hop transfer
-- `multi_hop_test`: Tasks unpinned, scheduler decides placement
-
-### multihop_advantage.yaml
-
-Heterogeneous nodes: n_src(10 cu/s) → n_relay(10) → n_fast(1000).
-Demonstrates that multi-hop routing enables reaching a 100x faster node:
-- Without multi-hop: both tasks on slow node → 200s
-- With widest-path: T1 reaches n_fast → 101.12s (49% faster)
-
-### parallel_spread.yaml
-
-Five nodes in a bidirectional line, 8 parallel tasks in fan-out/fan-in DAG.
-Key scenario for HEFT + multi-hop advantage:
-- HEFT + direct routing: uses 3 adjacent nodes → 35.3s
-- HEFT + widest-path: spreads across all 5 nodes → 24.2s (31% faster)
-
-## Trace Format
-
-The trace file contains one JSON object per line:
-
-```jsonl
-{"seq": 0, "sim_time": 0.0, "type": "sim_start", "trace_version": "1.0", "seed": 42, "scenario": "demo_simple.yaml"}
-{"seq": 1, "sim_time": 0.0, "type": "dag_inject", "dag_id": "dag_1", "task_ids": ["T0", "T1"]}
-{"seq": 2, "sim_time": 0.0, "type": "task_scheduled", "dag_id": "dag_1", "task_id": "T0", "node_id": "n0"}
-{"seq": 3, "sim_time": 0.0, "type": "task_start", "dag_id": "dag_1", "task_id": "T0", "node_id": "n0"}
-{"seq": 4, "sim_time": 1.0, "type": "task_complete", "dag_id": "dag_1", "task_id": "T0", "node_id": "n0", "duration": 1.0}
-...
-{"seq": 10, "sim_time": 5.0, "type": "sim_end", "status": "completed", "makespan": 5.0}
-```
-
-See the project specification for the complete trace format.
-
-## Running Tests
-
-### Unit & Integration Tests
-
-```bash
-cd ncsim
-python -m pytest tests/ -v
-
-# With coverage
-python -m pytest tests/ --cov=ncsim --cov-report=term-missing
-```
-
-### Routing Comparison (Full Test Suite)
-
-Runs all unit tests, then executes every scenario with `direct`, `widest_path`,
-and `shortest_path` routing, prints a makespan comparison table, and generates
-ASCII Gantt charts:
-
-```bash
-cd ncsim
-bash run_routing_comparison.sh            # output to /tmp/ncsim_routing_comparison/
-bash run_routing_comparison.sh ./results  # or specify output directory
-```
-
-Expected output summary:
-
-```
-Scenario                           Direct WidestPath ShortestPath    WP vs D    SP vs D
---------                           ------ ---------- ------------    -------    -------
-A: demo_simple                     3.000s     3.000s       3.000s       same       same
-B: bandwidth_contention            2.010s     2.010s       2.010s       same       same
-C: multi_hop_forced                2.000s     2.520s       2.520s     -26.0%     -26.0%
-D: multi_hop_test                  2.000s     2.000s       2.000s       same       same
-E: multihop_advantage            101.000s   101.120s     101.120s      -0.1%      -0.1%
-F: parallel_spread                35.343s    24.232s      24.232s      31.4%      31.4%
-```
-
-- **A, B, D**: Direct links exist, all three modes produce identical results
-- **C**: Direct routing silently skips the transfer (incorrect); widest-path and shortest-path are slower but correct
-- **E**: Pinned tasks on heterogeneous nodes; direct skips the multi-hop transfer
-- **F**: HEFT + multi-hop routing spreads 8 parallel tasks across 5 nodes instead of 3, yielding a 31% speedup
-- **WP vs SP**: Widest-path maximizes bottleneck bandwidth; shortest-path minimizes total latency. They diverge on networks with bandwidth/latency tradeoffs
-
-### Trace Analysis
-
-Inspect any trace with the built-in analyzer:
+## Trace Analysis
 
 ```bash
 python analyze_trace.py results/trace.jsonl --gantt --timeline --tasks
 ```
 
+## Running Tests
+
+```bash
+python -m pytest tests/ -v
+```
+
+178 tests covering event queue, execution engine, scheduling, routing, WiFi physics, and acceptance criteria.
+
 ## Architecture
 
+For a detailed interactive overview, see [docs/architecture.html](https://htmlpreview.github.io/?https://github.com/ANRGUSC/ncsim/blob/main/docs/architecture.html).
+
 ```
-ncsim/
-├── ncsim/
-│   ├── main.py              # CLI entry point
-│   ├── core/
-│   │   ├── simulation.py    # Main simulation loop
-│   │   ├── event_queue.py   # Priority queue with deterministic ordering
-│   │   └── execution_engine.py  # Task/transfer execution logic
-│   ├── models/
-│   │   ├── network.py       # Node, Link, Network
-│   │   ├── task.py          # Task
-│   │   ├── dag.py           # DAG, Edge
-│   │   └── routing.py       # DirectLinkRouting, WidestPathRouting, ShortestPathRouting
-│   ├── scheduler/
-│   │   ├── base.py          # Scheduler interface
-│   │   └── saga_adapter.py  # SAGA HEFT/CPOP integration
-│   └── io/
-│       ├── scenario_loader.py   # YAML parsing
-│       ├── trace_writer.py      # JSONL trace output
-│       └── results_writer.py    # Metrics JSON output
-├── scenarios/               # Example scenarios
-├── tests/                   # Test suite
-├── analyze_trace.py         # Trace analysis tool (Gantt, timeline, stats)
-└── run_routing_comparison.sh  # Full routing comparison test suite
+ncsim/                  # Python package
+├── main.py             # CLI entry point
+├── core/
+│   ├── simulation.py   # Main simulation loop
+│   ├── event_queue.py  # Priority queue with deterministic ordering
+│   └── execution_engine.py
+├── models/
+│   ├── network.py      # Node, Link, Network
+│   ├── dag.py          # DAG, Edge, Task
+│   ├── routing.py      # Direct, WidestPath, ShortestPath
+│   ├── interference.py # Proximity, CSMA Clique, CSMA Bianchi
+│   └── wifi.py         # 802.11 PHY/MAC
+├── scheduler/
+│   ├── base.py         # Scheduler interface
+│   └── saga_adapter.py # SAGA HEFT/CPOP integration
+└── io/
+    ├── scenario_loader.py
+    ├── trace_writer.py
+    └── results_writer.py
+
+viz/                    # Web visualization (React + FastAPI)
+├── src/                # React frontend
+├── server/             # FastAPI backend
+└── public/             # Sample experiment runs
+
+scenarios/              # Example scenario YAML files
+tests/                  # Unit and integration tests
+docs/                   # Architecture diagrams
 ```
 
 ## License
 
-See [LICENSE](../LICENSE) for license details.
+[PolyForm Noncommercial 1.0.0](LICENSE)
+
+## Contributors
+**Bhaskar Krishnamachari, Maya Gutierrez**  — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California

@@ -165,18 +165,22 @@ class TraceWriter:
         from_task: str,
         to_task: str,
         link_id: str,
-        data_size: float
+        data_size: float,
+        route: list[str] | None = None,
     ) -> None:
         """Write transfer_start event."""
-        self._write_event({
+        event: dict = {
             "sim_time": sim_time,
             "type": "transfer_start",
             "dag_id": dag_id,
             "from_task": from_task,
             "to_task": to_task,
             "link_id": link_id,
-            "data_size": data_size
-        })
+            "data_size": data_size,
+        }
+        if route and len(route) > 1:
+            event["route"] = route
+        self._write_event(event)
 
     def write_transfer_complete(
         self,
@@ -185,18 +189,22 @@ class TraceWriter:
         from_task: str,
         to_task: str,
         link_id: str,
-        duration: float
+        duration: float,
+        route: list[str] | None = None,
     ) -> None:
         """Write transfer_complete event."""
-        self._write_event({
+        event: dict = {
             "sim_time": sim_time,
             "type": "transfer_complete",
             "dag_id": dag_id,
             "from_task": from_task,
             "to_task": to_task,
             "link_id": link_id,
-            "duration": round_time(duration)
-        })
+            "duration": round_time(duration),
+        }
+        if route and len(route) > 1:
+            event["route"] = route
+        self._write_event(event)
 
     def on_event(self, event: Event) -> None:
         """Handle an event from the simulation.
@@ -274,6 +282,7 @@ class TraceEventAdapter:
     def __init__(self, trace_writer: TraceWriter):
         self.trace_writer = trace_writer
         self._transfer_starts: Dict[tuple, float] = {}  # (dag_id, from, to) -> start_time
+        self._transfer_paths: Dict[tuple, list] = {}   # (dag_id, from, to) -> path
         self._task_assignments: Dict[tuple, str] = {}  # (dag_id, task_id) -> node_id
 
     def on_event(self, event: Event) -> None:
@@ -319,8 +328,10 @@ class TraceEventAdapter:
 
         elif event.event_type == EventType.TRANSFER_START:
             data_size = event.data.get("data_size", 0.0)
+            path = event.data.get("path")
             key = (event.dag_id, event.from_task, event.to_task)
             self._transfer_starts[key] = event.sim_time
+            self._transfer_paths[key] = path
 
             self.trace_writer.write_transfer_start(
                 sim_time=event.sim_time,
@@ -328,12 +339,14 @@ class TraceEventAdapter:
                 from_task=event.from_task,
                 to_task=event.to_task,
                 link_id=event.link_id,
-                data_size=data_size
+                data_size=data_size,
+                route=path,
             )
 
         elif event.event_type == EventType.TRANSFER_COMPLETE:
             key = (event.dag_id, event.from_task, event.to_task)
             start_time = self._transfer_starts.pop(key, event.sim_time)
+            path = self._transfer_paths.pop(key, None)
             duration = event.sim_time - start_time
 
             self.trace_writer.write_transfer_complete(
@@ -342,5 +355,6 @@ class TraceEventAdapter:
                 from_task=event.from_task,
                 to_task=event.to_task,
                 link_id=event.link_id,
-                duration=duration
+                duration=duration,
+                route=path,
             )

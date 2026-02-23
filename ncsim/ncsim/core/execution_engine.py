@@ -14,6 +14,7 @@ from ncsim.models.network import Network, Link
 from ncsim.models.dag import DAG, Edge
 from ncsim.models.task import Task, TaskState, TaskStatus, FIFOQueueModel
 from ncsim.models.routing import DirectLinkRouting, RoutingModel
+from ncsim.models.interference import InterferenceModel
 from ncsim.scheduler.base import Scheduler, PlacementPlan, NetworkSnapshot
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ class ActiveTransfer:
     link_ids: List[str] = field(default_factory=list)
     bottleneck_bandwidth: float = 0.0
     total_latency: float = 0.0
+    current_effective_rate: float = 0.0
 
 
 @dataclass
@@ -126,7 +128,8 @@ class ExecutionEngine:
         network: Network,
         scheduler: Scheduler,
         event_queue: EventQueue,
-        routing_model: Optional[RoutingModel] = None
+        routing_model: Optional[RoutingModel] = None,
+        interference_model: Optional[InterferenceModel] = None
     ):
         """Initialize execution engine.
 
@@ -135,11 +138,13 @@ class ExecutionEngine:
             scheduler: Scheduler for task placement
             event_queue: Event queue for simulation
             routing_model: Optional routing model (default: DirectLinkRouting)
+            interference_model: Optional inter-link interference model
         """
         self.network = network
         self.scheduler = scheduler
         self.event_queue = event_queue
         self.routing_model = routing_model or DirectLinkRouting()
+        self.interference_model = interference_model
 
         # Initialize node states
         self.node_states: Dict[str, NodeState] = {
@@ -197,6 +202,36 @@ class ExecutionEngine:
             link_states=self.link_states,
             task_states=self.task_states
         )
+
+    def _get_active_link_ids(self) -> Set[str]:
+        """Return set of link IDs that have at least one active transfer."""
+        return {lid for lid, ls in self.link_states.items() if ls.num_transfers > 0}
+
+    def _get_link_bandwidth(
+        self,
+        link_id: str,
+        extra_active_links: Optional[Set[str]] = None
+    ) -> float:
+        """Get base bandwidth for a link, accounting for interference.
+
+        Args:
+            link_id: Link to query
+            extra_active_links: Additional link IDs to treat as active
+                (used before a new transfer is added to link_states)
+
+        Returns:
+            Effective base bandwidth (before per-link fair sharing)
+        """
+        link = self.network.links[link_id]
+        if self.interference_model is None:
+            return link.bandwidth
+        active_links = self._get_active_link_ids()
+        if extra_active_links:
+            active_links = active_links | extra_active_links
+        factor = self.interference_model.get_interference_factor(
+            link_id, active_links, self.network
+        )
+        return link.bandwidth * factor
 
     def handle_event(self, event: Event) -> None:
         """Dispatch event to appropriate handler."""
@@ -538,15 +573,17 @@ class ExecutionEngine:
                 return
 
         # For bandwidth sharing, we need to find the effective bandwidth
-        # considering contention on ALL links in the path
-        # The bottleneck is the minimum effective bandwidth across all links
-        effective_bw = bottleneck_bw
+        # considering contention on ALL links in the path.
+        # With interference, base bandwidth is reduced by interference factor,
+        # then shared among concurrent transfers on each link.
+        extra_active = set(path)  # Treat path links as active for interference calc
+        effective_bw = float('inf')
         for lid in path:
             link_state = self.link_states[lid]
-            link = self.network.links[lid]
+            base_bw = self._get_link_bandwidth(lid, extra_active_links=extra_active)
             # Each link independently shares bandwidth among concurrent transfers
             num_transfers_on_link = link_state.num_transfers + 1
-            link_effective_bw = link.bandwidth / num_transfers_on_link
+            link_effective_bw = base_bw / num_transfers_on_link
             effective_bw = min(effective_bw, link_effective_bw)
 
         # Calculate completion time: transfer time + total latency
@@ -577,7 +614,8 @@ class ExecutionEngine:
             scheduled_complete=complete_time,
             event_id=event_id,
             bottleneck_bandwidth=bottleneck_bw,
-            total_latency=total_latency
+            total_latency=total_latency,
+            current_effective_rate=effective_bw
         )
 
         # Add transfer to all links in path
@@ -595,6 +633,9 @@ class ExecutionEngine:
         # Recalculate other transfers on all links in path (bandwidth sharing)
         for lid in path:
             self._recalculate_link_transfers(lid, transfer)
+
+        # Recalculate transfers on interfered links (cross-link effects)
+        self._recalculate_interfered_transfers(set(path))
 
     def _recalculate_link_transfers(
         self,
@@ -633,26 +674,29 @@ class ExecutionEngine:
             self.event_queue.cancel(transfer.event_id)
 
             # For multi-hop, calculate effective bandwidth across ALL links in path
+            # With interference, use _get_link_bandwidth which applies the factor
             path = transfer.link_ids if transfer.link_ids else [transfer.link_id]
-            effective_bw = transfer.bottleneck_bandwidth if transfer.bottleneck_bandwidth > 0 else link.bandwidth
+            effective_bw = float('inf')
 
             for lid in path:
                 lid_state = self.link_states.get(lid)
-                lid_link = self.network.get_link(lid)
-                if lid_state and lid_link:
+                if lid_state:
                     num_on_link = lid_state.num_transfers
                     if num_on_link > 0:
-                        link_bw = lid_link.bandwidth / num_on_link
+                        base_bw = self._get_link_bandwidth(lid)
+                        link_bw = base_bw / num_on_link
                         effective_bw = min(effective_bw, link_bw)
 
             # Calculate how much data has been transferred
             elapsed = self.sim_time - transfer.started_at
             if elapsed > 0:
-                # Approximate data transferred (for exact we'd need rate history)
-                # Use simple approximation based on old effective bandwidth
-                old_effective_bw = transfer.bottleneck_bandwidth if transfer.bottleneck_bandwidth > 0 else link.bandwidth
-                data_transferred = old_effective_bw * elapsed
+                # Use tracked effective rate for accurate elapsed data calculation
+                old_effective_rate = transfer.current_effective_rate if transfer.current_effective_rate > 0 else link.bandwidth
+                data_transferred = old_effective_rate * elapsed
                 transfer.data_remaining = max(0, transfer.data_size - data_transferred)
+
+            # Update tracked effective rate for next recalculation
+            transfer.current_effective_rate = effective_bw
 
             # Calculate new completion time
             total_latency = transfer.total_latency if transfer.total_latency > 0 else link.latency
@@ -738,6 +782,9 @@ class ExecutionEngine:
             if link_state and link_state.active_transfers:
                 self._recalculate_link_transfers(lid)
 
+        # Recalculate transfers on interfered links (cross-link effects)
+        self._recalculate_interfered_transfers(set(path))
+
         # Check if destination task is now ready
         to_state = self.get_task_state(dag_id, to_task)
         if to_state is not None:
@@ -750,6 +797,30 @@ class ExecutionEngine:
                     task_id=to_task
                 )
                 logger.debug(f"Task {to_task} now ready (all predecessors complete)")
+
+    def _recalculate_interfered_transfers(self, changed_link_ids: Set[str]) -> None:
+        """Recalculate transfers on links affected by interference changes.
+
+        When a transfer starts or completes, nearby links may have their
+        interference factor change. This method finds and recalculates those.
+        """
+        if self.interference_model is None:
+            return
+
+        active_link_ids = self._get_active_link_ids()
+        affected: Set[str] = set()
+        for changed_lid in changed_link_ids:
+            affected |= self.interference_model.get_affected_links(
+                changed_lid, active_link_ids, self.network
+            )
+
+        # Don't recalculate links already handled by the per-path recalc
+        affected -= changed_link_ids
+
+        for lid in affected:
+            link_state = self.link_states.get(lid)
+            if link_state and link_state.active_transfers:
+                self._recalculate_link_transfers(lid)
 
     def get_makespan(self) -> float:
         """Calculate makespan (time of last task completion)."""
