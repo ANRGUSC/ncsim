@@ -1,0 +1,40 @@
+\contentsline {section}{\numberline {1}Introduction and Motivation}{3}{section.1}%
+\contentsline {section}{\numberline {2}RF Configuration Parameters}{3}{section.2}%
+\contentsline {section}{\numberline {3}Physical Layer Model}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Log-Distance Path Loss}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Received Power}{4}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Signal-to-Noise Ratio (SNR)}{4}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Signal-to-Interference-plus-Noise Ratio (SINR)}{4}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Shadow Fading}{5}{subsection.3.5}%
+\contentsline {section}{\numberline {4}MCS Rate Adaptation}{5}{section.4}%
+\contentsline {subsection}{\numberline {4.1}MCS Tables}{5}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Rate Selection Algorithm}{5}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Unit Conversion}{6}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Per-Link PHY Rate Computation}{6}{section.5}%
+\contentsline {section}{\numberline {6}Carrier Sensing Range}{7}{section.6}%
+\contentsline {section}{\numberline {7}Conflict Graph}{7}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Conflict Definition}{7}{subsection.7.1}%
+\contentsline {subsubsection}{\numberline {7.1.1}Without RTS/CTS}{7}{subsubsection.7.1.1}%
+\contentsline {subsubsection}{\numberline {7.1.2}With RTS/CTS}{8}{subsubsection.7.1.2}%
+\contentsline {subsection}{\numberline {7.2}Maximum Clique Computation}{8}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Bianchi's CSMA/CA MAC Efficiency Model}{8}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Coupled Equations}{8}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Throughput Efficiency}{9}{subsection.8.2}%
+\contentsline {section}{\numberline {9}Interference Model Variants}{9}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Variant 1: Static Clique Model (\texttt {csma\_clique})}{10}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Variant 2: Dynamic Bianchi Model (\texttt {csma\_bianchi})}{10}{subsection.9.2}%
+\contentsline {subsubsection}{\numberline {9.2.1}Setup}{10}{subsubsection.9.2.1}%
+\contentsline {subsubsection}{\numberline {9.2.2}Dynamic Interference Factor}{10}{subsubsection.9.2.2}%
+\contentsline {paragraph}{SINR factor (hidden terminals).}{11}{section*.7}%
+\contentsline {paragraph}{Contention factor (Bianchi).}{11}{section*.8}%
+\contentsline {paragraph}{Combined factor.}{11}{section*.9}%
+\contentsline {subsubsection}{\numberline {9.2.3}Dynamic Recalculation}{11}{subsubsection.9.2.3}%
+\contentsline {subsection}{\numberline {9.3}Comparison of Variants}{11}{subsection.9.3}%
+\contentsline {section}{\numberline {10}Integration with the Execution Engine}{12}{section.10}%
+\contentsline {section}{\numberline {11}Worked Example}{12}{section.11}%
+\contentsline {subsection}{\numberline {11.1}PHY Rate Computation}{12}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Conflict Graph}{13}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}\texttt {csma\_clique} Result}{13}{subsection.11.3}%
+\contentsline {subsection}{\numberline {11.4}\texttt {csma\_bianchi} Result}{13}{subsection.11.4}%
+\contentsline {section}{\numberline {12}YAML Configuration}{13}{section.12}%
+\contentsline {section}{\numberline {13}Summary}{14}{section.13}%

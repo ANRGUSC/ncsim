@@ -1,0 +1,39 @@
+{
+  "scenario": "wifi_clique_test.yaml",
+  "seed": 42,
+  "makespan": 11.647907,
+  "total_tasks": 4,
+  "total_transfers": 2,
+  "total_events": 17,
+  "status": "completed",
+  "node_utilization": {
+    "n0": 0.001,
+    "n1": 0.001,
+    "n2": 0.001,
+    "n3": 0.001
+  },
+  "link_utilization": {
+    "l01": 0.998,
+    "l23": 0.998
+  },
+  "rf_config": {
+    "tx_power_dBm": 20,
+    "freq_ghz": 5.0,
+    "path_loss_exponent": 3.0,
+    "noise_floor_dBm": -95,
+    "cca_threshold_dBm": -82,
+    "channel_width_mhz": 20,
+    "wifi_standard": "ax",
+    "shadow_fading_sigma": 0.0,
+    "rts_cts": false
+  },
+  "carrier_sensing_range_m": 71.22,
+  "link_phy_rates_MBps": {
+    "l01": 8.6,
+    "l23": 8.6
+  },
+  "max_clique_sizes": {
+    "l01": 2,
+    "l23": 2
+  }
+}
