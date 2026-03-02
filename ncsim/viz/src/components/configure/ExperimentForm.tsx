@@ -193,6 +193,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
                 <option value="heft">HEFT</option>
                 <option value="cpop">CPOP</option>
                 <option value="round_robin">Round Robin</option>
+                <option value="manual">Manual</option>
               </select>
             </label>
             <label className="flex flex-col gap-1">
@@ -212,6 +213,11 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
               />
             </label>
           </div>
+          {scheduler === 'manual' && (
+            <p className="text-xs text-[var(--color-text-secondary)] mt-2 italic">
+              Assign each task to a node using the "Pinned To" column in the DAG Structure section below.
+            </p>
+          )}
         </section>
 
         <InterferenceSection
@@ -241,6 +247,8 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
           params={dagParams}
           tasks={tasks}
           edges={edges}
+          nodes={nodes}
+          scheduler={scheduler}
           onPresetChange={setDagPreset}
           onParamsChange={setDagParams}
           onTasksChange={setTasks}

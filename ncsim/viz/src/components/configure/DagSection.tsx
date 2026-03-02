@@ -1,5 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
-import type { TaskDef, EdgeDef } from '../../types/scenario';
+import type { TaskDef, EdgeDef, NodeDef } from '../../types/scenario';
 import type { DagPreset, DagParams } from './dagPresets';
 import { generateDag } from './dagPresets';
 
@@ -16,6 +16,8 @@ interface Props {
   params: DagParams;
   tasks: TaskDef[];
   edges: EdgeDef[];
+  nodes: NodeDef[];
+  scheduler: string;
   onPresetChange: (preset: DagPreset) => void;
   onParamsChange: (params: DagParams) => void;
   onTasksChange: (tasks: TaskDef[]) => void;
@@ -23,7 +25,7 @@ interface Props {
 }
 
 export function DagSection({
-  preset, params, tasks, edges,
+  preset, params, tasks, edges, nodes, scheduler,
   onPresetChange, onParamsChange, onTasksChange, onEdgesChange,
 }: Props) {
   const handlePresetChange = (newPreset: DagPreset) => {
@@ -147,7 +149,22 @@ export function DagSection({
                   <tr key={i}>
                     <td><input value={t.id} onChange={(e) => updateTask(i, 'id', e.target.value)} className="input-cell" /></td>
                     <td><input type="number" value={t.compute_cost} onChange={(e) => updateTask(i, 'compute_cost', e.target.value)} className="input-cell" /></td>
-                    <td><input value={t.pinned_to || ''} onChange={(e) => updateTask(i, 'pinned_to', e.target.value)} className="input-cell" placeholder="(none)" /></td>
+                    <td>
+                      {scheduler === 'manual' ? (
+                        <select
+                          value={t.pinned_to || ''}
+                          onChange={(e) => updateTask(i, 'pinned_to', e.target.value)}
+                          className="input-cell"
+                        >
+                          <option value="">(none)</option>
+                          {nodes.map((n) => (
+                            <option key={n.id} value={n.id}>{n.id}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input value={t.pinned_to || ''} onChange={(e) => updateTask(i, 'pinned_to', e.target.value)} className="input-cell" placeholder="(none)" />
+                      )}
+                    </td>
                     <td><button onClick={() => removeTask(i)} className="text-red-400 hover:text-red-300 p-1"><Trash2 size={14} /></button></td>
                   </tr>
                 ))}

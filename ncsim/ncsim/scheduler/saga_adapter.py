@@ -292,6 +292,10 @@ def create_scheduler(
     """
     algorithm = algorithm.lower()
 
+    if algorithm == "manual":
+        from ncsim.scheduler.base import ManualScheduler
+        return ManualScheduler()
+
     if algorithm == "round_robin":
         from ncsim.scheduler.base import RoundRobinScheduler
         return RoundRobinScheduler()
