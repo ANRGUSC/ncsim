@@ -203,6 +203,50 @@ class Scheduler(ABC):
         return None
 
 
+class ManualScheduler(Scheduler):
+    """Manual scheduler that uses pinned_to assignments.
+
+    Reads pinned_to from each task. Tasks without pinned_to are assigned
+    to the first available node with a warning.
+    """
+
+    def on_dag_inject(
+        self,
+        dag: DAG,
+        network_snapshot: NetworkSnapshot
+    ) -> PlacementPlan:
+        """Assign tasks based on their pinned_to field."""
+        node_ids = list(network_snapshot.nodes.keys())
+        if not node_ids:
+            raise ValueError("No nodes available for scheduling")
+
+        import logging
+        logger = logging.getLogger(__name__)
+
+        assignments = {}
+        for task_id in dag.topological_order():
+            task = dag.get_task(task_id)
+            if task.pinned_to and task.pinned_to in node_ids:
+                assignments[task_id] = task.pinned_to
+            else:
+                assignments[task_id] = node_ids[0]
+                if task.pinned_to:
+                    logger.warning(
+                        f"Task {task_id} pinned to unknown node '{task.pinned_to}', "
+                        f"assigning to {node_ids[0]}"
+                    )
+                else:
+                    logger.warning(
+                        f"Task {task_id} has no pinned_to assignment, "
+                        f"assigning to {node_ids[0]}"
+                    )
+
+        return PlacementPlan(
+            assignments=assignments,
+            metadata={"algorithm": "manual"}
+        )
+
+
 class RoundRobinScheduler(Scheduler):
     """Simple round-robin scheduler for testing.
 

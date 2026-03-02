@@ -172,7 +172,7 @@ def main(args: list = None) -> int:
     )
     parser.add_argument(
         "--scheduler",
-        choices=["heft", "cpop", "round_robin"],
+        choices=["heft", "cpop", "round_robin", "manual"],
         default=None,
         help="Scheduling algorithm (overrides scenario config)"
     )
