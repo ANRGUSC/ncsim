@@ -308,9 +308,12 @@ class CsmaBianchiInterference(InterferenceModel):
         active_link_ids: Set[str],
         network: "Network"
     ) -> Set[str]:
-        # All active neighbors need SINR recalculation
-        neighbors = self.conflict_graph.conflicts.get(changed_link_id, set())
-        return neighbors & active_link_ids
+        # All other active links need recalculation — both conflict-graph
+        # neighbors (Bianchi contention) and hidden terminals (SINR).
+        # Previously only conflict neighbors were returned, which meant
+        # hidden terminals never triggered recalculation of already-active
+        # transfers, producing asymmetric rates in symmetric topologies.
+        return active_link_ids - {changed_link_id}
 
 
 def create_interference_model(model_type: str, **kwargs) -> InterferenceModel:

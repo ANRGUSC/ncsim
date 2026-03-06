@@ -687,13 +687,13 @@ class ExecutionEngine:
                         link_bw = base_bw / num_on_link
                         effective_bw = min(effective_bw, link_bw)
 
-            # Calculate how much data has been transferred
+            # Calculate how much data has been transferred since last recalculation
             elapsed = self.sim_time - transfer.started_at
             if elapsed > 0:
                 # Use tracked effective rate for accurate elapsed data calculation
                 old_effective_rate = transfer.current_effective_rate if transfer.current_effective_rate > 0 else link.bandwidth
                 data_transferred = old_effective_rate * elapsed
-                transfer.data_remaining = max(0, transfer.data_size - data_transferred)
+                transfer.data_remaining = max(0, transfer.data_remaining - data_transferred)
 
             # Update tracked effective rate for next recalculation
             transfer.current_effective_rate = effective_bw
