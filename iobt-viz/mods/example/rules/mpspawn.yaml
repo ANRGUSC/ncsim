@@ -1,8 +1,0 @@
-mpspawn:
-	AlwaysVisible:
-	Immobile:
-		OccupiesSpace: false
-	MapEditorData:
-		Categories: System
-	RenderSpritesEditorOnly:
-	WithSpriteBody:

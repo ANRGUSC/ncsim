@@ -10,22 +10,24 @@ Build a research and demonstration platform for networked computing:
 
 | Component | Purpose | Status |
 |-----------|---------|--------|
-| **iobt-viz + saga-service** | Interactive demos with RTS-style visualization | ✅ MVP Complete |
-| **iobt-viz resilience modes** | Partition-resilient DAG execution demo | ✅ Phase 1A Complete |
+| **iobt-viz + saga-service** | Interactive demos with RTS-style visualization | ✅ Complete (code removed from this branch) |
+| **iobt-viz resilience modes** | Partition-resilient DAG execution demo | ✅ Complete (code removed from this branch) |
 | **ncsim** | Headless DES for research experiments | ✅ Phase 2 Complete |
-| **Trace playback** | Visualize ncsim results in iobt-viz | 📋 Phase 3 |
+| **viz/ web UI** | Topology, Gantt, animated replay | ✅ Complete |
 
-**Design Philosophy**: 
-- **iobt-viz owns time in demos**: Acts as "the world" that algorithms react to
+**Design Philosophy**:
 - **ncsim is headless-first**: Optimized for speed and reproducibility
-- **saga-service is the brain**: Scheduling algorithms plug in here (HEFT, CPOP, future RL policies)
+- **viz/ web UI**: React + FastAPI for interactive experiment configuration and trace visualization
 
 ```
-DEMO MODE (MVP Complete):               RESEARCH MODE (Phase 2):
-┌──────────────┐                        ┌──────────────┐
-│   iobt-viz   │ ◄─TCP─► saga-service   │    ncsim     │ → trace.jsonl
-│ (owns time)  │         (HEFT/CPOP)    │  (headless)  │ → metrics.json
-└──────────────┘                        └──────────────┘
+RESEARCH + VISUALIZATION:
+┌──────────────┐     ┌──────────────┐
+│    ncsim     │ →   │   viz/ UI    │
+│  (headless)  │     │ (React+API)  │
+│              │ →   │              │
+│ trace.jsonl  │     │ topology,    │
+│ metrics.json │     │ Gantt, replay│
+└──────────────┘     └──────────────┘
 ```
 
 **Future Work** (not in current scope): Gymnasium RL environment, trained policy deployment.
@@ -318,30 +320,20 @@ def event_sort_key(event):
 
 ---
 
-## 5. PHASE 1: DEMO STACK (✅ COMPLETE)
+## 5. PHASE 1: DEMO STACK (✅ COMPLETE — code removed)
 
-**Status:** MVP implemented and functional.
+> **Note:** Phase 1 implementation (iobt-viz, saga-service, batch files) has been removed from this branch. The spec below is retained as historical reference. See the `main` branch history for the original code.
 
-**Components:**
+**Components (removed):**
 - **iobt-viz**: OpenRA-derived visualization with network overlay, DAG visualization, task states
 - **saga-service**: TCP wrapper (port 9999) for anrg-saga HEFT/CPOP schedulers
 - **Configuration GUI**: Set node count, comm range, DAG structure
 
-**Running the demo:**
-```bash
-# Terminal 1: Start scheduler
-.\runsched
-
-# Terminal 2: Configure and run
-runconfig   # Set parameters
-runiobt     # Launch visualization
-```
-
-**Hotkeys:** N (toggle network overlay), Escape (menu)
-
 ---
 
-## 5A. PHASE 1A: RESILIENCE MODES (✅ COMPLETE)
+## 5A. PHASE 1A: RESILIENCE MODES (✅ COMPLETE — code removed)
+
+> **Note:** Phase 1A implementation has been removed along with iobt-viz. The spec below is retained as historical reference.
 
 **Status:** Implemented. Three switchable DAG execution modes for partition resilience demos.
 
@@ -553,18 +545,17 @@ scenario:
 
 ---
 
-## 7. PHASE 3: TRACE PLAYBACK IN IOBT-VIZ
+## 7. PHASE 3: TRACE PLAYBACK / VISUALIZATION
+
+> **Note:** The original plan was iobt-viz trace playback (Lua-based). With iobt-viz removed, visualization is now handled by the `viz/` web UI (React + FastAPI). The spec below is retained as historical reference for the event mapping design.
 
 ### 7.1 Goal
 
-Visualize ncsim experiment results by playing back trace files in iobt-viz.
+Visualize ncsim experiment results by playing back trace files.
 
-### 7.2 Approach
+### 7.2 Approach (current: viz/ web UI)
 
-Lua script in iobt-viz that:
-1. Loads `trace.jsonl` file
-2. Maps trace events to visualization overlay commands
-3. Provides playback controls (play, pause, speed, seek)
+The `viz/` web UI provides topology visualization, Gantt charts, and animated trace replay. See [viz/README.md](viz/README.md).
 
 ### 7.3 Event Mapping
 
@@ -659,59 +650,41 @@ scenario:
 ## 9. REPOSITORY STRUCTURE
 
 ```
-iobt-ncsim/
+ncsim/
 ├── CLAUDE.md                       # This file
 ├── README.md                       # User-facing overview
-├── runsched.bat                    # Start saga-service
-├── runconfig.bat                   # Configuration GUI
-├── runiobt.bat                     # Launch visualization
+├── pyproject.toml                  # Python package config
 │
-├── reference/                      # READ-ONLY OpenRA reference
+├── ncsim/                          # Python package — headless DES engine
+│   ├── __init__.py
+│   ├── main.py                     # CLI entry point
+│   ├── core/
+│   │   ├── simulation.py
+│   │   ├── event_queue.py
+│   │   └── execution_engine.py
+│   ├── models/
+│   │   ├── network.py
+│   │   ├── dag.py
+│   │   ├── routing.py
+│   │   ├── interference.py
+│   │   └── wifi.py
+│   ├── scheduler/
+│   │   ├── base.py
+│   │   └── saga_adapter.py
+│   └── io/
+│       ├── scenario_loader.py
+│       ├── trace_writer.py
+│       └── results_writer.py
 │
-├── iobt-viz/                       # Visualization (C#, ✅ MVP)
+├── viz/                            # Web visualization (React + FastAPI)
+│   ├── src/                        # React frontend
+│   ├── server/                     # FastAPI backend
+│   └── public/                     # Sample experiment runs
 │
-├── saga-service/                   # TCP scheduler wrapper (✅ MVP)
-│   ├── scheduler_service.py
-│   └── requirements.txt
-│
-├── ncsim/                          # Headless simulator (✅ Phase 2 Complete)
-│   ├── pyproject.toml
-│   ├── architecture.html           # Visual architecture overview
-│   ├── ncsim/
-│   │   ├── __init__.py
-│   │   ├── main.py                 # CLI entry point
-│   │   ├── core/
-│   │   │   ├── simulation.py
-│   │   │   ├── event_queue.py
-│   │   │   └── execution_engine.py
-│   │   ├── models/
-│   │   │   ├── network.py
-│   │   │   ├── task.py
-│   │   │   ├── dag.py
-│   │   │   ├── routing.py
-│   │   │   └── interference.py
-│   │   ├── scheduler/
-│   │   │   ├── base.py
-│   │   │   └── saga_adapter.py
-│   │   └── io/
-│   │       ├── scenario_loader.py
-│   │       ├── trace_writer.py
-│   │       └── results_writer.py
-│   ├── tests/
-│   │   ├── test_event_queue.py
-│   │   ├── test_execution_engine.py
-│   │   ├── test_saga_adapter.py
-│   │   └── test_acceptance.py
-│   ├── run_interference_comparison.py
-│   └── scenarios/
-│       ├── demo_simple.yaml
-│       ├── bandwidth_contention.yaml
-│       ├── multi_hop_forced.yaml
-│       ├── multi_hop_test.yaml
-│       ├── multihop_advantage.yaml
-│       ├── parallel_spread.yaml
-│       ├── widest_vs_shortest.yaml
-│       └── interference_test.yaml
+├── scenarios/                      # Example scenario YAML files
+├── tests/                          # Unit and integration tests
+├── docs/                           # Architecture diagrams
+├── reference/                      # READ-ONLY OpenRA SDK reference
 ```
 
 ---
@@ -765,13 +738,12 @@ The following are planned for future phases but explicitly out of scope for Phas
 ```bash
 python -m venv .venv
 .venv\Scripts\activate  # Windows
-pip install -r saga-service/requirements.txt
-pip install -e ncsim/  # After Phase 2
+pip install -e ".[dev]"
 ```
 
 ### B.2 Reference Copies
 
-`reference/` is READ-ONLY. Consult to understand OpenRA patterns before modifying `iobt-viz/`.
+`reference/` is READ-ONLY. Retained as historical OpenRA SDK reference.
 
 ---
 

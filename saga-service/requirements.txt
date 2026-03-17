@@ -1,9 +1,0 @@
-# SAGA Scheduler Service Requirements
-# Connects to iobt-viz bridge and provides HEFT/CPOP scheduling
-
-# SAGA - Scheduling Algorithms Gathered
-anrg-saga>=2.0.0
-
-# Standard scientific Python (may be needed by SAGA)
-networkx>=3.0
-numpy>=1.24

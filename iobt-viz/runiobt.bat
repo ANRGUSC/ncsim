@@ -1,3 +1,0 @@
-@echo off
-echo Launching IoBT Visualization...
-call "%~dp0launch-game.cmd" Mod=iobt
