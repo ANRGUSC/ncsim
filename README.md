@@ -16,6 +16,53 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 - **Experiment scripts** for interference verification and routing comparison
 - **Documentation**: [installation guide](docs/installation.html), [user guide](docs/userguide.html), [architecture overview](docs/architecture.html), and [WiFi interference model](docs/wifi_interference_model.pdf)
 
+## Web Visualization (ncsim-viz)
+
+The bundled web UI ([viz/](viz/)) provides two workflows: **Configure & Run** to build scenarios from scratch and execute them, or **Visualize Existing** to load and explore completed simulation results.
+
+### Configure & Run
+
+Build a scenario interactively — choose a scheduler, routing strategy, interference model, topology preset (line, star, ring, mesh, grid), and DAG preset (chain, fork-join, diamond, parallel). Edit nodes, links, and tasks in editable tables, then run the experiment with one click.
+
+<p align="center">
+  <img src="docs/screenshots/readme-08-configure.png" alt="Configure & Run" width="720">
+</p>
+
+### Six Visualization Tabs
+
+After running or loading an experiment, explore results across six tabs:
+
+| Tab | Description |
+|-----|-------------|
+| **Overview** | Makespan, task/transfer counts, node and link utilization bars |
+| **Network** | Interactive D3 topology with node capacity and bandwidth labels |
+| **DAG** | Task dependency graph with tasks colored by assigned node |
+| **Schedule** | Gantt chart showing task execution windows across all nodes |
+| **Simulation** | Animated replay: synchronized network view + live Gantt + event log |
+| **Parameters** | Full scenario config inspector |
+
+<p align="center">
+  <img src="docs/screenshots/readme-03-overview.png" alt="Overview" width="720"><br>
+  <em>Overview — summary dashboard with node utilization</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/readme-05-dag.png" alt="DAG" width="720"><br>
+  <em>DAG — task dependency graph, colored by node assignment</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/readme-06-schedule.png" alt="Schedule" width="720"><br>
+  <em>Schedule — Gantt chart of task execution across nodes</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/readme-07-simulation.png" alt="Simulation" width="720"><br>
+  <em>Simulation — animated replay with live transfers, Gantt timeline, and event log</em>
+</p>
+
+The simulation replay supports keyboard shortcuts: Space (play/pause), arrow keys (step events), +/- (speed 0.25x-10x), and keys 1-6 to switch tabs.
+
 ## Quick Start
 
 ### Install ncsim
