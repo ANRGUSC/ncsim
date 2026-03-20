@@ -229,6 +229,21 @@ viz/                    # Web visualization (React + FastAPI)
 
 ---
 
+## Citation
+
+If you use ncsim in your research, please cite it:
+
+```bibtex
+@software{krishnamachari2026ncsim,
+  author    = {Krishnamachari, Bhaskar},
+  title     = {ncsim: Headless Discrete Event Simulator for Networked Computing Research},
+  version   = {1.0.0},
+  year      = {2026},
+  url       = {https://github.com/ANRGUSC/ncsim},
+  doi       = {10.5281/zenodo.19138224}
+}
+```
+
 ## License
 
 [MIT](LICENSE)
