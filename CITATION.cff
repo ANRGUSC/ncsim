@@ -5,7 +5,8 @@ title: "ncsim: Headless Discrete Event Simulator for Networked Computing Researc
 version: 1.0.0
 date-released: "2026-03-20"
 license: MIT
-repository-code: "https://github.com/anrgusc/ncsim"
+doi: "10.5281/zenodo.19138224"
+repository-code: "https://github.com/ANRGUSC/ncsim"
 keywords:
   - simulation
   - discrete-event

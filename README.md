@@ -1,6 +1,7 @@
 # ncsim
 
 [![PyPI](https://img.shields.io/pypi/v/anrg-ncsim)](https://pypi.org/project/anrg-ncsim/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19138224.svg)](https://doi.org/10.5281/zenodo.19138224)
 
 **Networked Compute Simulator** — a headless discrete-event simulator for evaluating task scheduling algorithms on heterogeneous networked systems.
 
