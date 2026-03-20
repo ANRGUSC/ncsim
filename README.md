@@ -20,13 +20,7 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 
 ## Installation
 
-Install the core simulator from PyPI:
-
-```bash
-pip install anrg-ncsim
-```
-
-Or clone the repository to get the full package including example scenarios, experiment scripts, documentation, and the [web visualization UI](#web-visualization-ncsim-viz):
+**Recommended:** Clone the repository to get started. The repo includes example scenarios, experiment scripts, documentation, and the [web visualization UI](#web-visualization-ncsim-viz) — all useful for learning and exploring ncsim:
 
 ```bash
 git clone https://github.com/ANRGUSC/ncsim.git
@@ -37,7 +31,9 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
-Requires Python 3.10+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.0.0.
+Alternatively, `pip install anrg-ncsim` installs just the core simulator and `ncsim` CLI. This is suitable if you want to use ncsim as a library in your own project and will write your own scenario YAML files. It does not include the example scenarios, experiment scripts, visualization UI, or documentation.
+
+Requires Python 3.10+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.0.3.
 
 ## Quick Start
 
