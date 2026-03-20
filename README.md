@@ -2,7 +2,7 @@
 
 **Networked Compute Simulator** — a headless discrete-event simulator for evaluating task scheduling algorithms on heterogeneous networked systems.
 
-ncsim models compute nodes, network links with WiFi interference, and DAG task graphs. It produces detailed JSONL traces and JSON metrics for analysis. An interactive web UI ([viz/](viz/)) provides topology visualization, Gantt charts, animated replay, and a "Configure & Run" interface.
+ncsim models compute nodes, network links with WiFi interference, and DAG task graphs. It produces detailed JSONL traces and JSON metrics for analysis.
 
 ## Features
 
@@ -12,62 +12,15 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 - **802.11 WiFi PHY/MAC**: Log-distance path loss, SNR-based MCS rate adaptation (802.11n/ac/ax)
 - **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (dynamic SINR)
 - **Fair bandwidth sharing** when multiple transfers share a link
-- **Web visualization** with topology, DAG, Gantt, and animated replay ([viz/](viz/))
 - **Experiment scripts** for interference verification and routing comparison
 - **Documentation**: [installation guide](docs/installation.html), [user guide](docs/userguide.html), [architecture overview](docs/architecture.html), and [WiFi interference model](docs/wifi_interference_model.pdf)
 
-## Web Visualization (ncsim-viz)
-
-The bundled web UI ([viz/](viz/)) provides two workflows: **Configure & Run** to build scenarios from scratch and execute them, or **Visualize Existing** to load and explore completed simulation results.
-
-### Configure & Run
-
-Build a scenario interactively — choose a scheduler, routing strategy, interference model, topology preset (line, star, ring, mesh, grid), and DAG preset (chain, fork-join, diamond, parallel). Edit nodes, links, and tasks in editable tables, then run the experiment with one click.
-
-<p align="center">
-  <img src="docs/screenshots/readme-08-configure.png" alt="Configure & Run" width="720">
-</p>
-
-### Six Visualization Tabs
-
-After running or loading an experiment, explore results across six tabs:
-
-| Tab | Description |
-|-----|-------------|
-| **Overview** | Makespan, task/transfer counts, node and link utilization bars |
-| **Network** | Interactive D3 topology with node capacity and bandwidth labels |
-| **DAG** | Task dependency graph with tasks colored by assigned node |
-| **Schedule** | Gantt chart showing task execution windows across all nodes |
-| **Simulation** | Animated replay: synchronized network view + live Gantt + event log |
-| **Parameters** | Full scenario config inspector |
-
-<p align="center">
-  <img src="docs/screenshots/readme-03-overview.png" alt="Overview" width="720"><br>
-  <em>Overview — summary dashboard with node utilization</em>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/readme-05-dag.png" alt="DAG" width="720"><br>
-  <em>DAG — task dependency graph, colored by node assignment</em>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/readme-06-schedule.png" alt="Schedule" width="720"><br>
-  <em>Schedule — Gantt chart of task execution across nodes</em>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/readme-07-simulation.png" alt="Simulation" width="720"><br>
-  <em>Simulation — animated replay with live transfers, Gantt timeline, and event log</em>
-</p>
-
-The simulation replay supports keyboard shortcuts: Space (play/pause), arrow keys (step events), +/- (speed 0.25x-10x), and keys 1-6 to switch tabs.
-
-## Quick Start
-
-### Install ncsim
+## Installation
 
 ```bash
+pip install ncsim
+
+# Or install from source
 pip install -e .
 
 # For development (includes pytest)
@@ -76,18 +29,18 @@ pip install -e ".[dev]"
 
 Requires Python 3.10+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.0.0.
 
-### Run a simulation
+## Quick Start
 
 ```bash
-python -m ncsim --scenario scenarios/demo_simple.yaml --output results/
+ncsim --scenario scenarios/demo_simple.yaml --output results/
 ```
 
-Output: three files needed as inputs to the [viz/](viz/) web UI:
+Output:
 - `results/trace.jsonl` — event trace
 - `results/metrics.json` — summary metrics
 - `results/scenario.yaml` — copy of the input scenario
 
-### CLI options
+### CLI Options
 
 ```
 ncsim --scenario PATH --output DIR [options]
@@ -106,18 +59,6 @@ WiFi / RF options (for csma_clique or csma_bianchi):
   --wifi-standard STD   n | ac | ax (default: ax)
   --rts-cts             Enable RTS/CTS
 ```
-
-### Launch the web UI
-
-```bash
-# Terminal 1: Backend API server
-cd viz/server && pip install -r requirements.txt && python run.py
-
-# Terminal 2: Frontend dev server
-cd viz && npm install && npm run dev
-```
-
-Open **http://localhost:5173** to configure experiments, run simulations, and visualize results interactively. See [viz/README.md](viz/README.md) for full documentation.
 
 ## Scenario Format
 
@@ -199,24 +140,88 @@ ncsim/                  # Python package
     ├── trace_writer.py
     └── results_writer.py
 
-viz/                    # Web visualization (React + FastAPI)
-├── src/                # React frontend
-├── server/             # FastAPI backend
-└── public/             # Sample experiment runs
-
 scenarios/              # Example scenario YAML files (10 examples)
 tests/                  # Unit and integration tests (8 test modules)
 docs/                   # Documentation
 ├── architecture.html   # Interactive architecture overview
 ├── installation.html   # Installation guide
 ├── userguide.html      # User guide with screenshots
-├── wifi_interference_model.pdf  # WiFi model writeup
-└── screenshots/        # UI screenshots
+└── wifi_interference_model.pdf  # WiFi model writeup
 ```
+
+---
+
+## Web Visualization (ncsim-viz)
+
+ncsim includes an optional web UI ([viz/](viz/)) for interactive experiment configuration and result visualization. The viz is not included in the PyPI package — clone the repository to use it.
+
+### Setup
+
+```bash
+# Terminal 1: Backend API server
+cd viz/server && pip install -r requirements.txt && python run.py
+
+# Terminal 2: Frontend dev server
+cd viz && npm install && npm run dev
+```
+
+Open **http://localhost:5173** to configure experiments, run simulations, and visualize results interactively. See [viz/README.md](viz/README.md) for full documentation.
+
+### Configure & Run
+
+Build a scenario interactively — choose a scheduler, routing strategy, interference model, topology preset (line, star, ring, mesh, grid), and DAG preset (chain, fork-join, diamond, parallel). Edit nodes, links, and tasks in editable tables, then run the experiment with one click.
+
+<p align="center">
+  <img src="docs/screenshots/readme-08-configure.png" alt="Configure & Run" width="720">
+</p>
+
+### Visualization Tabs
+
+After running or loading an experiment, explore results across six tabs:
+
+| Tab | Description |
+|-----|-------------|
+| **Overview** | Makespan, task/transfer counts, node and link utilization bars |
+| **Network** | Interactive D3 topology with node capacity and bandwidth labels |
+| **DAG** | Task dependency graph with tasks colored by assigned node |
+| **Schedule** | Gantt chart showing task execution windows across all nodes |
+| **Simulation** | Animated replay: synchronized network view + live Gantt + event log |
+| **Parameters** | Full scenario config inspector |
+
+<p align="center">
+  <img src="docs/screenshots/readme-03-overview.png" alt="Overview" width="720"><br>
+  <em>Overview — summary dashboard with node utilization</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/readme-05-dag.png" alt="DAG" width="720"><br>
+  <em>DAG — task dependency graph, colored by node assignment</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/readme-06-schedule.png" alt="Schedule" width="720"><br>
+  <em>Schedule — Gantt chart of task execution across nodes</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/readme-07-simulation.png" alt="Simulation" width="720"><br>
+  <em>Simulation — animated replay with live transfers, Gantt timeline, and event log</em>
+</p>
+
+The simulation replay supports keyboard shortcuts: Space (play/pause), arrow keys (step events), +/- (speed 0.25x-10x), and keys 1-6 to switch tabs.
+
+```
+viz/                    # Web visualization (React + FastAPI)
+├── src/                # React frontend
+├── server/             # FastAPI backend
+└── public/             # Sample experiment runs
+```
+
+---
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE)
+[MIT](LICENSE)
 
 ## Contributors
 **Bhaskar Krishnamachari, Maya Gutierrez**  — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California
