@@ -1,0 +1,899 @@
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{listings}
+\usepackage{microtype}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!70!black,
+  citecolor=green!50!black,
+  urlcolor=blue!60!black,
+}
+
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!50!black}\itshape,
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  breaklines=true,
+  frame=single,
+  framesep=3pt,
+  rulecolor=\color{gray!40},
+}
+
+\newcommand{\ncsim}{\texttt{ncsim}}
+\newcommand{\dBm}{\,\text{dBm}}
+\newcommand{\dB}{\,\text{dB}}
+\newcommand{\mW}{\,\text{mW}}
+\newcommand{\MHz}{\,\text{MHz}}
+\newcommand{\GHz}{\,\text{GHz}}
+\newcommand{\Mbps}{\,\text{Mbps}}
+\newcommand{\MBps}{\,\text{MB/s}}
+
+\title{802.11 CSMA/CA Wireless Link and Interference Model\\for the ncsim Networked Compute Simulator}
+\author{Bhaskar Krishnamachari\\
+Autonomous Networks Research Group (ANRG)\\
+University of Southern California}
+\date{February 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This document describes the 802.11 CSMA/CA wireless link and interference
+model implemented in the \ncsim{} discrete-event simulator.  The model
+encompasses three layers: (1)~a physical layer based on log-distance path loss
+with MCS rate adaptation from IEEE~802.11n/ac/ax tables, (2)~a MAC layer
+incorporating Bianchi's saturation throughput analysis for CSMA/CA contention,
+and (3)~a spatial reuse model using conflict graphs derived from carrier
+sensing range under the protocol interference model.  Two model variants are
+provided: a static clique-based fair-share model (\texttt{csma\_clique}) and a
+dynamic SINR-aware model with Bianchi MAC efficiency
+(\texttt{csma\_bianchi}).  All equations presented here correspond exactly to
+the software implementation.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%% ============================================================
+\section{Introduction and Motivation}
+\label{sec:intro}
+
+The \ncsim{} simulator models networked computing scenarios where computational
+tasks are distributed across nodes and connected by communication links.  In
+wireless deployments---particularly those using IEEE~802.11 (WiFi)---the
+effective throughput of each link depends on:
+
+\begin{enumerate}[itemsep=2pt]
+\item \textbf{Distance-dependent SNR}: Path loss determines the received
+  signal quality, which selects the modulation and coding scheme (MCS) and
+  thus the PHY data rate.
+\item \textbf{CSMA/CA contention}: Links sharing the same spectrum coordinate
+  via carrier sensing; nearby links cannot transmit simultaneously, reducing
+  per-link throughput.
+\item \textbf{Hidden terminal interference}: Links outside each other's
+  carrier sensing range may transmit simultaneously, causing SINR degradation
+  at the receiver.
+\end{enumerate}
+
+Prior to this model, \ncsim{} used a simple proximity-based interference model
+(factor $= 1/k$ for $k$ nearby active links) with statically specified link
+bandwidths.  The model described here replaces both with physically-grounded
+computations derived from RF parameters and IEEE~802.11 specifications.
+
+%% ============================================================
+\section{RF Configuration Parameters}
+\label{sec:rfconfig}
+
+The model is parameterized by an immutable \texttt{RFConfig} structure with the
+following fields:
+
+\begin{table}[h]
+\centering
+\caption{RF configuration parameters and defaults.}
+\label{tab:rfconfig}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Parameter} & \textbf{Symbol} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\texttt{tx\_power\_dBm} & $P_\text{tx}$ & 20 & Transmit power (dBm) \\
+\texttt{freq\_ghz} & $f$ & 5.0 & Carrier frequency (GHz) \\
+\texttt{path\_loss\_exponent} & $n$ & 3.0 & Path loss exponent \\
+\texttt{noise\_floor\_dBm} & $N_0$ & $-95$ & Noise floor (dBm) \\
+\texttt{cca\_threshold\_dBm} & $\theta_\text{CCA}$ & $-82$ & CCA detect threshold (dBm) \\
+\texttt{channel\_width\_mhz} & $W$ & 20 & Channel width (MHz) \\
+\texttt{wifi\_standard} & --- & \texttt{ax} & MCS table: \texttt{n}, \texttt{ac}, \texttt{ax} \\
+\texttt{shadow\_fading\_sigma} & $\sigma_\text{SF}$ & 0.0 & Shadow fading std.\ dev.\ (dB) \\
+\texttt{rts\_cts} & --- & \texttt{false} & RTS/CTS enabled \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These parameters can be specified in the scenario YAML file under
+\texttt{config.rf} and overridden via CLI flags (\texttt{--tx-power},
+\texttt{--freq}, \texttt{--path-loss-exponent}, \texttt{--wifi-standard},
+\texttt{--rts-cts}).
+
+%% ============================================================
+\section{Physical Layer Model}
+\label{sec:phy}
+
+\subsection{Log-Distance Path Loss}
+\label{sec:pathloss}
+
+The path loss model uses the standard log-distance formulation with a
+Friis free-space reference at distance $d_0 = 1$\,m:
+
+\begin{equation}
+\label{eq:friis}
+\text{PL}(d_0) = 20 \log_{10}\!\left(\frac{4\pi d_0 f}{c}\right)
+\end{equation}
+
+where $f$ is the carrier frequency in Hz and $c = 3 \times 10^8$\,m/s.  At
+5\,GHz with $d_0 = 1$\,m, this gives PL$(d_0) \approx 46.4$\,dB.  At
+2.4\,GHz, PL$(d_0) \approx 40.0$\,dB.
+
+For distances $d > d_0$, the path loss grows logarithmically:
+
+\begin{equation}
+\label{eq:pathloss}
+\text{PL}(d) = \text{PL}(d_0) + 10\,n \log_{10}\!\left(\frac{d}{d_0}\right)
+\end{equation}
+
+where $n$ is the path loss exponent ($n = 2$ for free space, $n = 3$--$4$ for
+typical indoor/outdoor environments).
+
+\textbf{Implementation notes:}
+\begin{itemize}[itemsep=2pt]
+\item For $d \leq 0$: PL $= 0$ (collocated nodes, no loss).
+\item For $0 < d < d_0$: $d$ is clamped to $d_0$ (near-field effects are not modeled).
+\end{itemize}
+
+\subsection{Received Power}
+\label{sec:rxpower}
+
+The received power at distance $d$ is:
+
+\begin{equation}
+\label{eq:rxpower}
+P_\text{rx}(d) = P_\text{tx} - \text{PL}(d) - X_\text{SF}
+\end{equation}
+
+where $X_\text{SF}$ is the shadow fading component in dB (see
+\Cref{sec:shadow}).  All quantities are in dBm.
+
+\subsection{Signal-to-Noise Ratio (SNR)}
+\label{sec:snr}
+
+The SNR at the receiver, in the absence of co-channel interference, is:
+
+\begin{equation}
+\label{eq:snr}
+\text{SNR} = P_\text{rx} - N_0 \qquad (\text{in dB})
+\end{equation}
+
+This determines the baseline PHY rate for each link.
+
+\subsection{Signal-to-Interference-plus-Noise Ratio (SINR)}
+\label{sec:sinr}
+
+When hidden terminal interferers are present, SINR replaces SNR.
+Interference powers must be summed in the \emph{linear} (milliwatt) domain:
+
+\begin{equation}
+\label{eq:sinr}
+\text{SINR} = 10 \log_{10}\!\left(
+  \frac{P_\text{rx}^\text{(linear)}}{N_0^\text{(linear)} + \sum_{j \in \mathcal{H}} P_j^\text{(linear)}}
+\right)
+\end{equation}
+
+where $\mathcal{H}$ is the set of active hidden terminal links (those
+\emph{not} in the conflict graph neighborhood---see \Cref{sec:conflict}), and
+the conversion between dBm and milliwatts is:
+
+\begin{equation}
+P^\text{(linear)} = 10^{P^\text{(dBm)}/10}
+\end{equation}
+
+\textbf{Key insight:} Only hidden terminals contribute to SINR degradation.
+Links within the CSMA contention domain do \emph{not} transmit simultaneously
+(carrier sensing prevents it), so they affect throughput via time-sharing, not
+via interference power.  This separation is central to the
+\texttt{csma\_bianchi} model (see \Cref{sec:bianchi_model}).
+
+\subsection{Shadow Fading}
+\label{sec:shadow}
+
+When $\sigma_\text{SF} > 0$, log-normal shadow fading is applied.  For each
+ordered node pair $(i, j)$, a fading value is drawn from:
+
+\begin{equation}
+X_{ij} \sim \mathcal{N}(0, \sigma_\text{SF}^2)
+\end{equation}
+
+The fading map is:
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Symmetric:} $X_{ij} = X_{ji}$ (reciprocal channel).
+\item \textbf{Deterministic:} Generated from a seeded PRNG (\texttt{random.Random(seed)}),
+  ensuring identical fading across runs with the same seed.
+\item \textbf{Per-node-pair:} Each unique pair $(i, j)$ with $i < j$ gets one
+  independent draw.
+\end{itemize}
+
+When $\sigma_\text{SF} = 0$ (the default), the shadow fading map is empty and
+$X_\text{SF} = 0$ for all links.
+
+%% ============================================================
+\section{MCS Rate Adaptation}
+\label{sec:mcs}
+
+The PHY data rate is selected from an MCS (Modulation and Coding Scheme) table
+based on the link SNR.  The implementation includes tables for three 802.11
+standards, each for 1 spatial stream at 20\,MHz channel width with long guard
+interval:
+
+\subsection{MCS Tables}
+
+\begin{table}[h]
+\centering
+\caption{802.11ax (HE) MCS table, 20\,MHz, 1 spatial stream, 3.2\,$\mu$s GI.}
+\label{tab:mcs_ax}
+\begin{tabular}{@{}cllr@{}}
+\toprule
+\textbf{MCS} & \textbf{Modulation} & \textbf{Min SNR (dB)} & \textbf{Rate (Mbps)} \\
+\midrule
+0  & BPSK 1/2      & 5  & 8.6 \\
+1  & QPSK 1/2      & 8  & 17.2 \\
+2  & QPSK 3/4      & 11 & 25.8 \\
+3  & 16-QAM 1/2    & 14 & 34.4 \\
+4  & 16-QAM 3/4    & 18 & 51.6 \\
+5  & 64-QAM 2/3    & 22 & 68.8 \\
+6  & 64-QAM 3/4    & 25 & 77.4 \\
+7  & 64-QAM 5/6    & 29 & 86.0 \\
+8  & 256-QAM 3/4   & 32 & 103.2 \\
+9  & 256-QAM 5/6   & 35 & 114.7 \\
+10 & 1024-QAM 3/4  & 38 & 129.0 \\
+11 & 1024-QAM 5/6  & 41 & 143.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{802.11ac (VHT) MCS table, 20\,MHz, 1 SS.}
+\label{tab:mcs_ac}
+\begin{tabular}{@{}cllr@{}}
+\toprule
+\textbf{MCS} & \textbf{Modulation} & \textbf{Min SNR (dB)} & \textbf{Rate (Mbps)} \\
+\midrule
+0  & BPSK 1/2     & 5  & 6.5 \\
+1  & QPSK 1/2     & 8  & 13.0 \\
+2  & QPSK 3/4     & 11 & 19.5 \\
+3  & 16-QAM 1/2   & 14 & 26.0 \\
+4  & 16-QAM 3/4   & 18 & 39.0 \\
+5  & 64-QAM 2/3   & 22 & 52.0 \\
+6  & 64-QAM 3/4   & 25 & 58.5 \\
+7  & 64-QAM 5/6   & 29 & 65.0 \\
+8  & 256-QAM 3/4  & 32 & 78.0 \\
+9  & 256-QAM 5/6  & 35 & 86.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{802.11n (HT) MCS table, 20\,MHz, 1 SS, 800\,ns GI.}
+\label{tab:mcs_n}
+\begin{tabular}{@{}cllr@{}}
+\toprule
+\textbf{MCS} & \textbf{Modulation} & \textbf{Min SNR (dB)} & \textbf{Rate (Mbps)} \\
+\midrule
+0 & BPSK 1/2    & 5  & 6.5 \\
+1 & QPSK 1/2    & 8  & 13.0 \\
+2 & QPSK 3/4    & 11 & 19.5 \\
+3 & 16-QAM 1/2  & 14 & 26.0 \\
+4 & 16-QAM 3/4  & 18 & 39.0 \\
+5 & 64-QAM 2/3  & 22 & 52.0 \\
+6 & 64-QAM 3/4  & 25 & 58.5 \\
+7 & 64-QAM 5/6  & 29 & 65.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Rate Selection Algorithm}
+
+Given a link SNR value, the highest MCS index whose minimum SNR requirement is
+met is selected:
+
+\begin{equation}
+\label{eq:mcs_select}
+R_\text{PHY} = \max\{r_k : \text{SNR} \geq \text{SNR}_{\min,k}\}
+\end{equation}
+
+where $(r_k, \text{SNR}_{\min,k})$ are the rate and threshold for MCS index
+$k$.  If the SNR is below the minimum MCS threshold (MCS~0), the rate is 0
+(link not viable).
+
+For channel widths other than 20\,MHz, rates scale linearly:
+
+\begin{equation}
+\label{eq:cw_scale}
+R_\text{PHY}(W) = R_\text{PHY}(20) \times \frac{W}{20}
+\end{equation}
+
+This is approximate but standard practice for capacity estimation.
+
+\subsection{Unit Conversion}
+
+The simulator uses MB/s (megabytes per second) internally.  PHY rates are
+converted from Mbps:
+
+\begin{equation}
+\label{eq:unit}
+R\;[\MBps] = \frac{R\;[\Mbps]}{8}
+\end{equation}
+
+%% ============================================================
+\section{Per-Link PHY Rate Computation}
+\label{sec:phyrate}
+
+For each link $\ell$ connecting transmitter node $i$ to receiver node $j$,
+the PHY rate is computed as follows:
+
+\begin{align}
+d_{ij}    &= \sqrt{(x_i - x_j)^2 + (y_i - y_j)^2} \label{eq:dist} \\
+P_\text{rx} &= P_\text{tx} - \text{PL}(d_{ij}) - X_{ij} \label{eq:prx_link} \\
+\text{SNR}_\ell &= P_\text{rx} - N_0 \label{eq:snr_link} \\
+R_\ell  &= \frac{1}{8}\,\text{MCS\_lookup}(\text{SNR}_\ell,\; \text{standard},\; W)
+  \label{eq:rate_link}
+\end{align}
+
+This rate $R_\ell$ (in MB/s) is what is assigned to \texttt{link.bandwidth}
+before the simulation begins.
+
+\textbf{Explicit bandwidth override:} If a link specifies an explicit
+\texttt{bandwidth} value in the scenario YAML, that value is preserved and
+the RF-derived rate is not applied.  This allows mixing wired and wireless
+links in the same scenario.
+
+%% ============================================================
+\section{Carrier Sensing Range}
+\label{sec:csrange}
+
+The carrier sensing range $d_\text{CS}$ is the maximum distance at which a
+transmission is detected by the Clear Channel Assessment (CCA) mechanism:
+
+\begin{equation}
+\label{eq:csrange}
+P_\text{tx} - \text{PL}(d_\text{CS}) = \theta_\text{CCA}
+\end{equation}
+
+Solving for $d_\text{CS}$:
+
+\begin{equation}
+\label{eq:csrange_solve}
+d_\text{CS} = d_0 \cdot 10^{\,\frac{P_\text{tx} - \theta_\text{CCA} - \text{PL}(d_0)}{10\,n}}
+\end{equation}
+
+With default parameters ($P_\text{tx} = 20\dBm$, $\theta_\text{CCA} =
+-82\dBm$, $f = 5\GHz$, $n = 3$), the carrier sensing range is approximately
+$71.2$\,m.
+
+Note that the carrier sensing range is determined by the CCA threshold,
+while the communication range is determined by the receiver sensitivity
+(noise floor plus minimum SNR threshold).  Because the CCA threshold
+($-82\dBm$) is higher (less sensitive) than the receiver sensitivity
+($-95 + 5 = -90\dBm$), the carrier sensing range can be \emph{shorter}
+than the communication range.  This is a well-known property of 802.11
+systems and is one source of hidden terminal problems.
+
+%% ============================================================
+\section{Conflict Graph}
+\label{sec:conflict}
+
+The conflict graph $G_C = (L, E_C)$ is defined over the set of links $L$.
+Two links $\ell_a$ and $\ell_b$ are connected by an edge in $E_C$ (i.e.,
+they \emph{conflict}) if carrier sensing prevents them from transmitting
+simultaneously.  This follows the \emph{protocol interference model}.
+
+\subsection{Conflict Definition}
+
+Let $\text{tx}(\ell)$ and $\text{rx}(\ell)$ denote the transmitter and
+receiver nodes of link $\ell$, respectively.  Let
+$d(u, v)$ denote the Euclidean distance between nodes $u$ and $v$.
+
+\subsubsection{Without RTS/CTS}
+
+Links $\ell_a$ and $\ell_b$ conflict if either transmitter can sense any node
+of the other link:
+
+\begin{equation}
+\label{eq:conflict_nortscts}
+(\ell_a, \ell_b) \in E_C \iff
+\exists\, (u, v) \in
+  \bigl\{\text{tx}(\ell_a)\bigr\} \times \bigl\{\text{tx}(\ell_b), \text{rx}(\ell_b)\bigr\}
+  \;\cup\;
+  \bigl\{\text{tx}(\ell_b)\bigr\} \times \bigl\{\text{tx}(\ell_a), \text{rx}(\ell_a)\bigr\}
+\;:\; d(u, v) \leq d_\text{CS}
+\end{equation}
+
+In other words, only \emph{transmitters} perform carrier sensing.  The
+receiver does not sense the channel before the transmitter initiates.
+
+\subsubsection{With RTS/CTS}
+
+When RTS/CTS is enabled, the virtual carrier sensing mechanism protects both
+transmitters and receivers.  Any node of one link sensing any node of another
+link creates a conflict:
+
+\begin{equation}
+\label{eq:conflict_rtscts}
+(\ell_a, \ell_b) \in E_C \iff
+\exists\, (u, v) \in
+  \bigl\{\text{tx}(\ell_a), \text{rx}(\ell_a)\bigr\} \times
+  \bigl\{\text{tx}(\ell_b), \text{rx}(\ell_b)\bigr\}
+\;:\; u \neq v \;\wedge\; d(u, v) \leq d_\text{CS}
+\end{equation}
+
+RTS/CTS reduces hidden terminal problems by extending the conflict graph, at
+the cost of reduced spatial reuse.
+
+\subsection{Maximum Clique Computation}
+\label{sec:clique}
+
+For the \texttt{csma\_clique} model (\Cref{sec:clique_model}), each link
+$\ell$ needs the size of the largest clique containing it in the conflict
+graph:
+
+\begin{equation}
+\omega(\ell) = \max\bigl\{|C| : C \text{ is a clique in } G_C \text{ and } \ell \in C\bigr\}
+\end{equation}
+
+The implementation uses:
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Bron-Kerbosch with pivoting} (exact) for networks with $\leq 50$ links.
+\item \textbf{Greedy approximation} for larger networks: for each link $\ell$,
+  greedily grow a clique from $\ell$ by adding neighbors that are pairwise
+  connected.
+\end{itemize}
+
+%% ============================================================
+\section{Bianchi's CSMA/CA MAC Efficiency Model}
+\label{sec:bianchi}
+
+The MAC-layer efficiency of IEEE~802.11 DCF is modeled using Bianchi's
+saturation throughput analysis~\cite{bianchi2000}.  This gives the fraction
+of channel time used for successful payload delivery when $n$ stations
+contend.
+
+\subsection{Coupled Equations}
+
+Bianchi's model solves two coupled nonlinear equations for the transmission
+probability $\tau$ and the conditional collision probability $p$:
+
+\begin{align}
+\tau &= \frac{2(1 - 2p)}{(1 - 2p)(W_{\min} + 1) + p\,W_{\min}\bigl(1 - (2p)^m\bigr)}
+  \label{eq:bianchi_tau} \\
+p    &= 1 - (1 - \tau)^{n-1}
+  \label{eq:bianchi_p}
+\end{align}
+
+where:
+\begin{itemize}[itemsep=2pt]
+\item $W_{\min} = 16$ is the minimum contention window (CWmin for 802.11),
+\item $m = 6$ is the maximum backoff stage ($\text{CW}_\text{max} = W_{\min} \cdot 2^m = 1024$),
+\item $n$ is the number of contending stations.
+\end{itemize}
+
+These equations are solved by iterative fixed-point iteration, initialized
+with $\tau = 2/(W_{\min} + 1)$ and iterated until convergence
+($|\tau_\text{new} - \tau| < 10^{-10}$, max 200 iterations).
+
+\subsection{Throughput Efficiency}
+
+From the converged $\tau$, three probabilities characterize each virtual
+time slot:
+
+\begin{align}
+P_\text{idle}      &= (1 - \tau)^n \label{eq:p_idle} \\
+P_\text{success}   &= n\,\tau\,(1 - \tau)^{n-1} \label{eq:p_success} \\
+P_\text{collision} &= 1 - P_\text{idle} - P_\text{success} \label{eq:p_collision}
+\end{align}
+
+The expected duration of a virtual slot is:
+
+\begin{equation}
+\label{eq:eslot}
+\mathbb{E}[T_\text{slot}] =
+  P_\text{idle} \cdot T_\text{idle}
+  + P_\text{success} \cdot T_\text{success}
+  + P_\text{collision} \cdot T_\text{collision}
+\end{equation}
+
+with the following slot durations (5\,GHz OFDM PHY):
+
+\begin{table}[h]
+\centering
+\caption{Bianchi model slot duration parameters.}
+\label{tab:bianchi_slots}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Parameter} & \textbf{Description} & \textbf{Value ($\mu$s)} \\
+\midrule
+$T_\text{idle}$      & Empty slot duration       & 9 \\
+$T_\text{success}$   & Successful frame (DATA + SIFS + ACK) & 500 \\
+$T_\text{collision}$ & Collision duration         & 500 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The MAC efficiency (fraction of time carrying successful payload) is:
+
+\begin{equation}
+\label{eq:eta}
+\eta(n) = \frac{P_\text{success} \cdot T_\text{success}}{\mathbb{E}[T_\text{slot}]}
+\end{equation}
+
+\textbf{Properties:}
+\begin{itemize}[itemsep=2pt]
+\item $\eta(1) = 1.0$ (single station, no contention).
+\item $\eta(n)$ is monotonically decreasing in $n$.
+\item $\eta(n) > 0$ for all $n \geq 1$.
+\item Typical values: $\eta(2) \approx 0.88$, $\eta(5) \approx 0.71$,
+  $\eta(10) \approx 0.59$.
+\end{itemize}
+
+The implementation precomputes $\eta(n)$ for $n = 1, \ldots, 100$ in a
+lazy-initialized lookup table.
+
+%% ============================================================
+\section{Interference Model Variants}
+\label{sec:interference}
+
+The \ncsim{} execution engine computes the effective bandwidth for each link as:
+
+\begin{equation}
+\label{eq:engine}
+B_\text{eff}(\ell) = \frac{B_\ell \cdot f(\ell)}{N_\ell}
+\end{equation}
+
+where $B_\ell$ is the link's base bandwidth (\texttt{link.bandwidth}),
+$f(\ell) \in (0, 1]$ is the interference factor, and $N_\ell$ is the number
+of concurrent flows sharing link $\ell$.  The two WiFi model variants differ
+in how $B_\ell$ and $f(\ell)$ are set.
+
+\subsection{Variant 1: Static Clique Model (\texttt{csma\_clique})}
+\label{sec:clique_model}
+
+The static clique model computes all contention effects at setup time and
+bakes them into the link bandwidth:
+
+\begin{equation}
+\label{eq:clique_bw}
+B_\ell = \frac{R_\ell}{\omega(\ell)}
+\end{equation}
+
+where $R_\ell$ is the SNR-derived PHY rate (from \Cref{sec:phyrate}) and
+$\omega(\ell)$ is the maximum clique size containing $\ell$ (from
+\Cref{sec:clique}).
+
+The interference factor is always 1.0:
+
+\begin{equation}
+f_\text{clique}(\ell) = 1.0
+\end{equation}
+
+\textbf{Rationale:} In the worst case, all links in the maximum clique are
+simultaneously active, and CSMA/CA time-sharing gives each an equal fraction.
+The clique bound provides a conservative upper bound on the number of mutually
+contending links.  This is a static, worst-case analysis independent of which
+links are actually active.
+
+\textbf{Properties:}
+\begin{itemize}[itemsep=2pt]
+\item No dynamic recalculation needed (\texttt{get\_affected\_links} returns $\emptyset$).
+\item Conservative: may underestimate throughput when not all clique members are active.
+\item Computationally cheap at runtime.
+\end{itemize}
+
+\subsection{Variant 2: Dynamic Bianchi Model (\texttt{csma\_bianchi})}
+\label{sec:bianchi_model}
+
+The dynamic model correctly separates two distinct interference mechanisms:
+
+\begin{enumerate}
+\item \textbf{Contention domain} (conflict graph neighbors): CSMA prevents
+  simultaneous transmission.  These links share airtime via Bianchi's model.
+\item \textbf{Hidden terminals} (active links \emph{not} in the conflict graph):
+  These may transmit simultaneously, causing SINR degradation at the receiver.
+\end{enumerate}
+
+\subsubsection{Setup}
+
+The link bandwidth is set to the SNR-only PHY rate (no contention reduction):
+
+\begin{equation}
+B_\ell = R_\ell
+\end{equation}
+
+\subsubsection{Dynamic Interference Factor}
+
+Let $\mathcal{A}$ be the set of currently active links.  For link $\ell$,
+define:
+
+\begin{align}
+\mathcal{C}_\ell &= \mathcal{A} \cap \mathcal{N}(\ell)
+  && \text{(active contending links---conflict graph neighbors)} \label{eq:contending} \\
+\mathcal{H}_\ell &= (\mathcal{A} \setminus \mathcal{N}(\ell)) \setminus \{\ell\}
+  && \text{(active hidden terminals---not in conflict graph)} \label{eq:hidden}
+\end{align}
+
+where $\mathcal{N}(\ell)$ is the set of conflict graph neighbors of $\ell$.
+
+\paragraph{SINR factor (hidden terminals).}
+If $\mathcal{H}_\ell \neq \emptyset$, the SINR at the receiver of $\ell$ is
+computed per \Cref{eq:sinr}, with interference from hidden terminal
+transmitters only.  The degraded rate is looked up from the MCS table:
+
+\begin{equation}
+\label{eq:sinr_factor}
+f_\text{SINR}(\ell) = \frac{R_\text{SINR}(\ell)}{R_\ell}
+\end{equation}
+
+where $R_\text{SINR}(\ell) = \text{MCS\_lookup}(\text{SINR}_\ell)$ and
+$R_\ell$ is the base SNR-only rate.  If no hidden terminals are active,
+$f_\text{SINR} = 1.0$.  If the SINR drops below the minimum MCS threshold,
+$f_\text{SINR} = 0.01$ (link effectively destroyed).
+
+\paragraph{Contention factor (Bianchi).}
+The number of contending stations is $n = 1 + |\mathcal{C}_\ell|$ (the link
+itself plus its active contending neighbors).  Each station gets a fraction
+$\eta(n)/n$ of the channel:
+
+\begin{equation}
+\label{eq:contention_factor}
+f_\text{contention}(\ell) = \frac{\eta(n)}{n}
+\end{equation}
+
+\paragraph{Combined factor.}
+
+\begin{equation}
+\label{eq:combined_factor}
+\boxed{f_\text{bianchi}(\ell) = f_\text{SINR}(\ell) \cdot f_\text{contention}(\ell)
+= \frac{R_\text{SINR}(\ell)}{R_\ell} \cdot \frac{\eta(n)}{n}}
+\end{equation}
+
+clamped to $[0.01, 1.0]$.
+
+\subsubsection{Dynamic Recalculation}
+
+When a transfer starts or completes on a link, all active conflict graph
+neighbors are recalculated:
+
+\begin{equation}
+\texttt{get\_affected\_links}(\ell) = \mathcal{N}(\ell) \cap \mathcal{A}
+\end{equation}
+
+This triggers re-evaluation of the interference factor and rescheduling of
+completion events for affected transfers.
+
+\subsection{Comparison of Variants}
+
+\begin{table}[h]
+\centering
+\caption{Comparison of WiFi interference model variants.}
+\label{tab:comparison}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Property} & \textbf{\texttt{csma\_clique}} & \textbf{\texttt{csma\_bianchi}} \\
+\midrule
+Link bandwidth setup & $R_\ell / \omega(\ell)$ & $R_\ell$ \\
+Interference factor  & $1.0$ (static) & $\frac{R_\text{SINR}}{R_\ell} \cdot \frac{\eta(n)}{n}$ (dynamic) \\
+Contention model     & Worst-case clique bound & Bianchi MAC + active count \\
+Hidden terminals     & Not modeled & SINR degradation \\
+Recalculation trigger & None & Active neighbor changes \\
+Runtime cost         & $O(1)$ per event & $O(|\mathcal{N}(\ell)|)$ per event \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%% ============================================================
+\section{Integration with the Execution Engine}
+\label{sec:integration}
+
+The WiFi model integrates with \ncsim{} via two existing abstractions,
+requiring \emph{zero changes} to the core execution engine:
+
+\begin{enumerate}
+\item \textbf{\texttt{link.bandwidth}} is overwritten at setup time with the
+  WiFi-derived PHY rate (or PHY rate / clique size for \texttt{csma\_clique}).
+
+\item \textbf{\texttt{InterferenceModel.get\_interference\_factor()}} returns
+  the dynamic factor $f(\ell)$, which the engine multiplies with the link
+  bandwidth before applying per-link fair sharing:
+
+\begin{lstlisting}[caption={Engine bandwidth computation (execution\_engine.py).}]
+def _get_link_bandwidth(self, link_id, ...):
+    link = self.network.links[link_id]
+    if self.interference_model is None:
+        return link.bandwidth
+    active_links = self._get_active_link_ids()
+    factor = self.interference_model.get_interference_factor(
+        link_id, active_links, self.network
+    )
+    return link.bandwidth * factor
+\end{lstlisting}
+\end{enumerate}
+
+The per-flow effective bandwidth is then:
+\begin{equation}
+B_\text{per\_flow}(\ell) = \frac{B_\ell \cdot f(\ell)}{N_\ell}
+\end{equation}
+
+Transfer completion time is:
+\begin{equation}
+t_\text{complete} = t_\text{now} + \frac{D_\text{remaining}}{B_\text{per\_flow}} + L_\text{total}
+\end{equation}
+
+where $D_\text{remaining}$ is the remaining data in MB and $L_\text{total}$
+is the total link latency.
+
+%% ============================================================
+\section{Worked Example}
+\label{sec:example}
+
+Consider the \texttt{wifi\_test.yaml} scenario with default RF parameters:
+
+\begin{itemize}[itemsep=2pt]
+\item Four nodes: $n_0(0,0)$, $n_1(30,0)$, $n_2(0,30)$, $n_3(30,30)$.
+\item Two links: $\ell_{01}: n_0 \to n_1$ and $\ell_{23}: n_2 \to n_3$.
+\item Each link carries a 50\,MB transfer.
+\end{itemize}
+
+\subsection{PHY Rate Computation}
+
+For link $\ell_{01}$ with $d = 30$\,m:
+
+\begin{align*}
+\text{PL}(d_0 = 1\text{m}) &= 20\log_{10}\!\left(\frac{4\pi \cdot 1 \cdot 5\times 10^9}{3\times 10^8}\right) \approx 46.4\dB \\
+\text{PL}(30\text{m}) &= 46.4 + 10 \cdot 3 \cdot \log_{10}(30) \approx 46.4 + 44.3 = 90.7\dB \\
+P_\text{rx} &= 20 - 90.7 = -70.7\dBm \\
+\text{SNR} &= -70.7 - (-95) = 24.3\dB \\
+\text{MCS lookup} &\Rightarrow \text{MCS 5 (64-QAM 2/3), min SNR = 22\dB}: 68.8\Mbps \\
+R_{\ell_{01}} &= 68.8 / 8 = 8.6\MBps
+\end{align*}
+
+Both links have identical geometry, so $R_{\ell_{23}} = 8.6\MBps$.
+
+\subsection{Conflict Graph}
+
+Carrier sensing range: $d_\text{CS} = 71.2$\,m.  The transmitter $n_0$ is at
+distance $30$\,m from $n_2$ and $42.4$\,m from $n_3$; both within $d_\text{CS}$.
+Therefore $\ell_{01}$ and $\ell_{23}$ conflict.  $\omega(\ell_{01}) =
+\omega(\ell_{23}) = 2$.
+
+\subsection{\texttt{csma\_clique} Result}
+
+\begin{align*}
+B_{\ell_{01}} &= 8.6 / 2 = 4.3\MBps, \quad f = 1.0 \\
+t_\text{transfer} &= 50 / 4.3 = 11.63\text{s} \\
+\text{Makespan} &= 0.01\text{s (task)} + 11.63\text{s (transfer)} + 0.01\text{s (task)} = 11.65\text{s}
+\end{align*}
+
+\subsection{\texttt{csma\_bianchi} Result}
+
+\begin{align*}
+B_{\ell_{01}} &= 8.6\MBps \text{ (base rate)} \\
+n &= 2 \text{ contending stations} \\
+\eta(2) &\approx 0.88, \quad f_\text{contention} = 0.88 / 2 = 0.44 \\
+f_\text{SINR} &= 1.0 \text{ (no hidden terminals---both links are in conflict graph)} \\
+f &= 1.0 \times 0.44 = 0.44 \\
+B_\text{eff} &= 8.6 \times 0.44 = 3.78\MBps \\
+t_\text{transfer} &= 50 / 3.78 = 13.21\text{s} \\
+\text{Makespan} &\approx 13.22\text{s}
+\end{align*}
+
+The Bianchi model gives a longer transfer time because $\eta(2)/2 \approx
+0.44 < 1/2 = 0.50$ (the clique model's share).  The difference accounts for
+MAC protocol overhead (backoff slots, collisions) that the clique model's
+simple $1/\omega$ bound does not capture.
+
+%% ============================================================
+\section{YAML Configuration}
+\label{sec:yaml}
+
+\begin{lstlisting}[language={},caption={WiFi scenario YAML example.}]
+scenario:
+  name: "WiFi CSMA Bianchi Test"
+  network:
+    nodes:
+      - {id: n0, compute_capacity: 1000, position: {x: 0, y: 0}}
+      - {id: n1, compute_capacity: 1000, position: {x: 30, y: 0}}
+    links:
+      # No bandwidth -- derived from RF model
+      - {id: l01, from: n0, to: n1, latency: 0.0}
+      # Explicit bandwidth preserved as override
+      - {id: l23, from: n2, to: n3, bandwidth: 50, latency: 0.0}
+  config:
+    interference: csma_bianchi   # or csma_clique
+    rf:
+      tx_power_dBm: 20
+      freq_ghz: 5.0
+      path_loss_exponent: 3.0
+      noise_floor_dBm: -95
+      cca_threshold_dBm: -82
+      channel_width_mhz: 20
+      wifi_standard: "ax"
+      shadow_fading_sigma: 0.0
+      rts_cts: false
+\end{lstlisting}
+
+%% ============================================================
+\section{Summary}
+\label{sec:summary}
+
+The 802.11 WiFi model in \ncsim{} provides a physically-grounded replacement
+for simple heuristic interference models.  The key contributions are:
+
+\begin{enumerate}
+\item \textbf{Distance-derived link rates} from log-distance path loss and
+  802.11n/ac/ax MCS tables, eliminating the need to manually specify wireless
+  link bandwidths.
+\item \textbf{Protocol-model conflict graph} from carrier sensing range, with
+  optional RTS/CTS for receiver protection.
+\item \textbf{Two complementary interference variants}: a fast static clique
+  bound and a dynamic Bianchi-based model that captures both CSMA contention
+  and hidden terminal SINR degradation.
+\item \textbf{Zero engine modifications}: the model composes cleanly with
+  \ncsim{}'s existing \texttt{link.bandwidth} and \texttt{InterferenceModel}
+  abstractions.
+\end{enumerate}
+
+\begin{thebibliography}{9}
+
+\bibitem{bianchi2000}
+G.~Bianchi,
+``Performance Analysis of the IEEE 802.11 Distributed Coordination Function,''
+\emph{IEEE Journal on Selected Areas in Communications},
+vol.~18, no.~3, pp.~535--547, March 2000.
+
+\bibitem{gupta2000}
+P.~Gupta and P.~R.~Kumar,
+``The Capacity of Wireless Networks,''
+\emph{IEEE Transactions on Information Theory},
+vol.~46, no.~2, pp.~388--404, March 2000.
+
+\bibitem{garetto2008}
+M.~Garetto, T.~Salonidis, and E.~W.~Knightly,
+``Modeling Per-Flow Throughput and Capturing Starvation in CSMA Multi-Hop
+Wireless Networks,''
+\emph{IEEE/ACM Transactions on Networking},
+vol.~16, no.~4, pp.~864--877, August 2008.
+
+\bibitem{ieee80211ax}
+IEEE Std 802.11ax-2021,
+``IEEE Standard for Information Technology---Telecommunications and
+Information Exchange Between Systems---Local and Metropolitan Area
+Networks---Specific Requirements---Part 11: Wireless LAN Medium Access Control
+(MAC) and Physical Layer (PHY) Specifications---Amendment 1: Enhancements for
+High-Efficiency WLAN,'' 2021.
+
+\end{thebibliography}
+
+\end{document}
