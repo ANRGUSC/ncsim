@@ -7,12 +7,14 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 ## Features
 
 - **Deterministic simulation**: Same inputs + same seed = identical results
-- **HEFT/CPOP scheduling**: Integrated with [anrg-saga](https://github.com/ANRGUSC/saga) schedulers
+- **HEFT/CPOP/Manual scheduling**: Integrated with [anrg-saga](https://github.com/ANRGUSC/saga) schedulers, plus manual assignment via `pinned_to`
 - **Multi-hop routing**: Direct, widest-path (max-min bandwidth), and shortest-path (min-latency)
 - **802.11 WiFi PHY/MAC**: Log-distance path loss, SNR-based MCS rate adaptation (802.11n/ac/ax)
 - **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (dynamic SINR)
 - **Fair bandwidth sharing** when multiple transfers share a link
 - **Web visualization** with topology, DAG, Gantt, and animated replay ([viz/](viz/))
+- **Experiment scripts** for interference verification and routing comparison
+- **Documentation**: [installation guide](docs/installation.html), [user guide](docs/userguide.html), [architecture overview](docs/architecture.html), and [WiFi interference model](docs/wifi_interference_model.pdf)
 
 ## Quick Start
 
@@ -45,7 +47,7 @@ ncsim --scenario PATH --output DIR [options]
 
 Options:
   --seed N              Random seed (default: from scenario or 42)
-  --scheduler ALGO      heft | cpop | round_robin
+  --scheduler ALGO      heft | cpop | round_robin | manual
   --routing ROUTING     direct | widest_path | shortest_path
   --interference MODEL  none | proximity | csma_clique | csma_bianchi
   --verbose             Enable verbose logging
@@ -94,7 +96,22 @@ scenario:
     seed: 42
 ```
 
+Tasks can include `pinned_to: node_id` for use with `--scheduler manual`.
+
 See [scenarios/](scenarios/) for more examples including WiFi interference, multi-hop routing, and parallel spread topologies.
+
+## Experiment Scripts
+
+Two standalone scripts for running structured experiments:
+
+```bash
+# Validate WiFi interference model against analytical predictions
+python run_interference_verification.py
+
+# Compare widest_path vs shortest_path routing on grid topologies
+python run_routing_comparison.py
+python visualize_routing_comparison.py  # Generate plots from results
+```
 
 ## Trace Analysis
 
@@ -140,9 +157,14 @@ viz/                    # Web visualization (React + FastAPI)
 ├── server/             # FastAPI backend
 └── public/             # Sample experiment runs
 
-scenarios/              # Example scenario YAML files
-tests/                  # Unit and integration tests
-docs/                   # Architecture diagrams
+scenarios/              # Example scenario YAML files (10 examples)
+tests/                  # Unit and integration tests (8 test modules)
+docs/                   # Documentation
+├── architecture.html   # Interactive architecture overview
+├── installation.html   # Installation guide
+├── userguide.html      # User guide with screenshots
+├── wifi_interference_model.pdf  # WiFi model writeup
+└── screenshots/        # UI screenshots
 ```
 
 ## License
