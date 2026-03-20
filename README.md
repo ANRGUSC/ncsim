@@ -1,5 +1,7 @@
 # ncsim
 
+[![PyPI](https://img.shields.io/pypi/v/anrg-ncsim)](https://pypi.org/project/anrg-ncsim/)
+
 **Networked Compute Simulator** — a headless discrete-event simulator for evaluating task scheduling algorithms on heterogeneous networked systems.
 
 ncsim models compute nodes, network links with WiFi interference, and DAG task graphs. It produces detailed JSONL traces and JSON metrics for analysis.
@@ -17,10 +19,17 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 
 ## Installation
 
-```bash
-pip install ncsim
+Install the core simulator from PyPI:
 
-# Or install from source
+```bash
+pip install anrg-ncsim
+```
+
+Or clone the repository to get the full package including example scenarios, experiment scripts, documentation, and the [web visualization UI](#web-visualization-ncsim-viz):
+
+```bash
+git clone https://github.com/ANRGUSC/ncsim.git
+cd ncsim
 pip install -e .
 
 # For development (includes pytest)

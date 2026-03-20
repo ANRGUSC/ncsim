@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ncsim"
+name = "anrg-ncsim"
 version = "1.0.0"
 description = "Headless Discrete Event Simulator for Networked Computing Research"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Bhaskar Krishnamachari", email = "bkrishna@usc.edu"}
 ]
@@ -16,7 +16,6 @@ keywords = ["simulation", "discrete-event", "network", "dag", "scheduling"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -40,6 +39,7 @@ ncsim = "ncsim.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
+exclude = ["tests*", "viz*", "scenarios*", "docs*", "experiments*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
