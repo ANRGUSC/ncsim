@@ -49,6 +49,12 @@ viz/public/sample-runs/*
 # E2E test screenshots
 viz/e2e-screenshots/
 
+# MkDocs build output
+site/
+
+# Paper (lives on the 'paper' branch)
+paper/
+
 # LaTeX build artifacts
 docs/*.aux
 docs/*.log
