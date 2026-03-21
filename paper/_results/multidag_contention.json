@@ -1,0 +1,96 @@
+{
+  "experiment": "multidag_contention",
+  "description": "Non-linear contention growth with concurrent DAGs",
+  "parameters": {
+    "network": "3x3 grid",
+    "grid_spacing_m": 40,
+    "dag_type": "5-task fork-join",
+    "compute_cost": 500,
+    "data_size_MB": 10.0,
+    "scheduler": "heft",
+    "routing": "shortest_path",
+    "seed": 42,
+    "stagger_interval_s": 0.5,
+    "path_loss_exponent": 3.0
+  },
+  "sweep_variable": "num_dags",
+  "sweep_values": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "results": [
+    {
+      "num_dags": 1,
+      "total_tasks": 5,
+      "inject_times": [
+        0.0
+      ],
+      "makespan_none": 8.43411,
+      "makespan_csma_bianchi": 12.37487,
+      "contention_scale_none": 1.0,
+      "contention_scale_csma_bianchi": 1.0,
+      "slowdown_factor": 1.467240763992881
+    },
+    {
+      "num_dags": 2,
+      "total_tasks": 10,
+      "inject_times": [
+        0.0,
+        0.5
+      ],
+      "makespan_none": 10.43411,
+      "makespan_csma_bianchi": 17.749739,
+      "contention_scale_none": 1.2371323115302029,
+      "contention_scale_csma_bianchi": 1.4343374112212899,
+      "slowdown_factor": 1.7011263059331367
+    },
+    {
+      "num_dags": 3,
+      "total_tasks": 15,
+      "inject_times": [
+        0.0,
+        0.5,
+        1.0
+      ],
+      "makespan_none": 13.333336,
+      "makespan_csma_bianchi": 25.352553,
+      "contention_scale_none": 1.580882393044435,
+      "contention_scale_csma_bianchi": 2.0487126733452556,
+      "slowdown_factor": 1.9014410947117812
+    },
+    {
+      "num_dags": 4,
+      "total_tasks": 20,
+      "inject_times": [
+        0.0,
+        0.5,
+        1.0,
+        1.5
+      ],
+      "makespan_none": 15.317831,
+      "makespan_csma_bianchi": 32.56203,
+      "contention_scale_none": 1.8161763363295,
+      "contention_scale_csma_bianchi": 2.6313027934838913,
+      "slowdown_factor": 2.1257598415859267
+    },
+    {
+      "num_dags": 5,
+      "total_tasks": 25,
+      "inject_times": [
+        0.0,
+        0.5,
+        1.0,
+        1.5,
+        2.0
+      ],
+      "makespan_none": 18.034885,
+      "makespan_csma_bianchi": 39.915155,
+      "contention_scale_none": 2.1383269841156918,
+      "contention_scale_csma_bianchi": 3.2255009547575044,
+      "slowdown_factor": 2.2132192692107546
+    }
+  ]
+}

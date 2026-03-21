@@ -1,0 +1,2513 @@
+{
+  "summary": {
+    "total_scenarios": 100,
+    "inversion_count": 21,
+    "inversion_rate": 21.0,
+    "mean_regret": 0.23936378781203502,
+    "max_regret": 4.840527117758909
+  },
+  "scenarios": [
+    {
+      "topology": "grid_2x2",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 11.434109,
+        "cpop": 11.434109,
+        "round_robin": 16.20155
+      },
+      "bianchi_makespans": {
+        "heft": 11.434109,
+        "cpop": 11.434109,
+        "round_robin": 24.492314
+      }
+    },
+    {
+      "topology": "grid_2x2",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 11.434109,
+        "cpop": 11.434109,
+        "round_robin": 15.901162
+      },
+      "bianchi_makespans": {
+        "heft": 11.434109,
+        "cpop": 11.434109,
+        "round_robin": 19.768421
+      }
+    },
+    {
+      "topology": "grid_2x2",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 18.100776,
+        "cpop": 19.534884,
+        "round_robin": 25.251939
+      },
+      "bianchi_makespans": {
+        "heft": 20.520656,
+        "cpop": 30.01697,
+        "round_robin": 43.059786
+      }
+    },
+    {
+      "topology": "grid_2x2",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 18.75969,
+        "cpop": 18.75969,
+        "round_robin": 23.875969
+      },
+      "bianchi_makespans": {
+        "heft": 26.032019,
+        "cpop": 26.032019,
+        "round_robin": 30.096522
+      }
+    },
+    {
+      "topology": "grid_2x2",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 28.569122,
+        "cpop": 26.20155,
+        "round_robin": 33.352714
+      },
+      "bianchi_makespans": {
+        "heft": 51.994372,
+        "cpop": 43.886637,
+        "round_robin": 72.911575
+      }
+    },
+    {
+      "topology": "grid_2x2",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 26.434108,
+        "cpop": 29.534883,
+        "round_robin": 36.075581
+      },
+      "bianchi_makespans": {
+        "heft": 38.420152,
+        "cpop": 38.786209,
+        "round_robin": 51.744409
+      }
+    },
+    {
+      "topology": "grid_2x2",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 20.0,
+        "cpop": 20.0,
+        "round_robin": 45.019382
+      },
+      "bianchi_makespans": {
+        "heft": 20.0,
+        "cpop": 20.0,
+        "round_robin": 50.930522
+      }
+    },
+    {
+      "topology": "grid_2x2",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 20.0,
+        "cpop": 20.0,
+        "round_robin": 47.344961
+      },
+      "bianchi_makespans": {
+        "heft": 20.0,
+        "cpop": 20.0,
+        "round_robin": 47.344961
+      }
+    },
+    {
+      "topology": "grid_2x2",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 16.20155,
+        "cpop": 16.20155,
+        "round_robin": 25.668605
+      },
+      "bianchi_makespans": {
+        "heft": 24.492314,
+        "cpop": 24.492314,
+        "round_robin": 39.341743
+      }
+    },
+    {
+      "topology": "grid_2x2",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 16.317829,
+        "cpop": 16.317829,
+        "round_robin": 23.401163
+      },
+      "bianchi_makespans": {
+        "heft": 18.475645,
+        "cpop": 18.475645,
+        "round_robin": 31.135679
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.43411,
+        "cpop": 8.43411,
+        "round_robin": 13.81783
+      },
+      "bianchi_makespans": {
+        "heft": 12.37487,
+        "cpop": 12.37487,
+        "round_robin": 24.031556
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.43411,
+        "cpop": 8.43411,
+        "round_robin": 13.81783
+      },
+      "bianchi_makespans": {
+        "heft": 12.37487,
+        "cpop": 12.37487,
+        "round_robin": 24.031556
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "cpop",
+      "inversion": true,
+      "regret": 0.20118726260088682,
+      "none_makespans": {
+        "heft": 12.484498,
+        "cpop": 13.651164,
+        "round_robin": 23.677326
+      },
+      "bianchi_makespans": {
+        "heft": 43.633012,
+        "cpop": 36.324904,
+        "round_robin": 357.740694
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "cpop",
+      "inversion": true,
+      "regret": 0.12144981222977158,
+      "none_makespans": {
+        "heft": 12.762276,
+        "cpop": 13.651164,
+        "round_robin": 23.630491
+      },
+      "bianchi_makespans": {
+        "heft": 32.333992,
+        "cpop": 28.832313,
+        "round_robin": 107.219409
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "heft",
+      "inversion": true,
+      "regret": 1.0627273726021205,
+      "none_makespans": {
+        "heft": 16.55039,
+        "cpop": 16.312664,
+        "round_robin": 32.284884
+      },
+      "bianchi_makespans": {
+        "heft": 33.58749,
+        "cpop": 69.281835,
+        "round_robin": 651.034786
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 19.799743,
+        "cpop": 19.984499,
+        "round_robin": 33.386627
+      },
+      "bianchi_makespans": {
+        "heft": 33.027799,
+        "cpop": 56.101718,
+        "round_robin": 280.654053
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 38.547161
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 73.369905
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 40.097547
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 56.980474
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 9.55911,
+        "cpop": 9.55911,
+        "round_robin": 20.897933
+      },
+      "bianchi_makespans": {
+        "heft": 49.578487,
+        "cpop": 49.578487,
+        "round_robin": 96.186942
+      }
+    },
+    {
+      "topology": "grid_3x3",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 10.484496,
+        "cpop": 10.484496,
+        "round_robin": 17.913437
+      },
+      "bianchi_makespans": {
+        "heft": 36.422564,
+        "cpop": 36.422564,
+        "round_robin": 71.449175
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "round_robin",
+      "inversion": true,
+      "regret": 4.840527117758909,
+      "none_makespans": {
+        "heft": 8.219824,
+        "cpop": 8.219824,
+        "round_robin": 16.918605
+      },
+      "bianchi_makespans": {
+        "heft": 315.196568,
+        "cpop": 315.196568,
+        "round_robin": 53.967144
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.93411,
+        "cpop": 8.93411,
+        "round_robin": 19.127907
+      },
+      "bianchi_makespans": {
+        "heft": 8.93411,
+        "cpop": 8.93411,
+        "round_robin": 46.560935
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "round_robin",
+      "inversion": true,
+      "regret": 4.310143002248698,
+      "none_makespans": {
+        "heft": 14.870986,
+        "cpop": 17.105482,
+        "round_robin": 28.252585
+      },
+      "bianchi_makespans": {
+        "heft": 1397.551218,
+        "cpop": 1367.879483,
+        "round_robin": 263.185232
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "cpop",
+      "best_bianchi": "round_robin",
+      "inversion": true,
+      "regret": 1.4214558952761194,
+      "none_makespans": {
+        "heft": 15.722039,
+        "cpop": 15.024363,
+        "round_robin": 25.957688
+      },
+      "bianchi_makespans": {
+        "heft": 277.734643,
+        "cpop": 436.945791,
+        "round_robin": 180.447553
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "round_robin",
+      "inversion": true,
+      "regret": 0.43507868424399976,
+      "none_makespans": {
+        "heft": 22.604311,
+        "cpop": 22.2873,
+        "round_robin": 35.290304
+      },
+      "bianchi_makespans": {
+        "heft": 1810.529659,
+        "cpop": 1581.134311,
+        "round_robin": 1101.775344
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 19.449218,
+        "cpop": 20.651715,
+        "round_robin": 38.230847
+      },
+      "bianchi_makespans": {
+        "heft": 479.434361,
+        "cpop": 741.437212,
+        "round_robin": 1031.45058
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 38.547161
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 53.24971
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 39.322354
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 45.123241
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "round_robin",
+      "inversion": true,
+      "regret": 4.350145824008546,
+      "none_makespans": {
+        "heft": 17.522149,
+        "cpop": 17.522149,
+        "round_robin": 23.471576
+      },
+      "bianchi_makespans": {
+        "heft": 1244.630505,
+        "cpop": 1244.630505,
+        "round_robin": 232.634875
+      }
+    },
+    {
+      "topology": "grid_4x4",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "round_robin",
+      "inversion": true,
+      "regret": 1.5241698664059156,
+      "none_makespans": {
+        "heft": 13.204319,
+        "cpop": 13.204319,
+        "round_robin": 19.463824
+      },
+      "bianchi_makespans": {
+        "heft": 329.506611,
+        "cpop": 329.506611,
+        "round_robin": 130.540585
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 11.434109,
+        "cpop": 11.434109,
+        "round_robin": 17.751938
+      },
+      "bianchi_makespans": {
+        "heft": 15.374869,
+        "cpop": 15.374869,
+        "round_robin": 39.267799
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 11.434109,
+        "cpop": 11.434109,
+        "round_robin": 17.751938
+      },
+      "bianchi_makespans": {
+        "heft": 15.374869,
+        "cpop": 15.374869,
+        "round_robin": 39.267799
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 19.951551,
+        "cpop": 21.385659,
+        "round_robin": 28.468992
+      },
+      "bianchi_makespans": {
+        "heft": 34.529096,
+        "cpop": 34.529096,
+        "round_robin": 51.199144
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 19.951551,
+        "cpop": 21.385659,
+        "round_robin": 28.6531
+      },
+      "bianchi_makespans": {
+        "heft": 32.843193,
+        "cpop": 34.529096,
+        "round_robin": 51.199144
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 31.201551,
+        "cpop": 28.76938,
+        "round_robin": 42.88679
+      },
+      "bianchi_makespans": {
+        "heft": 94.033924,
+        "cpop": 59.297607,
+        "round_robin": 151.322848
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 30.552324,
+        "cpop": 28.76938,
+        "round_robin": 33.885659
+      },
+      "bianchi_makespans": {
+        "heft": 66.093201,
+        "cpop": 59.297607,
+        "round_robin": 124.079209
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 20.0,
+        "cpop": 20.0,
+        "round_robin": 45.019382
+      },
+      "bianchi_makespans": {
+        "heft": 20.0,
+        "cpop": 20.0,
+        "round_robin": 48.88664
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 20.0,
+        "cpop": 20.0,
+        "round_robin": 45.019382
+      },
+      "bianchi_makespans": {
+        "heft": 20.0,
+        "cpop": 20.0,
+        "round_robin": 48.88664
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 17.751938,
+        "cpop": 17.751938,
+        "round_robin": 29.102714
+      },
+      "bianchi_makespans": {
+        "heft": 39.267799,
+        "cpop": 39.267799,
+        "round_robin": 56.318177
+      }
+    },
+    {
+      "topology": "line_4",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 17.751938,
+        "cpop": 17.751938,
+        "round_robin": 29.102714
+      },
+      "bianchi_makespans": {
+        "heft": 39.267799,
+        "cpop": 39.267799,
+        "round_robin": 56.318177
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.43411,
+        "cpop": 8.43411,
+        "round_robin": 16.918605
+      },
+      "bianchi_makespans": {
+        "heft": 12.37487,
+        "cpop": 12.37487,
+        "round_robin": 38.661785
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.43411,
+        "cpop": 8.43411,
+        "round_robin": 16.918605
+      },
+      "bianchi_makespans": {
+        "heft": 12.37487,
+        "cpop": 12.37487,
+        "round_robin": 38.661785
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 15.645996,
+        "cpop": 13.651164,
+        "round_robin": 31.125484
+      },
+      "bianchi_makespans": {
+        "heft": 172.448739,
+        "cpop": 130.231903,
+        "round_robin": 370.568313
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 14.600777,
+        "cpop": 13.651164,
+        "round_robin": 30.620155
+      },
+      "bianchi_makespans": {
+        "heft": 194.393519,
+        "cpop": 130.231903,
+        "round_robin": 370.212872
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 22.136593,
+        "cpop": 16.312664,
+        "round_robin": 40.225666
+      },
+      "bianchi_makespans": {
+        "heft": 543.241865,
+        "cpop": 261.943977,
+        "round_robin": 1189.930956
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 16.55039,
+        "cpop": 16.312664,
+        "round_robin": 39.722222
+      },
+      "bianchi_makespans": {
+        "heft": 515.473574,
+        "cpop": 261.943977,
+        "round_robin": 1070.448376
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 38.547161
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 38.547161
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 38.547161
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 38.547161
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 12.034884,
+        "cpop": 12.034884,
+        "round_robin": 25.549097
+      },
+      "bianchi_makespans": {
+        "heft": 130.112541,
+        "cpop": 130.112541,
+        "round_robin": 318.629051
+      }
+    },
+    {
+      "topology": "line_8",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 12.034884,
+        "cpop": 12.034884,
+        "round_robin": 25.549097
+      },
+      "bianchi_makespans": {
+        "heft": 130.112541,
+        "cpop": 130.112541,
+        "round_robin": 318.629051
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.93411,
+        "cpop": 8.93411,
+        "round_robin": 13.81783
+      },
+      "bianchi_makespans": {
+        "heft": 8.93411,
+        "cpop": 8.93411,
+        "round_robin": 30.514291
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.93411,
+        "cpop": 8.93411,
+        "round_robin": 13.81783
+      },
+      "bianchi_makespans": {
+        "heft": 8.93411,
+        "cpop": 8.93411,
+        "round_robin": 30.514291
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 15.368218,
+        "cpop": 18.653101,
+        "round_robin": 23.352713
+      },
+      "bianchi_makespans": {
+        "heft": 30.718175,
+        "cpop": 35.611232,
+        "round_robin": 65.686889
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 16.014212,
+        "cpop": 18.653101,
+        "round_robin": 23.352713
+      },
+      "bianchi_makespans": {
+        "heft": 30.718175,
+        "cpop": 35.611232,
+        "round_robin": 69.324161
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 21.660208,
+        "cpop": 24.186048,
+        "round_robin": 31.085272
+      },
+      "bianchi_makespans": {
+        "heft": 42.709834,
+        "cpop": 52.251928,
+        "round_robin": 80.522442
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 21.085272,
+        "cpop": 24.186048,
+        "round_robin": 33.468993
+      },
+      "bianchi_makespans": {
+        "heft": 48.4884,
+        "cpop": 52.251928,
+        "round_robin": 82.889721
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 40.436049
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 48.317569
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 40.436049
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 48.317569
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "heft",
+      "inversion": true,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 15.635659,
+        "cpop": 15.13566,
+        "round_robin": 20.484496
+      },
+      "bianchi_makespans": {
+        "heft": 34.913637,
+        "cpop": 34.913637,
+        "round_robin": 38.133021
+      }
+    },
+    {
+      "topology": "star_5",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 15.13566,
+        "cpop": 15.635659,
+        "round_robin": 20.484496
+      },
+      "bianchi_makespans": {
+        "heft": 34.913637,
+        "cpop": 34.913637,
+        "round_robin": 38.133021
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.43411,
+        "cpop": 8.43411,
+        "round_robin": 13.81783
+      },
+      "bianchi_makespans": {
+        "heft": 12.37487,
+        "cpop": 12.37487,
+        "round_robin": 30.514291
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.43411,
+        "cpop": 8.43411,
+        "round_robin": 13.81783
+      },
+      "bianchi_makespans": {
+        "heft": 12.37487,
+        "cpop": 12.37487,
+        "round_robin": 30.514291
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 18.847546,
+        "cpop": 17.319768,
+        "round_robin": 20.576551
+      },
+      "bianchi_makespans": {
+        "heft": 49.554315,
+        "cpop": 33.082809,
+        "round_robin": 59.140234
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 17.819768,
+        "cpop": 17.319768,
+        "round_robin": 21.618218
+      },
+      "bianchi_makespans": {
+        "heft": 36.740162,
+        "cpop": 33.082809,
+        "round_robin": 56.230332
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "cpop",
+      "inversion": true,
+      "regret": 0.09917578146832917,
+      "none_makespans": {
+        "heft": 21.868934,
+        "cpop": 21.873386,
+        "round_robin": 30.552326
+      },
+      "bianchi_makespans": {
+        "heft": 62.5968,
+        "cpop": 56.948853,
+        "round_robin": 146.540115
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "cpop",
+      "best_bianchi": "heft",
+      "inversion": true,
+      "regret": 0.33408020684539586,
+      "none_makespans": {
+        "heft": 22.014213,
+        "cpop": 21.873386,
+        "round_robin": 30.205104
+      },
+      "bianchi_makespans": {
+        "heft": 42.687728,
+        "cpop": 56.948853,
+        "round_robin": 140.336775
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 38.547161
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 50.369441
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 38.547161
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 50.369441
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 17.736435,
+        "cpop": 17.736435,
+        "round_robin": 17.797159
+      },
+      "bianchi_makespans": {
+        "heft": 62.551297,
+        "cpop": 62.551297,
+        "round_robin": 92.369993
+      }
+    },
+    {
+      "topology": "star_9",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 17.736435,
+        "cpop": 17.736435,
+        "round_robin": 17.797159
+      },
+      "bianchi_makespans": {
+        "heft": 62.551297,
+        "cpop": 62.551297,
+        "round_robin": 92.369993
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "round_robin",
+      "inversion": true,
+      "regret": 1.75798650333835,
+      "none_makespans": {
+        "heft": 10.643411,
+        "cpop": 10.643411,
+        "round_robin": 16.918605
+      },
+      "bianchi_makespans": {
+        "heft": 101.184289,
+        "cpop": 101.184289,
+        "round_robin": 36.687739
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "round_robin",
+      "inversion": true,
+      "regret": 1.75798650333835,
+      "none_makespans": {
+        "heft": 10.643411,
+        "cpop": 10.643411,
+        "round_robin": 16.918605
+      },
+      "bianchi_makespans": {
+        "heft": 101.184289,
+        "cpop": 101.184289,
+        "round_robin": 36.687739
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "round_robin",
+      "inversion": true,
+      "regret": 0.24474127878059315,
+      "none_makespans": {
+        "heft": 19.461241,
+        "cpop": 22.326873,
+        "round_robin": 36.864665
+      },
+      "bianchi_makespans": {
+        "heft": 280.14081,
+        "cpop": 281.760898,
+        "round_robin": 225.059468
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 17.135659,
+        "cpop": 22.326873,
+        "round_robin": 36.864665
+      },
+      "bianchi_makespans": {
+        "heft": 143.137982,
+        "cpop": 281.760898,
+        "round_robin": 365.896413
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "cpop",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 29.236434,
+        "cpop": 27.679588,
+        "round_robin": 45.989422
+      },
+      "bianchi_makespans": {
+        "heft": 435.380897,
+        "cpop": 420.363776,
+        "round_robin": 883.016678
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "cpop",
+      "best_bianchi": "heft",
+      "inversion": true,
+      "regret": 0.032321079521727025,
+      "none_makespans": {
+        "heft": 28.652455,
+        "cpop": 27.679588,
+        "round_robin": 43.473406
+      },
+      "bianchi_makespans": {
+        "heft": 407.20255,
+        "cpop": 420.363776,
+        "round_robin": 1056.914386
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 42.145348
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 66.590465
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 42.145348
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 66.590465
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 20.887597,
+        "cpop": 20.887597,
+        "round_robin": 21.627907
+      },
+      "bianchi_makespans": {
+        "heft": 206.013843,
+        "cpop": 206.013843,
+        "round_robin": 563.469988
+      }
+    },
+    {
+      "topology": "tree_depth2",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 20.887597,
+        "cpop": 20.887597,
+        "round_robin": 21.627907
+      },
+      "bianchi_makespans": {
+        "heft": 206.013843,
+        "cpop": 206.013843,
+        "round_robin": 563.469988
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.706837,
+        "cpop": 8.706837,
+        "round_robin": 23.77907
+      },
+      "bianchi_makespans": {
+        "heft": 8.706837,
+        "cpop": 8.706837,
+        "round_robin": 1518.873948
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 8.706837,
+        "cpop": 8.706837,
+        "round_robin": 23.77907
+      },
+      "bianchi_makespans": {
+        "heft": 8.706837,
+        "cpop": 8.706837,
+        "round_robin": 1518.873948
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "cpop",
+      "best_bianchi": "heft",
+      "inversion": true,
+      "regret": 0.00494608317058054,
+      "none_makespans": {
+        "heft": 14.312898,
+        "cpop": 13.706838,
+        "round_robin": 49.585918
+      },
+      "bianchi_makespans": {
+        "heft": 16.825637,
+        "cpop": 16.908858,
+        "round_robin": 3272.841732
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "cpop",
+      "best_bianchi": "heft",
+      "inversion": true,
+      "regret": 0.01620850857753542,
+      "none_makespans": {
+        "heft": 13.823117,
+        "cpop": 13.706838,
+        "round_robin": 47.613696
+      },
+      "bianchi_makespans": {
+        "heft": 16.639162,
+        "cpop": 16.908858,
+        "round_robin": 3270.869509
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "cpop",
+      "inversion": true,
+      "regret": 0.13987613069413185,
+      "none_makespans": {
+        "heft": 21.533162,
+        "cpop": 21.601334,
+        "round_robin": 79.904658
+      },
+      "bianchi_makespans": {
+        "heft": 268.71633,
+        "cpop": 235.741694,
+        "round_robin": 6206.001155
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 19.906037,
+        "cpop": 21.601334,
+        "round_robin": 84.264211
+      },
+      "bianchi_makespans": {
+        "heft": 133.245434,
+        "cpop": 235.741694,
+        "round_robin": 6753.388073
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 55.601422
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 1903.373028
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 55.601422
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 1903.373028
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 15.413438,
+        "cpop": 15.413438,
+        "round_robin": 35.184754
+      },
+      "bianchi_makespans": {
+        "heft": 123.921527,
+        "cpop": 123.921527,
+        "round_robin": 2797.975452
+      }
+    },
+    {
+      "topology": "tree_depth3",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 15.413438,
+        "cpop": 15.413438,
+        "round_robin": 35.184754
+      },
+      "bianchi_makespans": {
+        "heft": 123.921527,
+        "cpop": 123.921527,
+        "round_robin": 2797.975452
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "small",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 10.643411,
+        "cpop": 10.643411,
+        "round_robin": 19.718992
+      },
+      "bianchi_makespans": {
+        "heft": 28.046072,
+        "cpop": 28.046072,
+        "round_robin": 76.963416
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "small",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 10.643411,
+        "cpop": 10.643411,
+        "round_robin": 19.857073
+      },
+      "bianchi_makespans": {
+        "heft": 28.046072,
+        "cpop": 28.046072,
+        "round_robin": 341.956924
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "medium",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 17.135659,
+        "cpop": 17.620156,
+        "round_robin": 32.02907
+      },
+      "bianchi_makespans": {
+        "heft": 116.534753,
+        "cpop": 122.17015,
+        "round_robin": 492.156079
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "medium",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 17.620156,
+        "cpop": 17.620156,
+        "round_robin": 31.094961
+      },
+      "bianchi_makespans": {
+        "heft": 116.534753,
+        "cpop": 122.17015,
+        "round_robin": 696.892298
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "large",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "cpop",
+      "inversion": true,
+      "regret": 0.1819100768387878,
+      "none_makespans": {
+        "heft": 25.430233,
+        "cpop": 25.648257,
+        "round_robin": 42.900195
+      },
+      "bianchi_makespans": {
+        "heft": 230.037723,
+        "cpop": 194.63217,
+        "round_robin": 1006.219269
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "large",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "cpop",
+      "inversion": true,
+      "regret": 1.1002617912547548,
+      "none_makespans": {
+        "heft": 24.307495,
+        "cpop": 25.648257,
+        "round_robin": 46.940138
+      },
+      "bianchi_makespans": {
+        "heft": 408.77851,
+        "cpop": 194.63217,
+        "round_robin": 931.866029
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "chain_8",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 43.198319
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 66.658247
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "chain_8",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 45.523901
+      },
+      "bianchi_makespans": {
+        "heft": 13.333336,
+        "cpop": 13.333336,
+        "round_robin": 59.316565
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "fan_6",
+      "routing": "widest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 14.63566,
+        "cpop": 14.63566,
+        "round_robin": 30.533592
+      },
+      "bianchi_makespans": {
+        "heft": 250.607722,
+        "cpop": 250.607722,
+        "round_robin": 408.28956
+      }
+    },
+    {
+      "topology": "random_geo_8",
+      "dag": "fan_6",
+      "routing": "shortest_path",
+      "best_none": "heft",
+      "best_bianchi": "heft",
+      "inversion": false,
+      "regret": 0.0,
+      "none_makespans": {
+        "heft": 14.63566,
+        "cpop": 14.63566,
+        "round_robin": 26.1896
+      },
+      "bianchi_makespans": {
+        "heft": 250.607722,
+        "cpop": 250.607722,
+        "round_robin": 629.599483
+      }
+    }
+  ],
+  "raw_results": {
+    "grid_2x2__small__heft__widest_path__none": 11.434109,
+    "grid_2x2__small__heft__widest_path__csma_bianchi": 11.434109,
+    "grid_2x2__small__heft__shortest_path__none": 11.434109,
+    "grid_2x2__small__heft__shortest_path__csma_bianchi": 11.434109,
+    "grid_2x2__small__cpop__widest_path__none": 11.434109,
+    "grid_2x2__small__cpop__widest_path__csma_bianchi": 11.434109,
+    "grid_2x2__small__cpop__shortest_path__none": 11.434109,
+    "grid_2x2__small__cpop__shortest_path__csma_bianchi": 11.434109,
+    "grid_2x2__small__round_robin__widest_path__none": 16.20155,
+    "grid_2x2__small__round_robin__widest_path__csma_bianchi": 24.492314,
+    "grid_2x2__small__round_robin__shortest_path__none": 15.901162,
+    "grid_2x2__small__round_robin__shortest_path__csma_bianchi": 19.768421,
+    "grid_2x2__medium__heft__widest_path__none": 18.100776,
+    "grid_2x2__medium__heft__widest_path__csma_bianchi": 20.520656,
+    "grid_2x2__medium__heft__shortest_path__none": 18.75969,
+    "grid_2x2__medium__heft__shortest_path__csma_bianchi": 26.032019,
+    "grid_2x2__medium__cpop__widest_path__none": 19.534884,
+    "grid_2x2__medium__cpop__widest_path__csma_bianchi": 30.01697,
+    "grid_2x2__medium__cpop__shortest_path__none": 18.75969,
+    "grid_2x2__medium__cpop__shortest_path__csma_bianchi": 26.032019,
+    "grid_2x2__medium__round_robin__widest_path__none": 25.251939,
+    "grid_2x2__medium__round_robin__widest_path__csma_bianchi": 43.059786,
+    "grid_2x2__medium__round_robin__shortest_path__none": 23.875969,
+    "grid_2x2__medium__round_robin__shortest_path__csma_bianchi": 30.096522,
+    "grid_2x2__large__heft__widest_path__none": 28.569122,
+    "grid_2x2__large__heft__widest_path__csma_bianchi": 51.994372,
+    "grid_2x2__large__heft__shortest_path__none": 26.434108,
+    "grid_2x2__large__heft__shortest_path__csma_bianchi": 38.420152,
+    "grid_2x2__large__cpop__widest_path__none": 26.20155,
+    "grid_2x2__large__cpop__widest_path__csma_bianchi": 43.886637,
+    "grid_2x2__large__cpop__shortest_path__none": 29.534883,
+    "grid_2x2__large__cpop__shortest_path__csma_bianchi": 38.786209,
+    "grid_2x2__large__round_robin__widest_path__none": 33.352714,
+    "grid_2x2__large__round_robin__widest_path__csma_bianchi": 72.911575,
+    "grid_2x2__large__round_robin__shortest_path__none": 36.075581,
+    "grid_2x2__large__round_robin__shortest_path__csma_bianchi": 51.744409,
+    "grid_2x2__chain_8__heft__widest_path__none": 20.0,
+    "grid_2x2__chain_8__heft__widest_path__csma_bianchi": 20.0,
+    "grid_2x2__chain_8__heft__shortest_path__none": 20.0,
+    "grid_2x2__chain_8__heft__shortest_path__csma_bianchi": 20.0,
+    "grid_2x2__chain_8__cpop__widest_path__none": 20.0,
+    "grid_2x2__chain_8__cpop__widest_path__csma_bianchi": 20.0,
+    "grid_2x2__chain_8__cpop__shortest_path__none": 20.0,
+    "grid_2x2__chain_8__cpop__shortest_path__csma_bianchi": 20.0,
+    "grid_2x2__chain_8__round_robin__widest_path__none": 45.019382,
+    "grid_2x2__chain_8__round_robin__widest_path__csma_bianchi": 50.930522,
+    "grid_2x2__chain_8__round_robin__shortest_path__none": 47.344961,
+    "grid_2x2__chain_8__round_robin__shortest_path__csma_bianchi": 47.344961,
+    "grid_2x2__fan_6__heft__widest_path__none": 16.20155,
+    "grid_2x2__fan_6__heft__widest_path__csma_bianchi": 24.492314,
+    "grid_2x2__fan_6__heft__shortest_path__none": 16.317829,
+    "grid_2x2__fan_6__heft__shortest_path__csma_bianchi": 18.475645,
+    "grid_2x2__fan_6__cpop__widest_path__none": 16.20155,
+    "grid_2x2__fan_6__cpop__widest_path__csma_bianchi": 24.492314,
+    "grid_2x2__fan_6__cpop__shortest_path__none": 16.317829,
+    "grid_2x2__fan_6__cpop__shortest_path__csma_bianchi": 18.475645,
+    "grid_2x2__fan_6__round_robin__widest_path__none": 25.668605,
+    "grid_2x2__fan_6__round_robin__widest_path__csma_bianchi": 39.341743,
+    "grid_2x2__fan_6__round_robin__shortest_path__none": 23.401163,
+    "grid_2x2__fan_6__round_robin__shortest_path__csma_bianchi": 31.135679,
+    "grid_3x3__small__heft__widest_path__none": 8.43411,
+    "grid_3x3__small__heft__widest_path__csma_bianchi": 12.37487,
+    "grid_3x3__small__heft__shortest_path__none": 8.43411,
+    "grid_3x3__small__heft__shortest_path__csma_bianchi": 12.37487,
+    "grid_3x3__small__cpop__widest_path__none": 8.43411,
+    "grid_3x3__small__cpop__widest_path__csma_bianchi": 12.37487,
+    "grid_3x3__small__cpop__shortest_path__none": 8.43411,
+    "grid_3x3__small__cpop__shortest_path__csma_bianchi": 12.37487,
+    "grid_3x3__small__round_robin__widest_path__none": 13.81783,
+    "grid_3x3__small__round_robin__widest_path__csma_bianchi": 24.031556,
+    "grid_3x3__small__round_robin__shortest_path__none": 13.81783,
+    "grid_3x3__small__round_robin__shortest_path__csma_bianchi": 24.031556,
+    "grid_3x3__medium__heft__widest_path__none": 12.484498,
+    "grid_3x3__medium__heft__widest_path__csma_bianchi": 43.633012,
+    "grid_3x3__medium__heft__shortest_path__none": 12.762276,
+    "grid_3x3__medium__heft__shortest_path__csma_bianchi": 32.333992,
+    "grid_3x3__medium__cpop__widest_path__none": 13.651164,
+    "grid_3x3__medium__cpop__widest_path__csma_bianchi": 36.324904,
+    "grid_3x3__medium__cpop__shortest_path__none": 13.651164,
+    "grid_3x3__medium__cpop__shortest_path__csma_bianchi": 28.832313,
+    "grid_3x3__medium__round_robin__widest_path__none": 23.677326,
+    "grid_3x3__medium__round_robin__widest_path__csma_bianchi": 357.740694,
+    "grid_3x3__medium__round_robin__shortest_path__none": 23.630491,
+    "grid_3x3__medium__round_robin__shortest_path__csma_bianchi": 107.219409,
+    "grid_3x3__large__heft__widest_path__none": 16.55039,
+    "grid_3x3__large__heft__widest_path__csma_bianchi": 33.58749,
+    "grid_3x3__large__heft__shortest_path__none": 19.799743,
+    "grid_3x3__large__heft__shortest_path__csma_bianchi": 33.027799,
+    "grid_3x3__large__cpop__widest_path__none": 16.312664,
+    "grid_3x3__large__cpop__widest_path__csma_bianchi": 69.281835,
+    "grid_3x3__large__cpop__shortest_path__none": 19.984499,
+    "grid_3x3__large__cpop__shortest_path__csma_bianchi": 56.101718,
+    "grid_3x3__large__round_robin__widest_path__none": 32.284884,
+    "grid_3x3__large__round_robin__widest_path__csma_bianchi": 651.034786,
+    "grid_3x3__large__round_robin__shortest_path__none": 33.386627,
+    "grid_3x3__large__round_robin__shortest_path__csma_bianchi": 280.654053,
+    "grid_3x3__chain_8__heft__widest_path__none": 13.333336,
+    "grid_3x3__chain_8__heft__widest_path__csma_bianchi": 13.333336,
+    "grid_3x3__chain_8__heft__shortest_path__none": 13.333336,
+    "grid_3x3__chain_8__heft__shortest_path__csma_bianchi": 13.333336,
+    "grid_3x3__chain_8__cpop__widest_path__none": 13.333336,
+    "grid_3x3__chain_8__cpop__widest_path__csma_bianchi": 13.333336,
+    "grid_3x3__chain_8__cpop__shortest_path__none": 13.333336,
+    "grid_3x3__chain_8__cpop__shortest_path__csma_bianchi": 13.333336,
+    "grid_3x3__chain_8__round_robin__widest_path__none": 38.547161,
+    "grid_3x3__chain_8__round_robin__widest_path__csma_bianchi": 73.369905,
+    "grid_3x3__chain_8__round_robin__shortest_path__none": 40.097547,
+    "grid_3x3__chain_8__round_robin__shortest_path__csma_bianchi": 56.980474,
+    "grid_3x3__fan_6__heft__widest_path__none": 9.55911,
+    "grid_3x3__fan_6__heft__widest_path__csma_bianchi": 49.578487,
+    "grid_3x3__fan_6__heft__shortest_path__none": 10.484496,
+    "grid_3x3__fan_6__heft__shortest_path__csma_bianchi": 36.422564,
+    "grid_3x3__fan_6__cpop__widest_path__none": 9.55911,
+    "grid_3x3__fan_6__cpop__widest_path__csma_bianchi": 49.578487,
+    "grid_3x3__fan_6__cpop__shortest_path__none": 10.484496,
+    "grid_3x3__fan_6__cpop__shortest_path__csma_bianchi": 36.422564,
+    "grid_3x3__fan_6__round_robin__widest_path__none": 20.897933,
+    "grid_3x3__fan_6__round_robin__widest_path__csma_bianchi": 96.186942,
+    "grid_3x3__fan_6__round_robin__shortest_path__none": 17.913437,
+    "grid_3x3__fan_6__round_robin__shortest_path__csma_bianchi": 71.449175,
+    "grid_4x4__small__heft__widest_path__none": 8.219824,
+    "grid_4x4__small__heft__widest_path__csma_bianchi": 315.196568,
+    "grid_4x4__small__heft__shortest_path__none": 8.93411,
+    "grid_4x4__small__heft__shortest_path__csma_bianchi": 8.93411,
+    "grid_4x4__small__cpop__widest_path__none": 8.219824,
+    "grid_4x4__small__cpop__widest_path__csma_bianchi": 315.196568,
+    "grid_4x4__small__cpop__shortest_path__none": 8.93411,
+    "grid_4x4__small__cpop__shortest_path__csma_bianchi": 8.93411,
+    "grid_4x4__small__round_robin__widest_path__none": 16.918605,
+    "grid_4x4__small__round_robin__widest_path__csma_bianchi": 53.967144,
+    "grid_4x4__small__round_robin__shortest_path__none": 19.127907,
+    "grid_4x4__small__round_robin__shortest_path__csma_bianchi": 46.560935,
+    "grid_4x4__medium__heft__widest_path__none": 14.870986,
+    "grid_4x4__medium__heft__widest_path__csma_bianchi": 1397.551218,
+    "grid_4x4__medium__heft__shortest_path__none": 15.722039,
+    "grid_4x4__medium__heft__shortest_path__csma_bianchi": 277.734643,
+    "grid_4x4__medium__cpop__widest_path__none": 17.105482,
+    "grid_4x4__medium__cpop__widest_path__csma_bianchi": 1367.879483,
+    "grid_4x4__medium__cpop__shortest_path__none": 15.024363,
+    "grid_4x4__medium__cpop__shortest_path__csma_bianchi": 436.945791,
+    "grid_4x4__medium__round_robin__widest_path__none": 28.252585,
+    "grid_4x4__medium__round_robin__widest_path__csma_bianchi": 263.185232,
+    "grid_4x4__medium__round_robin__shortest_path__none": 25.957688,
+    "grid_4x4__medium__round_robin__shortest_path__csma_bianchi": 180.447553,
+    "grid_4x4__large__heft__widest_path__none": 22.604311,
+    "grid_4x4__large__heft__widest_path__csma_bianchi": 1810.529659,
+    "grid_4x4__large__heft__shortest_path__none": 19.449218,
+    "grid_4x4__large__heft__shortest_path__csma_bianchi": 479.434361,
+    "grid_4x4__large__cpop__widest_path__none": 22.2873,
+    "grid_4x4__large__cpop__widest_path__csma_bianchi": 1581.134311,
+    "grid_4x4__large__cpop__shortest_path__none": 20.651715,
+    "grid_4x4__large__cpop__shortest_path__csma_bianchi": 741.437212,
+    "grid_4x4__large__round_robin__widest_path__none": 35.290304,
+    "grid_4x4__large__round_robin__widest_path__csma_bianchi": 1101.775344,
+    "grid_4x4__large__round_robin__shortest_path__none": 38.230847,
+    "grid_4x4__large__round_robin__shortest_path__csma_bianchi": 1031.45058,
+    "grid_4x4__chain_8__heft__widest_path__none": 13.333336,
+    "grid_4x4__chain_8__heft__widest_path__csma_bianchi": 13.333336,
+    "grid_4x4__chain_8__heft__shortest_path__none": 13.333336,
+    "grid_4x4__chain_8__heft__shortest_path__csma_bianchi": 13.333336,
+    "grid_4x4__chain_8__cpop__widest_path__none": 13.333336,
+    "grid_4x4__chain_8__cpop__widest_path__csma_bianchi": 13.333336,
+    "grid_4x4__chain_8__cpop__shortest_path__none": 13.333336,
+    "grid_4x4__chain_8__cpop__shortest_path__csma_bianchi": 13.333336,
+    "grid_4x4__chain_8__round_robin__widest_path__none": 38.547161,
+    "grid_4x4__chain_8__round_robin__widest_path__csma_bianchi": 53.24971,
+    "grid_4x4__chain_8__round_robin__shortest_path__none": 39.322354,
+    "grid_4x4__chain_8__round_robin__shortest_path__csma_bianchi": 45.123241,
+    "grid_4x4__fan_6__heft__widest_path__none": 17.522149,
+    "grid_4x4__fan_6__heft__widest_path__csma_bianchi": 1244.630505,
+    "grid_4x4__fan_6__heft__shortest_path__none": 13.204319,
+    "grid_4x4__fan_6__heft__shortest_path__csma_bianchi": 329.506611,
+    "grid_4x4__fan_6__cpop__widest_path__none": 17.522149,
+    "grid_4x4__fan_6__cpop__widest_path__csma_bianchi": 1244.630505,
+    "grid_4x4__fan_6__cpop__shortest_path__none": 13.204319,
+    "grid_4x4__fan_6__cpop__shortest_path__csma_bianchi": 329.506611,
+    "grid_4x4__fan_6__round_robin__widest_path__none": 23.471576,
+    "grid_4x4__fan_6__round_robin__widest_path__csma_bianchi": 232.634875,
+    "grid_4x4__fan_6__round_robin__shortest_path__none": 19.463824,
+    "grid_4x4__fan_6__round_robin__shortest_path__csma_bianchi": 130.540585,
+    "line_4__small__heft__widest_path__none": 11.434109,
+    "line_4__small__heft__widest_path__csma_bianchi": 15.374869,
+    "line_4__small__heft__shortest_path__none": 11.434109,
+    "line_4__small__heft__shortest_path__csma_bianchi": 15.374869,
+    "line_4__small__cpop__widest_path__none": 11.434109,
+    "line_4__small__cpop__widest_path__csma_bianchi": 15.374869,
+    "line_4__small__cpop__shortest_path__none": 11.434109,
+    "line_4__small__cpop__shortest_path__csma_bianchi": 15.374869,
+    "line_4__small__round_robin__widest_path__none": 17.751938,
+    "line_4__small__round_robin__widest_path__csma_bianchi": 39.267799,
+    "line_4__small__round_robin__shortest_path__none": 17.751938,
+    "line_4__small__round_robin__shortest_path__csma_bianchi": 39.267799,
+    "line_4__medium__heft__widest_path__none": 19.951551,
+    "line_4__medium__heft__widest_path__csma_bianchi": 34.529096,
+    "line_4__medium__heft__shortest_path__none": 19.951551,
+    "line_4__medium__heft__shortest_path__csma_bianchi": 32.843193,
+    "line_4__medium__cpop__widest_path__none": 21.385659,
+    "line_4__medium__cpop__widest_path__csma_bianchi": 34.529096,
+    "line_4__medium__cpop__shortest_path__none": 21.385659,
+    "line_4__medium__cpop__shortest_path__csma_bianchi": 34.529096,
+    "line_4__medium__round_robin__widest_path__none": 28.468992,
+    "line_4__medium__round_robin__widest_path__csma_bianchi": 51.199144,
+    "line_4__medium__round_robin__shortest_path__none": 28.6531,
+    "line_4__medium__round_robin__shortest_path__csma_bianchi": 51.199144,
+    "line_4__large__heft__widest_path__none": 31.201551,
+    "line_4__large__heft__widest_path__csma_bianchi": 94.033924,
+    "line_4__large__heft__shortest_path__none": 30.552324,
+    "line_4__large__heft__shortest_path__csma_bianchi": 66.093201,
+    "line_4__large__cpop__widest_path__none": 28.76938,
+    "line_4__large__cpop__widest_path__csma_bianchi": 59.297607,
+    "line_4__large__cpop__shortest_path__none": 28.76938,
+    "line_4__large__cpop__shortest_path__csma_bianchi": 59.297607,
+    "line_4__large__round_robin__widest_path__none": 42.88679,
+    "line_4__large__round_robin__widest_path__csma_bianchi": 151.322848,
+    "line_4__large__round_robin__shortest_path__none": 33.885659,
+    "line_4__large__round_robin__shortest_path__csma_bianchi": 124.079209,
+    "line_4__chain_8__heft__widest_path__none": 20.0,
+    "line_4__chain_8__heft__widest_path__csma_bianchi": 20.0,
+    "line_4__chain_8__heft__shortest_path__none": 20.0,
+    "line_4__chain_8__heft__shortest_path__csma_bianchi": 20.0,
+    "line_4__chain_8__cpop__widest_path__none": 20.0,
+    "line_4__chain_8__cpop__widest_path__csma_bianchi": 20.0,
+    "line_4__chain_8__cpop__shortest_path__none": 20.0,
+    "line_4__chain_8__cpop__shortest_path__csma_bianchi": 20.0,
+    "line_4__chain_8__round_robin__widest_path__none": 45.019382,
+    "line_4__chain_8__round_robin__widest_path__csma_bianchi": 48.88664,
+    "line_4__chain_8__round_robin__shortest_path__none": 45.019382,
+    "line_4__chain_8__round_robin__shortest_path__csma_bianchi": 48.88664,
+    "line_4__fan_6__heft__widest_path__none": 17.751938,
+    "line_4__fan_6__heft__widest_path__csma_bianchi": 39.267799,
+    "line_4__fan_6__heft__shortest_path__none": 17.751938,
+    "line_4__fan_6__heft__shortest_path__csma_bianchi": 39.267799,
+    "line_4__fan_6__cpop__widest_path__none": 17.751938,
+    "line_4__fan_6__cpop__widest_path__csma_bianchi": 39.267799,
+    "line_4__fan_6__cpop__shortest_path__none": 17.751938,
+    "line_4__fan_6__cpop__shortest_path__csma_bianchi": 39.267799,
+    "line_4__fan_6__round_robin__widest_path__none": 29.102714,
+    "line_4__fan_6__round_robin__widest_path__csma_bianchi": 56.318177,
+    "line_4__fan_6__round_robin__shortest_path__none": 29.102714,
+    "line_4__fan_6__round_robin__shortest_path__csma_bianchi": 56.318177,
+    "line_8__small__heft__widest_path__none": 8.43411,
+    "line_8__small__heft__widest_path__csma_bianchi": 12.37487,
+    "line_8__small__heft__shortest_path__none": 8.43411,
+    "line_8__small__heft__shortest_path__csma_bianchi": 12.37487,
+    "line_8__small__cpop__widest_path__none": 8.43411,
+    "line_8__small__cpop__widest_path__csma_bianchi": 12.37487,
+    "line_8__small__cpop__shortest_path__none": 8.43411,
+    "line_8__small__cpop__shortest_path__csma_bianchi": 12.37487,
+    "line_8__small__round_robin__widest_path__none": 16.918605,
+    "line_8__small__round_robin__widest_path__csma_bianchi": 38.661785,
+    "line_8__small__round_robin__shortest_path__none": 16.918605,
+    "line_8__small__round_robin__shortest_path__csma_bianchi": 38.661785,
+    "line_8__medium__heft__widest_path__none": 15.645996,
+    "line_8__medium__heft__widest_path__csma_bianchi": 172.448739,
+    "line_8__medium__heft__shortest_path__none": 14.600777,
+    "line_8__medium__heft__shortest_path__csma_bianchi": 194.393519,
+    "line_8__medium__cpop__widest_path__none": 13.651164,
+    "line_8__medium__cpop__widest_path__csma_bianchi": 130.231903,
+    "line_8__medium__cpop__shortest_path__none": 13.651164,
+    "line_8__medium__cpop__shortest_path__csma_bianchi": 130.231903,
+    "line_8__medium__round_robin__widest_path__none": 31.125484,
+    "line_8__medium__round_robin__widest_path__csma_bianchi": 370.568313,
+    "line_8__medium__round_robin__shortest_path__none": 30.620155,
+    "line_8__medium__round_robin__shortest_path__csma_bianchi": 370.212872,
+    "line_8__large__heft__widest_path__none": 22.136593,
+    "line_8__large__heft__widest_path__csma_bianchi": 543.241865,
+    "line_8__large__heft__shortest_path__none": 16.55039,
+    "line_8__large__heft__shortest_path__csma_bianchi": 515.473574,
+    "line_8__large__cpop__widest_path__none": 16.312664,
+    "line_8__large__cpop__widest_path__csma_bianchi": 261.943977,
+    "line_8__large__cpop__shortest_path__none": 16.312664,
+    "line_8__large__cpop__shortest_path__csma_bianchi": 261.943977,
+    "line_8__large__round_robin__widest_path__none": 40.225666,
+    "line_8__large__round_robin__widest_path__csma_bianchi": 1189.930956,
+    "line_8__large__round_robin__shortest_path__none": 39.722222,
+    "line_8__large__round_robin__shortest_path__csma_bianchi": 1070.448376,
+    "line_8__chain_8__heft__widest_path__none": 13.333336,
+    "line_8__chain_8__heft__widest_path__csma_bianchi": 13.333336,
+    "line_8__chain_8__heft__shortest_path__none": 13.333336,
+    "line_8__chain_8__heft__shortest_path__csma_bianchi": 13.333336,
+    "line_8__chain_8__cpop__widest_path__none": 13.333336,
+    "line_8__chain_8__cpop__widest_path__csma_bianchi": 13.333336,
+    "line_8__chain_8__cpop__shortest_path__none": 13.333336,
+    "line_8__chain_8__cpop__shortest_path__csma_bianchi": 13.333336,
+    "line_8__chain_8__round_robin__widest_path__none": 38.547161,
+    "line_8__chain_8__round_robin__widest_path__csma_bianchi": 38.547161,
+    "line_8__chain_8__round_robin__shortest_path__none": 38.547161,
+    "line_8__chain_8__round_robin__shortest_path__csma_bianchi": 38.547161,
+    "line_8__fan_6__heft__widest_path__none": 12.034884,
+    "line_8__fan_6__heft__widest_path__csma_bianchi": 130.112541,
+    "line_8__fan_6__heft__shortest_path__none": 12.034884,
+    "line_8__fan_6__heft__shortest_path__csma_bianchi": 130.112541,
+    "line_8__fan_6__cpop__widest_path__none": 12.034884,
+    "line_8__fan_6__cpop__widest_path__csma_bianchi": 130.112541,
+    "line_8__fan_6__cpop__shortest_path__none": 12.034884,
+    "line_8__fan_6__cpop__shortest_path__csma_bianchi": 130.112541,
+    "line_8__fan_6__round_robin__widest_path__none": 25.549097,
+    "line_8__fan_6__round_robin__widest_path__csma_bianchi": 318.629051,
+    "line_8__fan_6__round_robin__shortest_path__none": 25.549097,
+    "line_8__fan_6__round_robin__shortest_path__csma_bianchi": 318.629051,
+    "star_5__small__heft__widest_path__none": 8.93411,
+    "star_5__small__heft__widest_path__csma_bianchi": 8.93411,
+    "star_5__small__heft__shortest_path__none": 8.93411,
+    "star_5__small__heft__shortest_path__csma_bianchi": 8.93411,
+    "star_5__small__cpop__widest_path__none": 8.93411,
+    "star_5__small__cpop__widest_path__csma_bianchi": 8.93411,
+    "star_5__small__cpop__shortest_path__none": 8.93411,
+    "star_5__small__cpop__shortest_path__csma_bianchi": 8.93411,
+    "star_5__small__round_robin__widest_path__none": 13.81783,
+    "star_5__small__round_robin__widest_path__csma_bianchi": 30.514291,
+    "star_5__small__round_robin__shortest_path__none": 13.81783,
+    "star_5__small__round_robin__shortest_path__csma_bianchi": 30.514291,
+    "star_5__medium__heft__widest_path__none": 15.368218,
+    "star_5__medium__heft__widest_path__csma_bianchi": 30.718175,
+    "star_5__medium__heft__shortest_path__none": 16.014212,
+    "star_5__medium__heft__shortest_path__csma_bianchi": 30.718175,
+    "star_5__medium__cpop__widest_path__none": 18.653101,
+    "star_5__medium__cpop__widest_path__csma_bianchi": 35.611232,
+    "star_5__medium__cpop__shortest_path__none": 18.653101,
+    "star_5__medium__cpop__shortest_path__csma_bianchi": 35.611232,
+    "star_5__medium__round_robin__widest_path__none": 23.352713,
+    "star_5__medium__round_robin__widest_path__csma_bianchi": 65.686889,
+    "star_5__medium__round_robin__shortest_path__none": 23.352713,
+    "star_5__medium__round_robin__shortest_path__csma_bianchi": 69.324161,
+    "star_5__large__heft__widest_path__none": 21.660208,
+    "star_5__large__heft__widest_path__csma_bianchi": 42.709834,
+    "star_5__large__heft__shortest_path__none": 21.085272,
+    "star_5__large__heft__shortest_path__csma_bianchi": 48.4884,
+    "star_5__large__cpop__widest_path__none": 24.186048,
+    "star_5__large__cpop__widest_path__csma_bianchi": 52.251928,
+    "star_5__large__cpop__shortest_path__none": 24.186048,
+    "star_5__large__cpop__shortest_path__csma_bianchi": 52.251928,
+    "star_5__large__round_robin__widest_path__none": 31.085272,
+    "star_5__large__round_robin__widest_path__csma_bianchi": 80.522442,
+    "star_5__large__round_robin__shortest_path__none": 33.468993,
+    "star_5__large__round_robin__shortest_path__csma_bianchi": 82.889721,
+    "star_5__chain_8__heft__widest_path__none": 13.333336,
+    "star_5__chain_8__heft__widest_path__csma_bianchi": 13.333336,
+    "star_5__chain_8__heft__shortest_path__none": 13.333336,
+    "star_5__chain_8__heft__shortest_path__csma_bianchi": 13.333336,
+    "star_5__chain_8__cpop__widest_path__none": 13.333336,
+    "star_5__chain_8__cpop__widest_path__csma_bianchi": 13.333336,
+    "star_5__chain_8__cpop__shortest_path__none": 13.333336,
+    "star_5__chain_8__cpop__shortest_path__csma_bianchi": 13.333336,
+    "star_5__chain_8__round_robin__widest_path__none": 40.436049,
+    "star_5__chain_8__round_robin__widest_path__csma_bianchi": 48.317569,
+    "star_5__chain_8__round_robin__shortest_path__none": 40.436049,
+    "star_5__chain_8__round_robin__shortest_path__csma_bianchi": 48.317569,
+    "star_5__fan_6__heft__widest_path__none": 15.635659,
+    "star_5__fan_6__heft__widest_path__csma_bianchi": 34.913637,
+    "star_5__fan_6__heft__shortest_path__none": 15.13566,
+    "star_5__fan_6__heft__shortest_path__csma_bianchi": 34.913637,
+    "star_5__fan_6__cpop__widest_path__none": 15.13566,
+    "star_5__fan_6__cpop__widest_path__csma_bianchi": 34.913637,
+    "star_5__fan_6__cpop__shortest_path__none": 15.635659,
+    "star_5__fan_6__cpop__shortest_path__csma_bianchi": 34.913637,
+    "star_5__fan_6__round_robin__widest_path__none": 20.484496,
+    "star_5__fan_6__round_robin__widest_path__csma_bianchi": 38.133021,
+    "star_5__fan_6__round_robin__shortest_path__none": 20.484496,
+    "star_5__fan_6__round_robin__shortest_path__csma_bianchi": 38.133021,
+    "star_9__small__heft__widest_path__none": 8.43411,
+    "star_9__small__heft__widest_path__csma_bianchi": 12.37487,
+    "star_9__small__heft__shortest_path__none": 8.43411,
+    "star_9__small__heft__shortest_path__csma_bianchi": 12.37487,
+    "star_9__small__cpop__widest_path__none": 8.43411,
+    "star_9__small__cpop__widest_path__csma_bianchi": 12.37487,
+    "star_9__small__cpop__shortest_path__none": 8.43411,
+    "star_9__small__cpop__shortest_path__csma_bianchi": 12.37487,
+    "star_9__small__round_robin__widest_path__none": 13.81783,
+    "star_9__small__round_robin__widest_path__csma_bianchi": 30.514291,
+    "star_9__small__round_robin__shortest_path__none": 13.81783,
+    "star_9__small__round_robin__shortest_path__csma_bianchi": 30.514291,
+    "star_9__medium__heft__widest_path__none": 18.847546,
+    "star_9__medium__heft__widest_path__csma_bianchi": 49.554315,
+    "star_9__medium__heft__shortest_path__none": 17.819768,
+    "star_9__medium__heft__shortest_path__csma_bianchi": 36.740162,
+    "star_9__medium__cpop__widest_path__none": 17.319768,
+    "star_9__medium__cpop__widest_path__csma_bianchi": 33.082809,
+    "star_9__medium__cpop__shortest_path__none": 17.319768,
+    "star_9__medium__cpop__shortest_path__csma_bianchi": 33.082809,
+    "star_9__medium__round_robin__widest_path__none": 20.576551,
+    "star_9__medium__round_robin__widest_path__csma_bianchi": 59.140234,
+    "star_9__medium__round_robin__shortest_path__none": 21.618218,
+    "star_9__medium__round_robin__shortest_path__csma_bianchi": 56.230332,
+    "star_9__large__heft__widest_path__none": 21.868934,
+    "star_9__large__heft__widest_path__csma_bianchi": 62.5968,
+    "star_9__large__heft__shortest_path__none": 22.014213,
+    "star_9__large__heft__shortest_path__csma_bianchi": 42.687728,
+    "star_9__large__cpop__widest_path__none": 21.873386,
+    "star_9__large__cpop__widest_path__csma_bianchi": 56.948853,
+    "star_9__large__cpop__shortest_path__none": 21.873386,
+    "star_9__large__cpop__shortest_path__csma_bianchi": 56.948853,
+    "star_9__large__round_robin__widest_path__none": 30.552326,
+    "star_9__large__round_robin__widest_path__csma_bianchi": 146.540115,
+    "star_9__large__round_robin__shortest_path__none": 30.205104,
+    "star_9__large__round_robin__shortest_path__csma_bianchi": 140.336775,
+    "star_9__chain_8__heft__widest_path__none": 13.333336,
+    "star_9__chain_8__heft__widest_path__csma_bianchi": 13.333336,
+    "star_9__chain_8__heft__shortest_path__none": 13.333336,
+    "star_9__chain_8__heft__shortest_path__csma_bianchi": 13.333336,
+    "star_9__chain_8__cpop__widest_path__none": 13.333336,
+    "star_9__chain_8__cpop__widest_path__csma_bianchi": 13.333336,
+    "star_9__chain_8__cpop__shortest_path__none": 13.333336,
+    "star_9__chain_8__cpop__shortest_path__csma_bianchi": 13.333336,
+    "star_9__chain_8__round_robin__widest_path__none": 38.547161,
+    "star_9__chain_8__round_robin__widest_path__csma_bianchi": 50.369441,
+    "star_9__chain_8__round_robin__shortest_path__none": 38.547161,
+    "star_9__chain_8__round_robin__shortest_path__csma_bianchi": 50.369441,
+    "star_9__fan_6__heft__widest_path__none": 17.736435,
+    "star_9__fan_6__heft__widest_path__csma_bianchi": 62.551297,
+    "star_9__fan_6__heft__shortest_path__none": 17.736435,
+    "star_9__fan_6__heft__shortest_path__csma_bianchi": 62.551297,
+    "star_9__fan_6__cpop__widest_path__none": 17.736435,
+    "star_9__fan_6__cpop__widest_path__csma_bianchi": 62.551297,
+    "star_9__fan_6__cpop__shortest_path__none": 17.736435,
+    "star_9__fan_6__cpop__shortest_path__csma_bianchi": 62.551297,
+    "star_9__fan_6__round_robin__widest_path__none": 17.797159,
+    "star_9__fan_6__round_robin__widest_path__csma_bianchi": 92.369993,
+    "star_9__fan_6__round_robin__shortest_path__none": 17.797159,
+    "star_9__fan_6__round_robin__shortest_path__csma_bianchi": 92.369993,
+    "tree_depth2__small__heft__widest_path__none": 10.643411,
+    "tree_depth2__small__heft__widest_path__csma_bianchi": 101.184289,
+    "tree_depth2__small__heft__shortest_path__none": 10.643411,
+    "tree_depth2__small__heft__shortest_path__csma_bianchi": 101.184289,
+    "tree_depth2__small__cpop__widest_path__none": 10.643411,
+    "tree_depth2__small__cpop__widest_path__csma_bianchi": 101.184289,
+    "tree_depth2__small__cpop__shortest_path__none": 10.643411,
+    "tree_depth2__small__cpop__shortest_path__csma_bianchi": 101.184289,
+    "tree_depth2__small__round_robin__widest_path__none": 16.918605,
+    "tree_depth2__small__round_robin__widest_path__csma_bianchi": 36.687739,
+    "tree_depth2__small__round_robin__shortest_path__none": 16.918605,
+    "tree_depth2__small__round_robin__shortest_path__csma_bianchi": 36.687739,
+    "tree_depth2__medium__heft__widest_path__none": 19.461241,
+    "tree_depth2__medium__heft__widest_path__csma_bianchi": 280.14081,
+    "tree_depth2__medium__heft__shortest_path__none": 17.135659,
+    "tree_depth2__medium__heft__shortest_path__csma_bianchi": 143.137982,
+    "tree_depth2__medium__cpop__widest_path__none": 22.326873,
+    "tree_depth2__medium__cpop__widest_path__csma_bianchi": 281.760898,
+    "tree_depth2__medium__cpop__shortest_path__none": 22.326873,
+    "tree_depth2__medium__cpop__shortest_path__csma_bianchi": 281.760898,
+    "tree_depth2__medium__round_robin__widest_path__none": 36.864665,
+    "tree_depth2__medium__round_robin__widest_path__csma_bianchi": 225.059468,
+    "tree_depth2__medium__round_robin__shortest_path__none": 36.864665,
+    "tree_depth2__medium__round_robin__shortest_path__csma_bianchi": 365.896413,
+    "tree_depth2__large__heft__widest_path__none": 29.236434,
+    "tree_depth2__large__heft__widest_path__csma_bianchi": 435.380897,
+    "tree_depth2__large__heft__shortest_path__none": 28.652455,
+    "tree_depth2__large__heft__shortest_path__csma_bianchi": 407.20255,
+    "tree_depth2__large__cpop__widest_path__none": 27.679588,
+    "tree_depth2__large__cpop__widest_path__csma_bianchi": 420.363776,
+    "tree_depth2__large__cpop__shortest_path__none": 27.679588,
+    "tree_depth2__large__cpop__shortest_path__csma_bianchi": 420.363776,
+    "tree_depth2__large__round_robin__widest_path__none": 45.989422,
+    "tree_depth2__large__round_robin__widest_path__csma_bianchi": 883.016678,
+    "tree_depth2__large__round_robin__shortest_path__none": 43.473406,
+    "tree_depth2__large__round_robin__shortest_path__csma_bianchi": 1056.914386,
+    "tree_depth2__chain_8__heft__widest_path__none": 13.333336,
+    "tree_depth2__chain_8__heft__widest_path__csma_bianchi": 13.333336,
+    "tree_depth2__chain_8__heft__shortest_path__none": 13.333336,
+    "tree_depth2__chain_8__heft__shortest_path__csma_bianchi": 13.333336,
+    "tree_depth2__chain_8__cpop__widest_path__none": 13.333336,
+    "tree_depth2__chain_8__cpop__widest_path__csma_bianchi": 13.333336,
+    "tree_depth2__chain_8__cpop__shortest_path__none": 13.333336,
+    "tree_depth2__chain_8__cpop__shortest_path__csma_bianchi": 13.333336,
+    "tree_depth2__chain_8__round_robin__widest_path__none": 42.145348,
+    "tree_depth2__chain_8__round_robin__widest_path__csma_bianchi": 66.590465,
+    "tree_depth2__chain_8__round_robin__shortest_path__none": 42.145348,
+    "tree_depth2__chain_8__round_robin__shortest_path__csma_bianchi": 66.590465,
+    "tree_depth2__fan_6__heft__widest_path__none": 20.887597,
+    "tree_depth2__fan_6__heft__widest_path__csma_bianchi": 206.013843,
+    "tree_depth2__fan_6__heft__shortest_path__none": 20.887597,
+    "tree_depth2__fan_6__heft__shortest_path__csma_bianchi": 206.013843,
+    "tree_depth2__fan_6__cpop__widest_path__none": 20.887597,
+    "tree_depth2__fan_6__cpop__widest_path__csma_bianchi": 206.013843,
+    "tree_depth2__fan_6__cpop__shortest_path__none": 20.887597,
+    "tree_depth2__fan_6__cpop__shortest_path__csma_bianchi": 206.013843,
+    "tree_depth2__fan_6__round_robin__widest_path__none": 21.627907,
+    "tree_depth2__fan_6__round_robin__widest_path__csma_bianchi": 563.469988,
+    "tree_depth2__fan_6__round_robin__shortest_path__none": 21.627907,
+    "tree_depth2__fan_6__round_robin__shortest_path__csma_bianchi": 563.469988,
+    "tree_depth3__small__heft__widest_path__none": 8.706837,
+    "tree_depth3__small__heft__widest_path__csma_bianchi": 8.706837,
+    "tree_depth3__small__heft__shortest_path__none": 8.706837,
+    "tree_depth3__small__heft__shortest_path__csma_bianchi": 8.706837,
+    "tree_depth3__small__cpop__widest_path__none": 8.706837,
+    "tree_depth3__small__cpop__widest_path__csma_bianchi": 8.706837,
+    "tree_depth3__small__cpop__shortest_path__none": 8.706837,
+    "tree_depth3__small__cpop__shortest_path__csma_bianchi": 8.706837,
+    "tree_depth3__small__round_robin__widest_path__none": 23.77907,
+    "tree_depth3__small__round_robin__widest_path__csma_bianchi": 1518.873948,
+    "tree_depth3__small__round_robin__shortest_path__none": 23.77907,
+    "tree_depth3__small__round_robin__shortest_path__csma_bianchi": 1518.873948,
+    "tree_depth3__medium__heft__widest_path__none": 14.312898,
+    "tree_depth3__medium__heft__widest_path__csma_bianchi": 16.825637,
+    "tree_depth3__medium__heft__shortest_path__none": 13.823117,
+    "tree_depth3__medium__heft__shortest_path__csma_bianchi": 16.639162,
+    "tree_depth3__medium__cpop__widest_path__none": 13.706838,
+    "tree_depth3__medium__cpop__widest_path__csma_bianchi": 16.908858,
+    "tree_depth3__medium__cpop__shortest_path__none": 13.706838,
+    "tree_depth3__medium__cpop__shortest_path__csma_bianchi": 16.908858,
+    "tree_depth3__medium__round_robin__widest_path__none": 49.585918,
+    "tree_depth3__medium__round_robin__widest_path__csma_bianchi": 3272.841732,
+    "tree_depth3__medium__round_robin__shortest_path__none": 47.613696,
+    "tree_depth3__medium__round_robin__shortest_path__csma_bianchi": 3270.869509,
+    "tree_depth3__large__heft__widest_path__none": 21.533162,
+    "tree_depth3__large__heft__widest_path__csma_bianchi": 268.71633,
+    "tree_depth3__large__heft__shortest_path__none": 19.906037,
+    "tree_depth3__large__heft__shortest_path__csma_bianchi": 133.245434,
+    "tree_depth3__large__cpop__widest_path__none": 21.601334,
+    "tree_depth3__large__cpop__widest_path__csma_bianchi": 235.741694,
+    "tree_depth3__large__cpop__shortest_path__none": 21.601334,
+    "tree_depth3__large__cpop__shortest_path__csma_bianchi": 235.741694,
+    "tree_depth3__large__round_robin__widest_path__none": 79.904658,
+    "tree_depth3__large__round_robin__widest_path__csma_bianchi": 6206.001155,
+    "tree_depth3__large__round_robin__shortest_path__none": 84.264211,
+    "tree_depth3__large__round_robin__shortest_path__csma_bianchi": 6753.388073,
+    "tree_depth3__chain_8__heft__widest_path__none": 13.333336,
+    "tree_depth3__chain_8__heft__widest_path__csma_bianchi": 13.333336,
+    "tree_depth3__chain_8__heft__shortest_path__none": 13.333336,
+    "tree_depth3__chain_8__heft__shortest_path__csma_bianchi": 13.333336,
+    "tree_depth3__chain_8__cpop__widest_path__none": 13.333336,
+    "tree_depth3__chain_8__cpop__widest_path__csma_bianchi": 13.333336,
+    "tree_depth3__chain_8__cpop__shortest_path__none": 13.333336,
+    "tree_depth3__chain_8__cpop__shortest_path__csma_bianchi": 13.333336,
+    "tree_depth3__chain_8__round_robin__widest_path__none": 55.601422,
+    "tree_depth3__chain_8__round_robin__widest_path__csma_bianchi": 1903.373028,
+    "tree_depth3__chain_8__round_robin__shortest_path__none": 55.601422,
+    "tree_depth3__chain_8__round_robin__shortest_path__csma_bianchi": 1903.373028,
+    "tree_depth3__fan_6__heft__widest_path__none": 15.413438,
+    "tree_depth3__fan_6__heft__widest_path__csma_bianchi": 123.921527,
+    "tree_depth3__fan_6__heft__shortest_path__none": 15.413438,
+    "tree_depth3__fan_6__heft__shortest_path__csma_bianchi": 123.921527,
+    "tree_depth3__fan_6__cpop__widest_path__none": 15.413438,
+    "tree_depth3__fan_6__cpop__widest_path__csma_bianchi": 123.921527,
+    "tree_depth3__fan_6__cpop__shortest_path__none": 15.413438,
+    "tree_depth3__fan_6__cpop__shortest_path__csma_bianchi": 123.921527,
+    "tree_depth3__fan_6__round_robin__widest_path__none": 35.184754,
+    "tree_depth3__fan_6__round_robin__widest_path__csma_bianchi": 2797.975452,
+    "tree_depth3__fan_6__round_robin__shortest_path__none": 35.184754,
+    "tree_depth3__fan_6__round_robin__shortest_path__csma_bianchi": 2797.975452,
+    "random_geo_8__small__heft__widest_path__none": 10.643411,
+    "random_geo_8__small__heft__widest_path__csma_bianchi": 28.046072,
+    "random_geo_8__small__heft__shortest_path__none": 10.643411,
+    "random_geo_8__small__heft__shortest_path__csma_bianchi": 28.046072,
+    "random_geo_8__small__cpop__widest_path__none": 10.643411,
+    "random_geo_8__small__cpop__widest_path__csma_bianchi": 28.046072,
+    "random_geo_8__small__cpop__shortest_path__none": 10.643411,
+    "random_geo_8__small__cpop__shortest_path__csma_bianchi": 28.046072,
+    "random_geo_8__small__round_robin__widest_path__none": 19.718992,
+    "random_geo_8__small__round_robin__widest_path__csma_bianchi": 76.963416,
+    "random_geo_8__small__round_robin__shortest_path__none": 19.857073,
+    "random_geo_8__small__round_robin__shortest_path__csma_bianchi": 341.956924,
+    "random_geo_8__medium__heft__widest_path__none": 17.135659,
+    "random_geo_8__medium__heft__widest_path__csma_bianchi": 116.534753,
+    "random_geo_8__medium__heft__shortest_path__none": 17.620156,
+    "random_geo_8__medium__heft__shortest_path__csma_bianchi": 116.534753,
+    "random_geo_8__medium__cpop__widest_path__none": 17.620156,
+    "random_geo_8__medium__cpop__widest_path__csma_bianchi": 122.17015,
+    "random_geo_8__medium__cpop__shortest_path__none": 17.620156,
+    "random_geo_8__medium__cpop__shortest_path__csma_bianchi": 122.17015,
+    "random_geo_8__medium__round_robin__widest_path__none": 32.02907,
+    "random_geo_8__medium__round_robin__widest_path__csma_bianchi": 492.156079,
+    "random_geo_8__medium__round_robin__shortest_path__none": 31.094961,
+    "random_geo_8__medium__round_robin__shortest_path__csma_bianchi": 696.892298,
+    "random_geo_8__large__heft__widest_path__none": 25.430233,
+    "random_geo_8__large__heft__widest_path__csma_bianchi": 230.037723,
+    "random_geo_8__large__heft__shortest_path__none": 24.307495,
+    "random_geo_8__large__heft__shortest_path__csma_bianchi": 408.77851,
+    "random_geo_8__large__cpop__widest_path__none": 25.648257,
+    "random_geo_8__large__cpop__widest_path__csma_bianchi": 194.63217,
+    "random_geo_8__large__cpop__shortest_path__none": 25.648257,
+    "random_geo_8__large__cpop__shortest_path__csma_bianchi": 194.63217,
+    "random_geo_8__large__round_robin__widest_path__none": 42.900195,
+    "random_geo_8__large__round_robin__widest_path__csma_bianchi": 1006.219269,
+    "random_geo_8__large__round_robin__shortest_path__none": 46.940138,
+    "random_geo_8__large__round_robin__shortest_path__csma_bianchi": 931.866029,
+    "random_geo_8__chain_8__heft__widest_path__none": 13.333336,
+    "random_geo_8__chain_8__heft__widest_path__csma_bianchi": 13.333336,
+    "random_geo_8__chain_8__heft__shortest_path__none": 13.333336,
+    "random_geo_8__chain_8__heft__shortest_path__csma_bianchi": 13.333336,
+    "random_geo_8__chain_8__cpop__widest_path__none": 13.333336,
+    "random_geo_8__chain_8__cpop__widest_path__csma_bianchi": 13.333336,
+    "random_geo_8__chain_8__cpop__shortest_path__none": 13.333336,
+    "random_geo_8__chain_8__cpop__shortest_path__csma_bianchi": 13.333336,
+    "random_geo_8__chain_8__round_robin__widest_path__none": 43.198319,
+    "random_geo_8__chain_8__round_robin__widest_path__csma_bianchi": 66.658247,
+    "random_geo_8__chain_8__round_robin__shortest_path__none": 45.523901,
+    "random_geo_8__chain_8__round_robin__shortest_path__csma_bianchi": 59.316565,
+    "random_geo_8__fan_6__heft__widest_path__none": 14.63566,
+    "random_geo_8__fan_6__heft__widest_path__csma_bianchi": 250.607722,
+    "random_geo_8__fan_6__heft__shortest_path__none": 14.63566,
+    "random_geo_8__fan_6__heft__shortest_path__csma_bianchi": 250.607722,
+    "random_geo_8__fan_6__cpop__widest_path__none": 14.63566,
+    "random_geo_8__fan_6__cpop__widest_path__csma_bianchi": 250.607722,
+    "random_geo_8__fan_6__cpop__shortest_path__none": 14.63566,
+    "random_geo_8__fan_6__cpop__shortest_path__csma_bianchi": 250.607722,
+    "random_geo_8__fan_6__round_robin__widest_path__none": 30.533592,
+    "random_geo_8__fan_6__round_robin__widest_path__csma_bianchi": 408.28956,
+    "random_geo_8__fan_6__round_robin__shortest_path__none": 26.1896,
+    "random_geo_8__fan_6__round_robin__shortest_path__csma_bianchi": 629.599483
+  }
+}
