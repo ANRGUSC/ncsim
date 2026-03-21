@@ -125,6 +125,8 @@ python -m pytest tests/ -v
 
 Full documentation is available at **[anrgusc.github.io/ncsim](https://anrgusc.github.io/ncsim/)** -- covering installation, core concepts, scenario writing, CLI usage, web visualization, experiment scripts, and step-by-step tutorials.
 
+A **[printable/PDF version](https://anrgusc.github.io/ncsim/print_page/)** of the complete user guide is also available (open in browser and use Print > Save as PDF).
+
 ## Architecture
 
 ```
