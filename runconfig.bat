@@ -1,2 +1,0 @@
-cd iobt-viz
-runconfig
