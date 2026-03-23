@@ -730,8 +730,12 @@ def predict_exp4_effective_rates(sep):
     elif ab_conflict and not ac_conflict:
         # Mixed: A,C contend with B (eta(2)/2) + SINR from far hidden terminal
         #        B contends with A and C (eta(3)/3), no hidden terminals
+        # Expected-rate SINR: hidden terminal (e.g. C for A) has n_h=2
+        # (itself + conflict neighbor B), so p_h = eta(2)/2
         sinr_rate_far = compute_sinr_rate(30, i_far)
-        r1_ac = sinr_rate_far * eta2 / 2
+        p_h = eta2 / 2  # hidden terminal's transmit probability
+        expected_sinr_rate = p_h * sinr_rate_far + (1 - p_h) * base_rate
+        r1_ac = expected_sinr_rate * eta2 / 2
         r1_b = base_rate * eta3 / 3
 
         t_ac = D / r1_ac
@@ -740,7 +744,8 @@ def predict_exp4_effective_rates(sep):
         if t_b <= t_ac:
             # B finishes first → Phase 2: A,C lose contention neighbor B,
             # but remain hidden terminals to each other (AC not in conflict)
-            r2_ac = sinr_rate_far  # eta(1)/1 = 1.0, SINR unchanged
+            # Now p_C = eta(1)/1 = 1.0, so full SINR degradation applies
+            r2_ac = sinr_rate_far  # p=1.0, SINR fully applied
             remaining = D - r1_ac * t_b
             total_ac = t_b + remaining / r2_ac
             return D / total_ac, r1_b, D / total_ac, "mixed"
@@ -800,7 +805,7 @@ def run_exp4():
     print(f"  eta(2): {eta2:.4f}, eta(3): {eta3:.4f}")
     print()
 
-    separations = [10, 20, 35, 40, 50, 60, 70, 75, 80, 100, 150]
+    separations = [10, 20, 35, 40, 50, 60, 70, 75, 80, 100, 150, 200, 250, 300, 400, 500]
 
     results = []
     for sep in separations:

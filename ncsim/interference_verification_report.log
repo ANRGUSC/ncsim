@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.1)  5 MAR 2026 16:19
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.1)  23 MAR 2026 02:41
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -457,96 +457,86 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 
 {/usr/local/texlive/2026basic/texmf-var/fonts/map/pdftex/updmap/pdftex.map}] [2
 ]
-
-LaTeX Warning: `h' float specifier changed to `ht'.
-
-
-Overfull \hbox (8.08092pt too wide) in paragraph at lines 171--172
+[3]
+Overfull \hbox (8.08092pt too wide) in paragraph at lines 184--185
 \OT1/cmr/m/n/10.95 Two par-al-lel hor-i-zon-tal links of length 30m are placed 
 at ver-ti-cal sep-a-ra-tion $\OML/cmm/m/it/10.95 s \OMS/cmsy/m/n/10.95 2 f\OT1/
 cmr/m/n/10.95 5\OML/cmm/m/it/10.95 ; \OT1/cmr/m/n/10.95 10\OML/cmm/m/it/10.95 ;
  [] ; \OT1/cmr/m/n/10.95 200\OMS/cmsy/m/n/10.95 g $\OT1/cmr/m/n/10.95 m.
  []
 
-[3] [4] [5]
-
-LaTeX Warning: `h' float specifier changed to `ht'.
-
-[6]
+[4] [5] [6] [7] [8]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 363.
+(hyperref)                removing `math shift' on input line 418.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 363.
+(hyperref)                removing `math shift' on input line 418.
 
-[7] [8]
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 444.
-
+[9] [10]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `subscript' on input line 444.
+(hyperref)                removing `math shift' on input line 499.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 444.
+(hyperref)                removing `subscript' on input line 499.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `\leavevmode@ifvmode' on input line 444.
+(hyperref)                removing `math shift' on input line 499.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `\leavevmode@ifvmode' on input line 499.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                \kern 1.8254pt
-(hyperref)                removed on input line 444.
+(hyperref)                removed on input line 499.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 444.
+(hyperref)                removing `math shift' on input line 499.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `subscript' on input line 444.
+(hyperref)                removing `subscript' on input line 499.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 444.
+(hyperref)                removing `math shift' on input line 499.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `\leavevmode@ifvmode' on input line 444.
+(hyperref)                removing `\leavevmode@ifvmode' on input line 499.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                \kern 1.8254pt
-(hyperref)                removed on input line 444.
+(hyperref)                removed on input line 499.
 
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-
-LaTeX Warning: `h' float specifier changed to `ht'.
-
-[9] [10] [11] (./interference_verification_report.aux)
+[11] [12] [13] (./interference_verification_report.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
  ***********
 Package rerunfilecheck Info: File `interference_verification_report.out' has no
 t changed.
-(rerunfilecheck)             Checksum: 6111EA287EB2B45D3C584DD07ED860C6;7509.
+(rerunfilecheck)             Checksum: 57FE743BD27833E7E9E75C372AA26D47;8254.
  ) 
 Here is how much of TeX's memory you used:
- 12347 strings out of 469006
- 192803 string characters out of 5454814
- 622635 words of memory out of 5000000
- 40811 multiletter control sequences out of 15000+600000
- 639234 words of font info for 85 fonts, out of 8000000 for 9000
+ 12369 strings out of 469006
+ 193050 string characters out of 5454814
+ 625773 words of memory out of 5000000
+ 40817 multiletter control sequences out of 15000+600000
+ 639580 words of font info for 86 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 75i,13n,79p,986b,543s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,13n,79p,1195b,574s stack positions out of 10000i,1000n,20000p,200000b,200000s
  </Users/mayagutierrez/Library/texlive/2026basic/texmf-var/fonts/pk/ljfour/jk
 nappen/ec/tcrm1095.600pk></usr/local/texlive/2026basic/texmf-dist/fonts/type1/p
 ublic/amsfonts/cm/cmbx10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/typ
@@ -567,11 +557,11 @@ ocal/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></u
 sr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt12.pfb
 ></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/symbols/m
 sam10.pfb>
-Output written on interference_verification_report.pdf (11 pages, 244090 bytes)
+Output written on interference_verification_report.pdf (13 pages, 255688 bytes)
 .
 PDF statistics:
- 412 PDF objects out of 1000 (max. 8388607)
- 360 compressed objects within 4 object streams
- 101 named destinations out of 1000 (max. 500000)
- 393 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 450 PDF objects out of 1000 (max. 8388607)
+ 396 compressed objects within 4 object streams
+ 117 named destinations out of 1000 (max. 500000)
+ 417 words of extra memory for PDF output out of 10000 (max. 10000000)
 
