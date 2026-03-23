@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "ncsim: Headless Discrete Event Simulator for Networked Computing Research"
+version: 1.0.0
+date-released: "2026-03-20"
+license: MIT
+doi: "10.5281/zenodo.19138224"
+repository-code: "https://github.com/ANRGUSC/ncsim"
+keywords:
+  - simulation
+  - discrete-event
+  - network
+  - dag
+  - scheduling
+  - networked computing
+authors:
+  - family-names: Krishnamachari
+    given-names: Bhaskar
+    email: bkrishna@usc.edu
+    affiliation: "University of Southern California"

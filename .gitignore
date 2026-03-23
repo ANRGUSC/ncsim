@@ -29,6 +29,10 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+nul
+
+# Claude Code
+.claude-journal.md
 
 # Node.js
 viz/node_modules/
@@ -45,8 +49,19 @@ viz/public/sample-runs/*
 # E2E test screenshots
 viz/e2e-screenshots/
 
+# MkDocs build output
+site/
+
+# Paper (lives on the 'paper' branch)
+paper/
+
 # LaTeX build artifacts
 docs/*.aux
 docs/*.log
 docs/*.out
 docs/*.toc
+docs/docs/
+docs/ncsim_paper.aux
+docs/ncsim_paper.log
+docs/ncsim_paper.out
+docs/ncsim_paper.pdf
