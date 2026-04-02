@@ -23,9 +23,10 @@ class ScenarioConfig:
     Attributes:
         scheduler: Scheduling algorithm to use ("heft", "cpop", "round_robin")
         seed: Random seed for reproducibility
-        routing: Routing algorithm to use ("direct", "widest_path", or "shortest_path")
+        routing: Routing algorithm to use ("direct", "widest_path", "shortest_path", or "interference_aware")
         interference: Interference model type ("none", "proximity", "csma_clique", "csma_bianchi")
         interference_radius: Radius for proximity interference model
+        routing_hop_cutoff: Max hops for interference_aware routing path enumeration
         rf_config: Raw dict of RF parameters for WiFi models (from YAML rf: section)
     """
     scheduler: str = "heft"
@@ -33,6 +34,7 @@ class ScenarioConfig:
     routing: str = "direct"
     interference: str = "proximity"
     interference_radius: float = 15.0
+    routing_hop_cutoff: Optional[int] = None
     rf_config: Optional[Dict[str, Any]] = None
 
 
@@ -181,12 +183,14 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
     if config_data is None:
         return ScenarioConfig()
 
+    routing_hop_cutoff = config_data.get("routing_hop_cutoff")
     return ScenarioConfig(
         scheduler=str(config_data.get("scheduler", "heft")),
         seed=int(config_data.get("seed", 42)),
         routing=str(config_data.get("routing", "direct")),
         interference=str(config_data.get("interference", "proximity")),
         interference_radius=float(config_data.get("interference_radius", 15.0)),
+        routing_hop_cutoff=int(routing_hop_cutoff) if routing_hop_cutoff is not None else None,
         rf_config=config_data.get("rf"),
     )
 

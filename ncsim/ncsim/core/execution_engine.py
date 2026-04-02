@@ -274,6 +274,13 @@ class ExecutionEngine:
         snapshot = self.get_network_snapshot()
         plan = self.scheduler.on_dag_inject(dag, snapshot)
         self.placement_plans[dag_id] = plan
+
+        # If using interference-aware routing, plan routes before validation
+        from ncsim.models.routing import InterferenceAwareRouting
+        if isinstance(self.routing_model, InterferenceAwareRouting):
+            schedule_timing = plan.metadata.get("schedule_timing")
+            self.routing_model.plan_routes(dag, plan, self.network, schedule_timing)
+
         self._validate_placement(dag, plan)
 
         logger.info(f"DAG {dag_id} injected with {len(dag.tasks)} tasks")
@@ -493,8 +500,20 @@ class ExecutionEngine:
             self._complete_local_transfer(dag_id, from_task, to_task)
             return
 
+        # Build network state for dynamic routing models
+        network_state = {
+            "active_link_ids": self._get_active_link_ids(),
+            "link_transfer_counts": {
+                lid: ls.num_transfers
+                for lid, ls in self.link_states.items()
+                if ls.num_transfers > 0
+            },
+        }
+
         # Get path for transfer
-        path = self.routing_model.get_path(src_node, dst_node, self.network)
+        path = self.routing_model.get_path(
+            src_node, dst_node, self.network, network_state
+        )
 
         if path is None or len(path) == 0:
             raise SimulationError(

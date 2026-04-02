@@ -91,8 +91,8 @@ class SagaScheduler(Scheduler):
         logger.debug(f"Running {self.algorithm.upper()} scheduler")
         schedule = self._scheduler.schedule(saga_network, saga_taskgraph)
 
-        # Extract assignments
-        assignments = self._extract_assignments(schedule, network_snapshot)
+        # Extract assignments and timing
+        assignments, schedule_timing = self._extract_assignments(schedule, network_snapshot)
 
         # Handle pinned tasks (override SAGA assignments)
         for task_id, task in dag.tasks.items():
@@ -100,9 +100,12 @@ class SagaScheduler(Scheduler):
                 assignments[task_id] = task.pinned_to
 
         logger.info(f"SAGA {self.algorithm.upper()} assignments: {assignments}")
+        metadata = {"algorithm": self.algorithm}
+        if schedule_timing:
+            metadata["schedule_timing"] = schedule_timing
         return PlacementPlan(
             assignments=assignments,
-            metadata={"algorithm": self.algorithm}
+            metadata=metadata
         )
 
     def _build_saga_network(self, snapshot: NetworkSnapshot) -> "SagaNetwork":
@@ -221,18 +224,23 @@ class SagaScheduler(Scheduler):
         self,
         schedule,
         snapshot: NetworkSnapshot
-    ) -> Dict[str, str]:
-        """Extract task -> node_id mapping from SAGA schedule.
+    ) -> tuple:
+        """Extract task -> node_id mapping and timing from SAGA schedule.
 
         SAGA schedule has a 'mapping' attribute: Dict[node_name, List[ScheduledTask]]
         We need to map back from "node_X" names to actual node IDs.
+
+        Returns:
+            Tuple of (assignments dict, schedule_timing dict).
+            schedule_timing maps task_id -> (start, end) from HEFT estimates.
         """
         node_ids = list(snapshot.nodes.keys())
         assignments = {}
+        schedule_timing = {}
 
         if schedule is None:
             logger.warning("SAGA schedule is None")
-            return assignments
+            return assignments, schedule_timing
 
         # SAGA Schedule has mapping: Dict[node_name, List[ScheduledTask]]
         if hasattr(schedule, "mapping"):
@@ -243,10 +251,15 @@ class SagaScheduler(Scheduler):
                         task_name = getattr(task, "name", None)
                         if task_name:
                             assignments[task_name] = node_id
+                            # Extract HEFT timing estimates
+                            start = getattr(task, "start", None)
+                            end = getattr(task, "end", None)
+                            if start is not None and end is not None:
+                                schedule_timing[task_name] = (float(start), float(end))
                             logger.debug(f"  {task_name} -> {node_id}")
 
-        logger.debug(f"Extracted {len(assignments)} assignments")
-        return assignments
+        logger.debug(f"Extracted {len(assignments)} assignments, {len(schedule_timing)} timing estimates")
+        return assignments, schedule_timing
 
     def _parse_node_id(self, node_info, node_ids: list) -> Optional[str]:
         """Parse actual node ID from SAGA node name.

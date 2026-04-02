@@ -178,9 +178,15 @@ def main(args: list = None) -> int:
     )
     parser.add_argument(
         "--routing",
-        choices=["direct", "widest_path", "shortest_path"],
+        choices=["direct", "widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic"],
         default=None,
         help="Routing algorithm (overrides scenario config)"
+    )
+    parser.add_argument(
+        "--routing-hop-cutoff",
+        type=int,
+        default=None,
+        help="Max hops for interference_aware routing path enumeration (default: 4)"
     )
     parser.add_argument(
         "--interference",
@@ -254,19 +260,7 @@ def main(args: list = None) -> int:
         scheduler_algo = parsed.scheduler if parsed.scheduler else scenario.config.scheduler
         routing_type = parsed.routing if parsed.routing else scenario.config.routing
 
-        # Create routing model
-        logger.info(f"Creating routing model: {routing_type}")
-        if routing_type == "widest_path":
-            from ncsim.models.routing import WidestPathRouting
-            routing_model = WidestPathRouting()
-        elif routing_type == "shortest_path":
-            from ncsim.models.routing import ShortestPathRouting
-            routing_model = ShortestPathRouting()
-        else:
-            from ncsim.models.routing import DirectLinkRouting
-            routing_model = DirectLinkRouting()
-
-        # Create interference model
+        # Create interference model FIRST (needed by interference_aware routing)
         interference_type = parsed.interference if parsed.interference else scenario.config.interference
         interference_model = None
         extra_metrics = None
@@ -287,9 +281,40 @@ def main(args: list = None) -> int:
         else:
             logger.info("Interference model: none")
 
+        # Create routing model
+        logger.info(f"Creating routing model: {routing_type}")
+        if routing_type == "interference_aware":
+            from ncsim.models.routing import InterferenceAwareRouting
+            from ncsim.models.interference import NoInterference
+            hop_cutoff = parsed.routing_hop_cutoff if parsed.routing_hop_cutoff is not None else (
+                scenario.config.routing_hop_cutoff if scenario.config.routing_hop_cutoff is not None else 4
+            )
+            # Use existing interference model, or NoInterference as fallback
+            im = interference_model if interference_model is not None else NoInterference()
+            routing_model = InterferenceAwareRouting(im, hop_cutoff=hop_cutoff)
+            logger.info(f"  hop_cutoff={hop_cutoff}")
+        elif routing_type == "interference_aware_dynamic":
+            from ncsim.models.routing import DynamicInterferenceAwareRouting
+            from ncsim.models.interference import NoInterference
+            hop_cutoff = parsed.routing_hop_cutoff if parsed.routing_hop_cutoff is not None else (
+                scenario.config.routing_hop_cutoff if scenario.config.routing_hop_cutoff is not None else 4
+            )
+            im = interference_model if interference_model is not None else NoInterference()
+            routing_model = DynamicInterferenceAwareRouting(im, hop_cutoff=hop_cutoff)
+            logger.info(f"  hop_cutoff={hop_cutoff}")
+        elif routing_type == "widest_path":
+            from ncsim.models.routing import WidestPathRouting
+            routing_model = WidestPathRouting()
+        elif routing_type == "shortest_path":
+            from ncsim.models.routing import ShortestPathRouting
+            routing_model = ShortestPathRouting()
+        else:
+            from ncsim.models.routing import DirectLinkRouting
+            routing_model = DirectLinkRouting()
+
         # Create scheduler (pass routing model for SAGA bandwidth awareness)
         logger.info(f"Creating scheduler: {scheduler_algo}")
-        if routing_type in ("widest_path", "shortest_path"):
+        if routing_type in ("widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic"):
             scheduler = create_scheduler(scheduler_algo, routing=routing_model)
         else:
             scheduler = create_scheduler(scheduler_algo)

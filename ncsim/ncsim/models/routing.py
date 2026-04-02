@@ -3,17 +3,24 @@ Network routing model definitions.
 
 Defines how data is routed between nodes.
 Supports direct links (Phase 2), multi-hop widest-path routing,
-and shortest-path (minimum latency) routing.
+shortest-path (minimum latency) routing, and interference-aware routing.
 """
 
+import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 import heapq
 
 if TYPE_CHECKING:
     from ncsim.core.execution_engine import NetworkState
+    from ncsim.models.dag import DAG
+    from ncsim.models.interference import InterferenceModel
     from ncsim.models.network import Network
+    from ncsim.scheduler.base import PlacementPlan
+
+logger = logging.getLogger(__name__)
 
 
 class RoutingModel(ABC):
@@ -406,3 +413,475 @@ class ShortestPathRouting(RoutingModel):
         """
         self._path_cache.clear()
         self._bandwidth_cache.clear()
+
+
+def _build_adjacency(
+    network: "Network",
+) -> Dict[str, List[Tuple[str, str]]]:
+    """Build adjacency list: node -> [(neighbor, link_id), ...].
+
+    Shared helper for interference-aware routing variants.
+    """
+    adj: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
+    for link in network.links.values():
+        adj[link.from_node].append((link.to_node, link.id))
+    return adj
+
+
+def _enumerate_candidate_paths(
+    src: str,
+    dst: str,
+    adj: Dict[str, List[Tuple[str, str]]],
+    network: "Network",
+    hop_cutoff: int = 4,
+    max_candidates: int = 20,
+) -> List[List[str]]:
+    """Enumerate simple paths from src to dst up to hop_cutoff.
+
+    Uses iterative DFS. Returns at most max_candidates paths.
+    Shared helper for interference-aware routing variants.
+    """
+    candidates: List[List[str]] = []
+    # Stack: (current_node, path_links, visited_nodes)
+    stack: List[Tuple[str, List[str], Set[str]]] = [
+        (src, [], {src})
+    ]
+
+    while stack and len(candidates) < max_candidates:
+        current, path, visited = stack.pop()
+
+        if current == dst and path:
+            candidates.append(path)
+            continue
+
+        if len(path) >= hop_cutoff:
+            continue
+
+        for neighbor, link_id in adj.get(current, []):
+            if neighbor not in visited:
+                stack.append((
+                    neighbor,
+                    path + [link_id],
+                    visited | {neighbor}
+                ))
+
+    return candidates
+
+
+@dataclass
+class _RoutedFlow:
+    """Internal record of a flow that has been assigned a route."""
+    from_task: str
+    to_task: str
+    src_node: str
+    dst_node: str
+    data_size: float
+    path: List[str]
+    est_start: float
+    est_end: float
+
+
+class InterferenceAwareRouting(RoutingModel):
+    """Interference-aware multi-hop routing.
+
+    Two-stage approach:
+    1. HEFT decides task placement (task -> node)
+    2. This router greedily assigns routes for all inter-node flows,
+       maximizing system-wide throughput rather than individual flow bandwidth.
+
+    Before plan_routes() is called, delegates to WidestPathRouting for
+    HEFT bandwidth estimation. After planning, get_path() returns
+    pre-computed routes.
+    """
+
+    def __init__(
+        self,
+        interference_model: "InterferenceModel",
+        hop_cutoff: int = 4,
+        max_candidates: int = 20
+    ):
+        self.interference_model = interference_model
+        self.hop_cutoff = hop_cutoff
+        self.max_candidates = max_candidates
+        self._planned_routes: Dict[Tuple[str, str], List[str]] = {}
+        self._delegate = WidestPathRouting()
+        self._routes_planned = False
+
+    def get_path(
+        self,
+        src_node: str,
+        dst_node: str,
+        network: "Network",
+        network_state: Optional["NetworkState"] = None
+    ) -> Optional[List[str]]:
+        """Return pre-computed route or delegate to widest-path.
+
+        Before plan_routes() is called, delegates to WidestPathRouting.
+        After planning, returns the pre-computed interference-aware route.
+        """
+        if src_node == dst_node:
+            return []
+
+        if self._routes_planned:
+            route = self._planned_routes.get((src_node, dst_node))
+            if route is not None:
+                return route
+            # Fall back to delegate for flows not in the plan
+            return self._delegate.get_path(src_node, dst_node, network)
+
+        return self._delegate.get_path(src_node, dst_node, network)
+
+    def get_path_bandwidth(
+        self, src_node: str, dst_node: str, network: "Network"
+    ) -> float:
+        """Delegate bandwidth calculation to WidestPathRouting for HEFT."""
+        return self._delegate.get_path_bandwidth(src_node, dst_node, network)
+
+    def plan_routes(
+        self,
+        dag: "DAG",
+        placement_plan: "PlacementPlan",
+        network: "Network",
+        schedule_timing: Optional[Dict[str, Tuple[float, float]]] = None
+    ) -> None:
+        """Pre-compute interference-aware routes for all inter-node flows.
+
+        Called after HEFT placement, before execution begins.
+
+        Args:
+            dag: The DAG being executed
+            placement_plan: HEFT task-to-node assignments
+            network: Network topology
+            schedule_timing: Optional HEFT timing {task_id: (start, end)}
+        """
+        flows = self._extract_flows(dag, placement_plan)
+        if not flows:
+            self._routes_planned = True
+            return
+
+        # Estimate time windows for concurrency detection
+        windows = self._estimate_flow_windows(
+            flows, dag, placement_plan, network, schedule_timing
+        )
+
+        # Build adjacency for path enumeration
+        adj = _build_adjacency(network)
+
+        # Sort flows by estimated start time (greedy order)
+        flows.sort(key=lambda f: windows.get(
+            (f["from_task"], f["to_task"]), (0.0, 0.0)
+        )[0])
+
+        routed: List[_RoutedFlow] = []
+
+        for flow in flows:
+            src = flow["src_node"]
+            dst = flow["dst_node"]
+            key = (flow["from_task"], flow["to_task"])
+            window = windows.get(key, (0.0, float('inf')))
+
+            # Check if we already have a route for this node pair
+            if (src, dst) in self._planned_routes:
+                path = self._planned_routes[(src, dst)]
+                routed.append(_RoutedFlow(
+                    from_task=flow["from_task"],
+                    to_task=flow["to_task"],
+                    src_node=src, dst_node=dst,
+                    data_size=flow["data_size"],
+                    path=path,
+                    est_start=window[0], est_end=window[1]
+                ))
+                continue
+
+            # Enumerate candidate paths
+            candidates = _enumerate_candidate_paths(
+                src, dst, adj, network, self.hop_cutoff, self.max_candidates
+            )
+
+            if not candidates:
+                # No path found; fall back to delegate
+                fallback = self._delegate.get_path(src, dst, network)
+                if fallback:
+                    candidates = [fallback]
+                else:
+                    logger.warning(
+                        f"InterferenceAwareRouting: no path from {src} to {dst}"
+                    )
+                    continue
+
+            # Find concurrent flows
+            concurrent = self._find_concurrent_flows(window, routed)
+
+            # Score each candidate
+            best_path = candidates[0]
+            best_score = -1.0
+
+            for candidate in candidates:
+                score = self._score_candidate(
+                    flow, candidate, concurrent, network
+                )
+                if score > best_score:
+                    best_score = score
+                    best_path = candidate
+
+            self._planned_routes[(src, dst)] = best_path
+            routed.append(_RoutedFlow(
+                from_task=flow["from_task"],
+                to_task=flow["to_task"],
+                src_node=src, dst_node=dst,
+                data_size=flow["data_size"],
+                path=best_path,
+                est_start=window[0], est_end=window[1]
+            ))
+
+            logger.debug(
+                f"InterferenceAwareRouting: {src}->{dst} via {best_path} "
+                f"(score={best_score:.2f})"
+            )
+
+        self._routes_planned = True
+        logger.info(
+            f"InterferenceAwareRouting: planned {len(self._planned_routes)} routes"
+        )
+
+    def _extract_flows(
+        self, dag: "DAG", plan: "PlacementPlan"
+    ) -> List[Dict]:
+        """Extract inter-node flows from DAG edges."""
+        flows = []
+        for edge in dag.edges:
+            src_node = plan.get_node_for_task(edge.from_task)
+            dst_node = plan.get_node_for_task(edge.to_task)
+            if src_node and dst_node and src_node != dst_node:
+                flows.append({
+                    "from_task": edge.from_task,
+                    "to_task": edge.to_task,
+                    "src_node": src_node,
+                    "dst_node": dst_node,
+                    "data_size": edge.data_size,
+                })
+        return flows
+
+    def _estimate_flow_windows(
+        self,
+        flows: List[Dict],
+        dag: "DAG",
+        plan: "PlacementPlan",
+        network: "Network",
+        schedule_timing: Optional[Dict[str, Tuple[float, float]]]
+    ) -> Dict[Tuple[str, str], Tuple[float, float]]:
+        """Estimate transfer time windows for concurrency detection.
+
+        Uses HEFT timing if available, otherwise rough estimates from
+        task compute costs and bandwidth.
+        """
+        windows: Dict[Tuple[str, str], Tuple[float, float]] = {}
+
+        for flow in flows:
+            key = (flow["from_task"], flow["to_task"])
+
+            if schedule_timing and flow["from_task"] in schedule_timing:
+                # Use HEFT's estimate: transfer starts after source task ends
+                _, src_end = schedule_timing[flow["from_task"]]
+                # Estimate transfer duration from widest-path bandwidth
+                bw = self._delegate.get_path_bandwidth(
+                    flow["src_node"], flow["dst_node"], network
+                )
+                if bw > 0 and bw != float('inf'):
+                    est_duration = flow["data_size"] / bw
+                else:
+                    est_duration = flow["data_size"] / 1.0  # fallback
+                windows[key] = (src_end, src_end + est_duration)
+            else:
+                # Rough estimate: source task compute time
+                src_task = dag.get_task(flow["from_task"])
+                src_node_obj = network.get_node(flow["src_node"])
+                if src_task and src_node_obj:
+                    start = src_task.compute_cost / src_node_obj.compute_capacity
+                else:
+                    start = 0.0
+                bw = self._delegate.get_path_bandwidth(
+                    flow["src_node"], flow["dst_node"], network
+                )
+                if bw > 0 and bw != float('inf'):
+                    est_duration = flow["data_size"] / bw
+                else:
+                    est_duration = flow["data_size"] / 1.0
+                windows[key] = (start, start + est_duration)
+
+        return windows
+
+    def _find_concurrent_flows(
+        self,
+        window: Tuple[float, float],
+        routed: List[_RoutedFlow]
+    ) -> List[_RoutedFlow]:
+        """Find previously-routed flows with overlapping time windows."""
+        concurrent = []
+        for rf in routed:
+            # Check overlap: windows intersect if start < other_end and end > other_start
+            if window[0] < rf.est_end and window[1] > rf.est_start:
+                concurrent.append(rf)
+        return concurrent
+
+    def _score_candidate(
+        self,
+        flow: Dict,
+        candidate_path: List[str],
+        concurrent: List[_RoutedFlow],
+        network: "Network"
+    ) -> float:
+        """Score a candidate path by total system throughput.
+
+        Computes the sum of effective bandwidths across all concurrent
+        flows (including this candidate), accounting for interference
+        and per-link fair sharing. Higher is better.
+        """
+        # Build link usage map
+        link_usage: Dict[str, int] = defaultdict(int)
+        all_active_links: Set[str] = set()
+
+        for cf in concurrent:
+            for lid in cf.path:
+                link_usage[lid] += 1
+                all_active_links.add(lid)
+
+        for lid in candidate_path:
+            link_usage[lid] += 1
+            all_active_links.add(lid)
+
+        # Sum effective bandwidth across ALL flows
+        total_throughput = 0.0
+
+        # Score concurrent flows
+        for cf in concurrent:
+            eff_bw = float('inf')
+            for lid in cf.path:
+                factor = self.interference_model.get_interference_factor(
+                    lid, all_active_links, network
+                )
+                link_bw = network.links[lid].bandwidth * factor / link_usage[lid]
+                eff_bw = min(eff_bw, link_bw)
+            total_throughput += eff_bw
+
+        # Score candidate flow
+        eff_bw = float('inf')
+        for lid in candidate_path:
+            factor = self.interference_model.get_interference_factor(
+                lid, all_active_links, network
+            )
+            link_bw = network.links[lid].bandwidth * factor / link_usage[lid]
+            eff_bw = min(eff_bw, link_bw)
+        total_throughput += eff_bw
+
+        return total_throughput
+
+
+class DynamicInterferenceAwareRouting(RoutingModel):
+    """Dynamic interference-aware multi-hop routing (GSD).
+
+    Computes routes at transfer start time using actual current link state
+    instead of estimated concurrency windows. At each transfer_start event,
+    the execution engine passes the real-time network state (active links,
+    per-link transfer counts), and GSD picks the path that maximizes this
+    flow's bottleneck bandwidth given actual interference.
+
+    Without network_state (e.g. during HEFT scheduling), delegates to
+    WidestPathRouting for bandwidth estimation.
+    """
+
+    def __init__(
+        self,
+        interference_model: "InterferenceModel",
+        hop_cutoff: int = 4,
+        max_candidates: int = 20,
+    ):
+        self.interference_model = interference_model
+        self.hop_cutoff = hop_cutoff
+        self.max_candidates = max_candidates
+        self._delegate = WidestPathRouting()
+        self._adjacency: Optional[Dict[str, List[Tuple[str, str]]]] = None
+
+    def get_path(
+        self,
+        src_node: str,
+        dst_node: str,
+        network: "Network",
+        network_state: Optional[Dict] = None,
+    ) -> Optional[List[str]]:
+        """Find best path given current network state.
+
+        Args:
+            src_node: Source node ID
+            dst_node: Destination node ID
+            network: Network topology
+            network_state: Dict with 'active_link_ids' (set) and
+                'link_transfer_counts' (dict lid->int). If None,
+                delegates to WidestPathRouting.
+
+        Returns:
+            List of link IDs forming the path, or None if no path exists.
+        """
+        if src_node == dst_node:
+            return []
+
+        # No real-time state -> delegate (used during HEFT scheduling)
+        if network_state is None:
+            return self._delegate.get_path(src_node, dst_node, network)
+
+        # Build adjacency lazily
+        if self._adjacency is None:
+            self._adjacency = _build_adjacency(network)
+
+        # Enumerate and score candidates with real-time state
+        candidates = _enumerate_candidate_paths(
+            src_node, dst_node, self._adjacency, network,
+            self.hop_cutoff, self.max_candidates,
+        )
+        if not candidates:
+            return self._delegate.get_path(src_node, dst_node, network)
+
+        active_link_ids = network_state.get("active_link_ids", set())
+        link_transfer_counts = network_state.get("link_transfer_counts", {})
+
+        best_path: Optional[List[str]] = None
+        best_score = -1.0
+
+        for path in candidates:
+            score = self._score_path(
+                path, active_link_ids, link_transfer_counts, network
+            )
+            if score > best_score:
+                best_score = score
+                best_path = path
+
+        return best_path
+
+    def get_path_bandwidth(
+        self, src_node: str, dst_node: str, network: "Network"
+    ) -> float:
+        """Delegate bandwidth calculation to WidestPathRouting for HEFT."""
+        return self._delegate.get_path_bandwidth(src_node, dst_node, network)
+
+    def _score_path(
+        self,
+        path: List[str],
+        active_link_ids: Set[str],
+        link_transfer_counts: Dict[str, int],
+        network: "Network",
+    ) -> float:
+        """Score = effective bottleneck bandwidth of this path given current state.
+
+        Considers interference from all currently-active links plus this path's
+        links, and fair-sharing with existing transfers on each link.
+        """
+        all_active = active_link_ids | set(path)
+        eff_bw = float('inf')
+        for lid in path:
+            factor = self.interference_model.get_interference_factor(
+                lid, all_active, network
+            )
+            existing = link_transfer_counts.get(lid, 0)
+            link_bw = network.links[lid].bandwidth * factor / (existing + 1)
+            eff_bw = min(eff_bw, link_bw)
+        return eff_bw

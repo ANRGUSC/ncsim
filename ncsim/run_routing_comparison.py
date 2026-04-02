@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Routing comparison: widest_path vs shortest_path under HEFT with csma_bianchi.
+"""Routing comparison: W / S / GS / GSD under HEFT with csma_bianchi.
 
-Runs 18 simulations (3 network sizes x 3 DAG sizes x 2 routing strategies)
-comparing makespan for widest_path vs shortest_path routing.
+Each (network, DAG, routing) combo is run 30 times with different seeds
+to average out HEFT non-determinism from Python hash randomization.
 
 Network sizes (grid meshes with bidirectional grid + diagonal links):
   Small:  2x2 grid (4 nodes)
@@ -24,6 +24,7 @@ OUTDIR = "/tmp/ncsim_routing_comparison"
 # Fixed task configuration
 COMPUTE_COST = 500
 DATA_SIZE = 10.0
+NUM_SEEDS = 30
 
 # Heterogeneous compute capacities cycled across nodes
 _CAPACITIES = [200, 100, 150, 80, 300, 120, 250, 180, 160, 90, 220, 140, 280, 110, 190, 170]
@@ -320,7 +321,7 @@ def generate_scenario_yaml(net_size_label, dag_size, dag_generators=None,
 # ─── Subprocess Runner ───────────────────────────────────────────
 
 
-def run_scenario(yaml_str, run_label, routing):
+def run_scenario(yaml_str, run_label, routing, seed=42):
     """Write YAML to temp file, invoke ncsim via subprocess, return output dir."""
     outdir = os.path.join(OUTDIR, run_label)
     os.makedirs(outdir, exist_ok=True)
@@ -338,13 +339,10 @@ def run_scenario(yaml_str, run_label, routing):
         "--interference", "csma_bianchi",
         "--scheduler", "heft",
         "--routing", routing,
-        "--seed", "42",
+        "--seed", str(seed),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"  ERROR running {run_label}:")
-        print(f"    stdout: {result.stdout[-500:] if result.stdout else '(empty)'}")
-        print(f"    stderr: {result.stderr[-500:] if result.stderr else '(empty)'}")
         return None
     return outdir
 
@@ -362,6 +360,21 @@ def get_makespan(outdir):
         return None
 
 
+def run_averaged(yaml_str, base_label, routing, num_seeds=NUM_SEEDS):
+    """Run a scenario num_seeds times and return the mean makespan."""
+    makespans = []
+    for seed in range(1, num_seeds + 1):
+        label = f"{base_label}_s{seed}"
+        outdir = run_scenario(yaml_str, label, routing, seed=seed)
+        if outdir is not None:
+            ms = get_makespan(outdir)
+            if ms is not None:
+                makespans.append(ms)
+    if not makespans:
+        return None
+    return sum(makespans) / len(makespans)
+
+
 # ─── Main ────────────────────────────────────────────────────────
 
 
@@ -369,17 +382,24 @@ def main():
     os.makedirs(OUTDIR, exist_ok=True)
 
     print()
-    print("=" * 70)
-    print("  Routing Comparison: Widest Path vs Shortest Path")
+    print("=" * 80)
+    print("  Routing Comparison: W / S / GS / GSD  (averaged over 30 seeds)")
     print("  Scheduler: HEFT | Interference: csma_bianchi")
     print(f"  Task config: compute_cost={COMPUTE_COST}, data_size={DATA_SIZE}MB")
     print(f"  Grid spacing: {GRID_SPACING}m")
-    print("=" * 70)
+    print("=" * 80)
     print()
 
     net_sizes = ["small", "medium", "large"]
     dag_sizes = ["small", "medium", "large"]
-    routings = ["widest_path", "shortest_path"]
+    routings = ["widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic"]
+
+    _LABEL = {
+        "widest_path": "W",
+        "shortest_path": "S",
+        "interference_aware": "GS",
+        "interference_aware_dynamic": "GSD",
+    }
 
     # Print network info
     for ns in net_sizes:
@@ -388,26 +408,28 @@ def main():
         print(f"  {ns} network: {desc}, {len(links)} links")
     print()
 
-    # Run all 18 simulations
-    results = {}  # (net_size, dag_size, routing) -> makespan
-    total = len(net_sizes) * len(dag_sizes) * len(routings)
-    count = 0
+    total_combos = len(net_sizes) * len(dag_sizes) * len(routings)
+    total_runs = total_combos * NUM_SEEDS
+    print(f"  Running {total_combos} combos x {NUM_SEEDS} seeds = {total_runs} simulations...")
+    print()
+
+    results = {}  # (net_size, dag_size, routing) -> mean makespan
+    combo = 0
 
     for net_size in net_sizes:
         for dag_size in dag_sizes:
             yaml_str = generate_scenario_yaml(net_size, dag_size)
             for routing in routings:
-                count += 1
-                label = f"{net_size}net_{dag_size}dag_{routing}"
-                print(f"  [{count:>2d}/{total}] {label}...", end=" ", flush=True)
-                outdir = run_scenario(yaml_str, label, routing)
-                if outdir is None:
-                    results[(net_size, dag_size, routing)] = None
-                    print("FAILED")
+                combo += 1
+                base_label = f"{net_size}net_{dag_size}dag_{routing}"
+                print(f"  [{combo:>2d}/{total_combos}] {base_label} (x{NUM_SEEDS})...",
+                      end=" ", flush=True)
+                mean_ms = run_averaged(yaml_str, base_label, routing)
+                results[(net_size, dag_size, routing)] = mean_ms
+                if mean_ms is not None:
+                    print(f"{mean_ms:.4f}s")
                 else:
-                    ms = get_makespan(outdir)
-                    results[(net_size, dag_size, routing)] = ms
-                    print(f"{ms:.4f}s" if ms is not None else "ERROR")
+                    print("FAILED")
 
     print()
 
@@ -416,106 +438,108 @@ def main():
     for net_size in net_sizes:
         _, net_desc = NETWORK_SIZES[net_size]
         print(f"  Network: {net_desc}")
-        print(f"  {'─' * 58}")
-        print(f"  {'DAG Size':<12s}  {'Widest(s)':>12s}  {'Shortest(s)':>12s}  {'Diff(%)':>10s}")
+        print(f"  {'─' * 90}")
+        print(f"  {'DAG Size':<12s}  {'W(s)':>10s}  {'S(s)':>10s}  {'GS(s)':>10s}  {'GSD(s)':>10s}  {'Best':>8s}")
 
         for dag_size in dag_sizes:
-            w = results.get((net_size, dag_size, "widest_path"))
-            s = results.get((net_size, dag_size, "shortest_path"))
-            w_str = f"{w:.4f}" if w is not None else "ERROR"
-            s_str = f"{s:.4f}" if s is not None else "ERROR"
-            if w is not None and s is not None and s != 0:
-                diff = ((w - s) / s) * 100
-                diff_str = f"{diff:+.1f}%"
-            else:
-                diff_str = "n/a"
-            print(f"  {dag_size:<12s}  {w_str:>12s}  {s_str:>12s}  {diff_str:>10s}")
+            vals = {}
+            strs = {}
+            for r in routings:
+                v = results.get((net_size, dag_size, r))
+                lbl = _LABEL[r]
+                strs[lbl] = f"{v:.4f}" if v is not None else "ERROR"
+                if v is not None:
+                    vals[lbl] = v
+            best = min(vals, key=vals.get) if vals else "n/a"
+            print(f"  {dag_size:<12s}  {strs['W']:>10s}  {strs['S']:>10s}  "
+                  f"{strs['GS']:>10s}  {strs['GSD']:>10s}  {best:>8s}")
         print()
 
     # ─── Summary Table ───────────────────────────────────────────
 
-    print(f"  Summary Table (makespan in seconds, W=widest / S=shortest):")
-    print(f"  {'─' * 62}")
+    print(f"  Summary Table (mean makespan in seconds, W / S / GS / GSD):")
+    print(f"  {'─' * 82}")
     header = f"  {'':>12s}"
     for net_size in net_sizes:
         _, net_desc = NETWORK_SIZES[net_size]
-        header += f"  {net_desc:>16s}"
+        header += f"  {net_desc:>24s}"
     print(header)
 
     for dag_size in dag_sizes:
-        desc, _ = DAG_GENERATORS[dag_size]
         row = f"  {dag_size + ' DAG':<12s}"
         for net_size in net_sizes:
             w = results.get((net_size, dag_size, "widest_path"))
             s = results.get((net_size, dag_size, "shortest_path"))
-            if w is not None and s is not None:
-                cell = f"{w:.2f}/{s:.2f}"
+            gs = results.get((net_size, dag_size, "interference_aware"))
+            gsd = results.get((net_size, dag_size, "interference_aware_dynamic"))
+            if all(v is not None for v in [w, s, gs, gsd]):
+                cell = f"{w:.1f}/{s:.1f}/{gs:.1f}/{gsd:.1f}"
             else:
                 cell = "err"
-            row += f"  {cell:>16s}"
+            row += f"  {cell:>24s}"
         print(row)
 
     print()
 
     # ─── Winner Summary ──────────────────────────────────────────
 
-    widest_wins = 0
-    shortest_wins = 0
-    ties = 0
+    wins = {r: 0 for r in routings}
+    wins["tie"] = 0
 
-    print(f"  Winner per cell (lower makespan):")
-    print(f"  {'─' * 62}")
+    print(f"  Winner per cell (lowest mean makespan):")
+    print(f"  {'─' * 82}")
     header = f"  {'':>12s}"
     for net_size in net_sizes:
         _, net_desc = NETWORK_SIZES[net_size]
-        header += f"  {net_desc:>16s}"
+        header += f"  {net_desc:>24s}"
     print(header)
 
     for dag_size in dag_sizes:
         row = f"  {dag_size + ' DAG':<12s}"
         for net_size in net_sizes:
-            w = results.get((net_size, dag_size, "widest_path"))
-            s = results.get((net_size, dag_size, "shortest_path"))
-            if w is not None and s is not None:
-                if abs(w - s) / max(w, s) < 0.001:
+            vals = {}
+            for r in routings:
+                v = results.get((net_size, dag_size, r))
+                if v is not None:
+                    vals[r] = v
+            if len(vals) >= 2:
+                best_val = min(vals.values())
+                winners = [k for k, v in vals.items()
+                           if abs(v - best_val) / max(best_val, 1e-9) < 0.01]
+                if len(winners) > 1:
                     cell = "TIE"
-                    ties += 1
-                elif w < s:
-                    cell = "WIDEST"
-                    widest_wins += 1
+                    wins["tie"] += 1
                 else:
-                    cell = "SHORTEST"
-                    shortest_wins += 1
+                    cell = _LABEL[winners[0]]
+                    wins[winners[0]] += 1
             else:
                 cell = "n/a"
-            row += f"  {cell:>16s}"
+            row += f"  {cell:>24s}"
         print(row)
 
     print()
-    print(f"  Wins: widest_path={widest_wins}, shortest_path={shortest_wins}, ties={ties}")
-    print()
-    print(f"  Trace files saved to: {OUTDIR}")
+    print(f"  Wins: W={wins['widest_path']}, S={wins['shortest_path']}, "
+          f"GS={wins['interference_aware']}, GSD={wins['interference_aware_dynamic']}, "
+          f"ties={wins['tie']}")
     print()
 
     # ─── Bottleneck Network Scenarios ────────────────────────────
 
     print()
     print("=" * 70)
-    print("  Bottleneck Network: Widest Path Advantage")
+    print("  Bottleneck Network  (averaged over 30 seeds)")
     print("  5 nodes in a line (30m spacing), direct n0-n4 at 120m")
-    print("  Adjacent links: 8.6 MB/s | Direct n0-n4: 1.075 MB/s")
     print("  Tasks pinned to force cross-network transfers")
     print("=" * 70)
     print()
 
-    bn_nodes, bn_links = generate_bottleneck_network()
-    print(f"  bottleneck network: 5 nodes, {len(bn_links)} links")
+    bn_dag_sizes = ["small", "medium", "large"]
+    bn_combos = len(bn_dag_sizes) * len(routings)
+    print(f"  Running {bn_combos} combos x {NUM_SEEDS} seeds = {bn_combos * NUM_SEEDS} simulations...")
     print()
 
     bn_results = {}
-    bn_dag_sizes = ["small", "medium", "large"]
-    bn_total = len(bn_dag_sizes) * len(routings)
-    bn_count = 0
+    bn_combo = 0
 
     for dag_size in bn_dag_sizes:
         yaml_str = generate_scenario_yaml(
@@ -524,43 +548,35 @@ def main():
             network_fn=generate_bottleneck_network,
         )
         for routing in routings:
-            bn_count += 1
-            label = f"bottleneck_{dag_size}dag_{routing}"
-            print(f"  [{bn_count:>2d}/{bn_total}] {label}...", end=" ", flush=True)
-            outdir = run_scenario(yaml_str, label, routing)
-            if outdir is None:
-                bn_results[(dag_size, routing)] = None
-                print("FAILED")
+            bn_combo += 1
+            base_label = f"bottleneck_{dag_size}dag_{routing}"
+            print(f"  [{bn_combo:>2d}/{bn_combos}] {base_label} (x{NUM_SEEDS})...",
+                  end=" ", flush=True)
+            mean_ms = run_averaged(yaml_str, base_label, routing)
+            bn_results[(dag_size, routing)] = mean_ms
+            if mean_ms is not None:
+                print(f"{mean_ms:.4f}s")
             else:
-                ms = get_makespan(outdir)
-                bn_results[(dag_size, routing)] = ms
-                print(f"{ms:.4f}s" if ms is not None else "ERROR")
+                print("FAILED")
 
     print()
-    print(f"  {'DAG':<12s}  {'Widest(s)':>12s}  {'Shortest(s)':>12s}  "
-          f"{'Diff(%)':>10s}  {'Winner':>10s}")
-    print(f"  {'─' * 62}")
+    print(f"  {'DAG':<12s}  {'W(s)':>10s}  {'S(s)':>10s}  "
+          f"{'GS(s)':>10s}  {'GSD(s)':>10s}  {'Best':>8s}")
+    print(f"  {'─' * 64}")
 
     for dag_size in bn_dag_sizes:
         desc, _ = BOTTLENECK_DAG_GENERATORS[dag_size]
-        w = bn_results.get((dag_size, "widest_path"))
-        s = bn_results.get((dag_size, "shortest_path"))
-        w_str = f"{w:.4f}" if w is not None else "ERROR"
-        s_str = f"{s:.4f}" if s is not None else "ERROR"
-        if w is not None and s is not None and s != 0:
-            diff = ((w - s) / s) * 100
-            diff_str = f"{diff:+.1f}%"
-            if abs(w - s) / max(w, s) < 0.001:
-                winner = "TIE"
-            elif w < s:
-                winner = "WIDEST"
-            else:
-                winner = "SHORTEST"
-        else:
-            diff_str = "n/a"
-            winner = "n/a"
-        print(f"  {desc:<12s}  {w_str:>12s}  {s_str:>12s}  "
-              f"{diff_str:>10s}  {winner:>10s}")
+        vals = {}
+        strs = {}
+        for r in routings:
+            v = bn_results.get((dag_size, r))
+            lbl = _LABEL[r]
+            strs[lbl] = f"{v:.4f}" if v is not None else "ERROR"
+            if v is not None:
+                vals[lbl] = v
+        best = min(vals, key=vals.get) if vals else "n/a"
+        print(f"  {desc:<12s}  {strs['W']:>10s}  {strs['S']:>10s}  "
+              f"{strs['GS']:>10s}  {strs['GSD']:>10s}  {best:>8s}")
 
     print()
     print(f"  Trace files saved to: {OUTDIR}")
@@ -570,7 +586,7 @@ def main():
     all_results = list(results.values()) + list(bn_results.values())
     failures = sum(1 for v in all_results if v is None)
     if failures > 0:
-        print(f"  WARNING: {failures} simulation(s) failed!")
+        print(f"  WARNING: {failures} combo(s) failed!")
         return 1
     return 0
 
