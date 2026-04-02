@@ -10,16 +10,12 @@
 \usepackage{xcolor}
 \usepackage{enumitem}
 \usepackage{caption}
-\usepackage{subcaption}
 \usepackage{listings}
 \usepackage{microtype}
 \usepackage{multirow}
 \usepackage{tabularx}
-\usepackage{tikz}
-\usepackage{pgfplots}
-\pgfplotsset{compat=1.18}
-\usetikzlibrary{arrows.meta,positioning,calc}
 \usepackage{pifont}
+\usepackage{tikz}
 
 \hypersetup{
   colorlinks=true,
@@ -162,10 +158,8 @@ model through both internal analytical experiments and external reproduction
 of Bianchi's published results.  \Cref{sec:eval} presents the experimental
 evaluation, including routing comparison, interference impact analysis,
 a 108-run scheduler comparison revealing rank inversions, and sensitivity
-analyses.  \Cref{sec:viz} describes the visualization tooling.
-\Cref{sec:discussion} discusses the implications and limitations of our
-findings.  Finally, \Cref{sec:conclusion} concludes with directions for
-future work.
+analyses.  Finally, \Cref{sec:conclusion} discusses implications and concludes with
+directions for future work.
 
 
 %% ============================================================
@@ -273,20 +267,7 @@ specification through simulation to output traces.
 
 \begin{figure}[t]
 \centering
-\fbox{\parbox{0.93\columnwidth}{\small
-\textbf{Input:} Scenario YAML $\rightarrow$ Scenario Loader\\[3pt]
-$\downarrow$\\[2pt]
-\textbf{Core:} Network + DAGs + Config\\[2pt]
-$\downarrow$\\[2pt]
-\textbf{Simulation Engine}\\
-\quad Event Queue (min-heap, 6 event types)\\
-\quad Execution Engine (state machine)\\
-\quad$\hookleftarrow$ Scheduler (HEFT, CPOP, RoundRobin, Manual)\\
-\quad$\hookleftarrow$ Routing Model (Direct, Widest, Shortest)\\
-\quad$\hookleftarrow$ Interference Model (None, CSMA Bianchi)\\[2pt]
-$\downarrow$\\[2pt]
-\textbf{Output:} JSONL Trace + Metrics JSON
-}}
+\includegraphics[width=\columnwidth]{figures/architecture.png}
 \caption{High-level architecture of \ncsim{}.}
 \label{fig:architecture}
 \end{figure}
@@ -377,6 +358,29 @@ Multi-slot parallelism & Not modeled            & App-dependent \\
 \end{tabular}
 \end{table}
 
+\subsection{Modeling Scope and Validity}
+
+\ncsim{}'s flow-level approach (\Cref{tab:scope}) models data transfers
+as bulk flows with analytically-derived rates rather than simulating
+individual packets.  This abstraction is appropriate for the workloads
+studied here (10\,MB payloads per edge), where steady-state throughput
+dominates and TCP slow-start transients are negligible.  For workloads
+with many short transfers (e.g., sub-100\,KB control messages or
+request-response patterns), the slow-start phase represents a significant
+fraction of each transfer's duration, and packet-level simulation would
+be warranted.  The Bianchi model further assumes saturation conditions,
+meaning that every station always has a packet ready to transmit.  This
+assumption overapproximates interference during periods of low load,
+making our interference-aware makespans conservative upper bounds.
+
+The grid topologies used throughout this paper are regular and symmetric;
+real deployments may have irregular node placements that create asymmetric
+interference patterns.  Scaling to 50--100 node networks is
+computationally feasible with \ncsim{} but was not explored here.  Real
+wireless channels exhibit fading and mobility effects that could either
+smooth or amplify the interference effects; we use deterministic path loss
+throughout to isolate the effects of contention and hidden terminals.
+
 \subsection{Key Abstractions}
 
 \Cref{tab:abstractions} summarizes the six pluggable abstractions in \ncsim{}.
@@ -398,6 +402,31 @@ DAGSource & Single, Multi \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{Visualization and Tooling}
+\label{sec:viz}
+
+To support debugging and pedagogical use, \ncsim{} includes a
+React/D3 web-based visualization frontend with three complementary views:
+\begin{enumerate}[itemsep=1pt,leftmargin=*]
+\item A \textbf{network topology view} that displays nodes with their compute
+  capacities, links with their current bandwidths, and active transfers
+  highlighted with color-coded flow indicators.
+\item A \textbf{Gantt chart} showing task execution and data transfer timelines
+  per node, making it possible to visually identify scheduling bottlenecks,
+  idle periods, and contention-induced delays.
+\item An \textbf{animated replay} with playback controls (play, pause, step,
+  speed adjustment) that allows researchers to observe the dynamic evolution
+  of the simulation, including the bandwidth recalculation cascades described
+  in \Cref{sec:engine}.
+\end{enumerate}
+
+\noindent Simulation output is written in JSONL trace format, with one JSON object
+per event, enabling integration with external analysis tools such as
+pandas, matplotlib, and custom post-processing scripts.  The command-line
+interface supports batch execution with configurable scheduling, routing,
+and interference parameters, facilitating the automated parameter sweeps
+used throughout \Cref{sec:eval}.
 
 
 %% ============================================================
@@ -708,12 +737,14 @@ WiFi model, to verify that \ncsim{}'s simulation output matches
 analytical predictions computed directly from the RF and MAC equations.
 We use a 1\% match tolerance, but in practice all nine experiments
 achieve \emph{exact} match (zero error to the precision reported).
-We present three representative experiments in detail below; the
-remaining six validate three-link topologies with mixed contention
-and hidden terminal regimes, staggered transfer starts with dynamic
-bandwidth recalculation, per-link bandwidth sharing with multiple
-concurrent flows, five-link hidden terminal cascades with varying data
-sizes, and combined interference scenarios.  All pass with zero error.
+We present three representative experiments in detail below; a fourth
+experiment (N-way Bianchi contention scaling) is presented alongside
+the external validation in \Cref{sec:external_val}.  The remaining
+five experiments validate two-transmitter shared-receiver topologies,
+staggered transfer starts with dynamic bandwidth recalculation,
+per-link bandwidth sharing with multiple concurrent flows, five-link
+hidden terminal cascades with varying data sizes, and combined
+interference scenarios.  All pass with zero error.
 
 \subsubsection{Experiment 1: Link Length vs.\ Data Rate}
 
@@ -745,46 +776,7 @@ is constant within each MCS band and drops discretely at each SNR threshold.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=\columnwidth,
-  height=4.5cm,
-  xlabel={Distance (m)},
-  ylabel={Data Rate (MB/s)},
-  xmin=0, xmax=145,
-  ymin=0, ymax=20,
-  grid=major,
-  grid style={gray!30},
-  thick,
-  legend pos=north east,
-  legend style={font=\scriptsize},
-  every axis label/.style={font=\small},
-  tick label style={font=\scriptsize},
-]
-\addplot[blue!80!black, very thick]
-  coordinates {
-    (1, 17.925) (8.30, 17.925)
-    (8.30, 16.125) (10.46, 16.125)
-    (10.46, 14.338) (13.16, 14.338)
-    (13.16, 12.900) (16.57, 12.900)
-    (16.57, 10.750) (20.86, 10.750)
-    (20.86, 9.675) (28.36, 9.675)
-    (28.36, 8.600) (35.70, 8.600)
-    (35.70, 6.450) (48.53, 6.450)
-    (48.53, 4.300) (65.97, 4.300)
-    (65.97, 3.225) (83.05, 3.225)
-    (83.05, 2.150) (104.55, 2.150)
-    (104.55, 1.075) (131.62, 1.075)
-    (131.62, 0) (145, 0)
-  };
-\addplot[only marks, mark=*, mark size=1.5pt, red!70!black]
-  coordinates {
-    (1, 17.925) (12, 14.338) (30, 8.600) (50, 4.300)
-    (75, 3.225) (105, 1.075) (140, 0)
-  };
-\legend{MCS staircase, Verified points}
-\end{axis}
-\end{tikzpicture}
+\includegraphics[width=\columnwidth]{figures/exp1_mcs_staircase.png}
 \caption{Experiment 1: PHY data rate vs.\ link distance showing discrete MCS
   transitions (802.11ax, 5\,GHz, $n{=}3$).  Red dots mark experimentally
   verified data points from \Cref{tab:exp1}.}
@@ -816,63 +808,7 @@ diminishes: SINR recovers to MCS~3 (4.3\,MB/s) at 90\,m and MCS~4
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=\columnwidth,
-  height=5cm,
-  xlabel={Link Separation (m)},
-  ylabel={Effective Rate per Link (MB/s)},
-  xmin=0, xmax=210,
-  ymin=0, ymax=10,
-  grid=major,
-  grid style={gray!30},
-  thick,
-  every axis label/.style={font=\small},
-  tick label style={font=\scriptsize},
-  legend pos=south east,
-  legend style={font=\scriptsize},
-]
-% Solo rate reference
-\addplot[dashed, gray!60, thin] coordinates {(0, 8.600) (210, 8.600)};
-\node[font=\scriptsize, gray!60] at (axis cs:30,9.2) {solo rate};
-
-% CS range marker
-\draw[dashed, red!60!black, thin] (axis cs:71.2,0) -- (axis cs:71.2,10);
-\node[font=\scriptsize, red!60!black, rotate=90, anchor=south] at (axis cs:73,5.5) {CS range};
-
-% Contention regime
-\addplot[blue!80!black, very thick]
-  coordinates {
-    (5, 3.787) (10, 3.787) (15, 3.787) (20, 3.787) (25, 3.787)
-    (30, 3.787) (35, 3.787) (40, 3.787) (45, 3.787) (50, 3.787)
-    (55, 3.787) (60, 3.787) (65, 3.787) (70, 3.787)
-  };
-
-% Hidden terminal regime
-\addplot[orange!80!black, very thick]
-  coordinates {
-    (75, 3.225) (80, 3.225) (85, 3.225)
-    (90, 4.300) (95, 4.300) (100, 4.300) (110, 4.300) (120, 4.300)
-    (130, 6.450) (140, 6.450) (150, 6.450) (175, 6.450) (200, 6.450)
-  };
-
-\addplot[only marks, mark=square*, mark size=1.5pt, blue!80!black]
-  coordinates {
-    (5, 3.787) (15, 3.787) (30, 3.787) (50, 3.787) (70, 3.787)
-  };
-\addplot[only marks, mark=triangle*, mark size=2pt, orange!80!black]
-  coordinates {
-    (75, 3.225) (90, 4.300) (100, 4.300) (130, 6.450) (200, 6.450)
-  };
-
-% Annotation: hidden terminal dip
-\draw[-{Stealth}, thick, black!70] (axis cs:100,2.2) -- (axis cs:76,3.1);
-\node[font=\scriptsize, anchor=west, align=left, black!70] at (axis cs:82,1.8)
-  {hidden terminal\\[-1pt]dip};
-
-\legend{, , Contention (Bianchi), Hidden terminal (SINR), , }
-\end{axis}
-\end{tikzpicture}
+\includegraphics[width=\columnwidth]{figures/exp2_parallel_separation.png}
 \caption{Experiment 2: Effective per-link rate vs.\ separation for two
   parallel 30\,m links.  Below the CS range (71.2\,m), links contend via
   Bianchi's model.  Above it, hidden terminal SINR degradation causes a
@@ -883,39 +819,107 @@ diminishes: SINR recovers to MCS~3 (4.3\,MB/s) at 90\,m and MCS~4
 \label{fig:exp2}
 \end{figure}
 
-\subsubsection{Experiment 7: N-Way Bianchi Contention Scaling}
+\subsubsection{Experiment 4: Three Parallel Links}
 
-\Cref{tab:exp7} shows per-link throughput as the number of contending
-30\,m links (at 5\,m separation) increases from $n{=}2$ to $n{=}8$.
-Bianchi MAC efficiency $\eta(n)$ decreases from 0.881 to 0.726; the
-per-station share $\eta(n)/n$ falls correspondingly.  All seven data
-points match analytical predictions exactly.
+This experiment extends the two-link topology of Experiment~2 to three
+parallel 30\,m links placed at $y = 0$, $y = s$, and $y = 2s$ (links A,
+B, C), each carrying a 10\,MB transfer.  \Cref{fig:exp4_setup} illustrates
+the topology with separation~$s$ as the independent variable.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  nd/.style={circle, fill=black, inner sep=0pt, minimum size=5pt},
+  lnk/.style={->, thick, blue!70!black},
+  sep/.style={<->, densely dashed, gray!70!black},
+  annot/.style={font=\scriptsize, text=gray!70!black},
+]
+  % Link A (bottom)
+  \node[nd, label={[font=\scriptsize]left:$n_0$}] (a0) at (0,0) {};
+  \node[nd, label={[font=\scriptsize]right:$n_1$}] (a1) at (3.2,0) {};
+  \draw[lnk] (a0) -- node[above, font=\scriptsize] {Link A} (a1);
+
+  % Link B (middle)
+  \node[nd, label={[font=\scriptsize]left:$n_2$}] (b0) at (0,1.3) {};
+  \node[nd, label={[font=\scriptsize]right:$n_3$}] (b1) at (3.2,1.3) {};
+  \draw[lnk] (b0) -- node[above, font=\scriptsize] {Link B} (b1);
+
+  % Link C (top)
+  \node[nd, label={[font=\scriptsize]left:$n_4$}] (c0) at (0,2.6) {};
+  \node[nd, label={[font=\scriptsize]right:$n_5$}] (c1) at (3.2,2.6) {};
+  \draw[lnk] (c0) -- node[above, font=\scriptsize] {Link C} (c1);
+
+  % Separation arrows
+  \draw[sep] (-0.55,0) -- node[left, annot] {$s$} (-0.55,1.3);
+  \draw[sep] (-0.55,1.3) -- node[left, annot] {$s$} (-0.55,2.6);
+
+  % A-C distance
+  \draw[sep] (3.75,0) -- node[right, annot] {$2s$} (3.75,2.6);
+
+  % Link length
+  \draw[<->, gray!70!black] (0,-0.4) -- node[below, annot] {30\,m} (3.2,-0.4);
+
+  % Regime annotations (right side)
+  \node[annot, align=left, anchor=west] at (4.8,1.3) {%
+    $s \leq 35.6$\,m: all conflict\\
+    $35.6 < s \leq 71.2$\,m: mixed\\
+    $s > 71.2$\,m: all hidden};
+\end{tikzpicture}
+\caption{Experiment~4 topology: three parallel 30\,m links at variable
+  separation~$s$.  As $s$ increases, the interference regime transitions
+  from all-conflict to mixed (adjacent pairs contend, outer pair A--C
+  are hidden terminals) to all-hidden.}
+\label{fig:exp4_setup}
+\end{figure}
+
+As $s$ increases, three interference regimes emerge: (i)~\emph{all-conflict}
+($s \leq 35.6\,$m): all three pairs are within $d_{\text{CS}}$, each link
+gets $R_{\text{base}} \cdot \eta(3)/3$; (ii)~\emph{mixed}
+($35.6 < s \leq 71.2\,$m): adjacent pairs (A--B, B--C) contend via
+Bianchi, while the outer pair (A--C at distance~$2s$) are hidden terminals,
+creating asymmetric rates; and (iii)~\emph{all-hidden} ($s > 71.2\,$m):
+no conflict-graph edges, each link sees the others purely as hidden
+terminals.  Because A/C and B generally have different rates, one group
+finishes first, and the remaining links' interference conditions change.
+The analytical prediction accounts for this multi-phase behavior.
 
 \begin{table}[t]
 \centering
-\caption{Experiment 7: N-way Bianchi contention scaling (30\,m links at 5\,m
-separation).  $\eta(n)$ is the Bianchi MAC efficiency.}
-\label{tab:exp7}
-\begin{tabular}{@{}rrrrrr@{}}
+\caption{Experiment~4: Three parallel links at varying separation.
+  In the mixed regime the middle link~B contends with both neighbors
+  while outer links A, C contend only with B and see each other as
+  hidden terminals.}
+\label{tab:exp4}
+\begin{tabular}{@{}rlrrrr@{}}
 \toprule
-$n$ & $\eta(n)$ & $\eta(n)/n$ & \textbf{Pred(MB/s)} & \textbf{Sim(MB/s)} \\
+$s$(m) & Regime & Pred $R_A$ & Sim $R_A$ & Pred $R_B$ & Sim $R_B$ \\
 \midrule
-2 & 0.881 & 0.440 & 3.787 & 3.787 \\
-3 & 0.859 & 0.286 & 2.461 & 2.461 \\
-4 & 0.837 & 0.209 & 1.799 & 1.799 \\
-5 & 0.818 & 0.164 & 1.407 & 1.407 \\
-6 & 0.802 & 0.134 & 1.149 & 1.149 \\
-7 & 0.788 & 0.113 & 0.968 & 0.968 \\
-8 & 0.726 & 0.091 & 0.780 & 0.780 \\
+10  & all-conf & 2.461 & 2.461 & 2.461 & 2.461 \\
+35  & all-conf & 2.461 & 2.461 & 2.461 & 2.461 \\
+40  & mixed    & 1.861 & 1.861 & 2.461 & 2.461 \\
+50  & mixed    & 2.174 & 2.174 & 2.461 & 2.461 \\
+70  & mixed    & 2.840 & 2.840 & 2.720 & 2.720 \\
+75  & all-hid  & 3.225 & 3.225 & 2.867 & 2.867 \\
+100 & all-hid  & 4.300 & 4.300 & 3.822 & 3.822 \\
+150 & all-hid  & 6.450 & 6.450 & 5.160 & 5.160 \\
 \bottomrule
+\multicolumn{6}{@{}l}{\scriptsize A$=$C by symmetry in all cases.  Rates in MB/s.}
 \end{tabular}
 \end{table}
 
+\Cref{tab:exp4} shows the results.  All 11 test points match exactly.
+In the mixed regime at $s{=}70\,$m, an interesting crossover occurs where
+A/C become faster than B, because the outer links benefit from their
+mutual hidden-terminal distance while B contends with both neighbors.
+This experiment validates the model's ability to correctly compose
+Bianchi contention and SINR degradation in a single topology with
+asymmetric interference conditions and multi-phase dynamic recalculation.
+
 \subsubsection{Additional Validation Experiments}
 
-Six additional experiments validate: (4)~three-link topologies with mixed
-contention and hidden terminal regimes, (5)~staggered transfer starts with
-dynamic recalculation, (6)~per-link bandwidth sharing with multiple flows,
+Five additional experiments validate: (3)~two-transmitter shared-receiver
+topologies, (5)~staggered transfer starts with dynamic
+recalculation, (6)~per-link bandwidth sharing with multiple flows,
 (8)~five-link hidden terminal cascades with different data sizes, and
 (9)~combined bandwidth sharing with hidden terminal interference.  All pass.
 
@@ -1015,39 +1019,7 @@ $n$ & $S$ ($W{=}32, m{=}5$) & $S$ ($W{=}128, m{=}3$) \\
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=\columnwidth,
-  height=5.5cm,
-  xlabel={Number of stations $n$},
-  ylabel={Normalized throughput $S$},
-  xmin=0, xmax=55,
-  ymin=0.5, ymax=0.9,
-  grid=major,
-  grid style={gray!30},
-  thick,
-  every axis label/.style={font=\small},
-  tick label style={font=\scriptsize},
-  legend pos=north east,
-  legend style={font=\scriptsize},
-]
-% W=32, m=5
-\addplot[blue!80!black, very thick, mark=*, mark size=1.5pt]
-  coordinates {
-    (5, 0.810153) (10, 0.75788) (15, 0.723136) (20, 0.697548)
-    (25, 0.677235) (30, 0.660309) (35, 0.645739) (40, 0.632901)
-    (45, 0.621392) (50, 0.610936)
-  };
-% W=128, m=3
-\addplot[red!70!black, very thick, mark=triangle*, mark size=2pt]
-  coordinates {
-    (5, 0.825024) (10, 0.826309) (15, 0.813031) (20, 0.798105)
-    (25, 0.783692) (30, 0.770226) (35, 0.757731) (40, 0.746123)
-    (45, 0.7353) (50, 0.725166)
-  };
-\legend{$W{=}32$, $m{=}5$, $W{=}128$, $m{=}3$}
-\end{axis}
-\end{tikzpicture}
+\includegraphics[width=\columnwidth]{figures/bianchi_fig6.png}
 \caption{Reproduction of Bianchi~\cite{bianchi2000} Figure~6:
   normalized saturation throughput vs.\ number of stations for two
   $(W, m)$ configurations.  Computed using Bianchi's exact FHSS
@@ -1056,6 +1028,43 @@ $n$ & $S$ ($W{=}32, m{=}5$) & $S$ ($W{=}128, m{=}3$) \\
   consistent with Bianchi's published results.}
 \label{fig:bianchi_fig6}
 \end{figure}
+
+\subsubsection{N-Way Contention Scaling}
+
+As a further check that the Bianchi contention model scales correctly
+within the full \ncsim{} simulation loop, we place $n \in \{2, \ldots, 8\}$
+parallel 30\,m links at 5\,m vertical separation---all within carrier-sensing
+range, creating a complete conflict graph of size~$n$.  Each link carries a
+10\,MB transfer.  The predicted per-link rate is
+$R = R_{\text{base}} \cdot \eta(n)/n = 8.6 \cdot \eta(n)/n$.
+
+\begin{table}[t]
+\centering
+\caption{N-way Bianchi contention scaling (30\,m links at 5\,m
+separation).  $\eta(n)$ is the Bianchi MAC efficiency.}
+\label{tab:exp7}
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+$n$ & $\eta(n)$ & $\eta(n)/n$ & \textbf{Pred(MB/s)} & \textbf{Sim(MB/s)} \\
+\midrule
+2 & 0.881 & 0.440 & 3.787 & 3.787 \\
+3 & 0.859 & 0.286 & 2.461 & 2.461 \\
+4 & 0.837 & 0.209 & 1.799 & 1.799 \\
+5 & 0.818 & 0.164 & 1.407 & 1.407 \\
+6 & 0.802 & 0.134 & 1.149 & 1.149 \\
+7 & 0.788 & 0.113 & 0.968 & 0.968 \\
+8 & 0.726 & 0.091 & 0.780 & 0.780 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\Cref{tab:exp7} shows all seven data points match exactly.  The MAC
+efficiency $\eta(n)$ degrades gracefully from 0.881 at $n{=}2$ to 0.726 at
+$n{=}8$, while the per-link share $\eta(n)/n$ falls much faster due to the
+$1/n$ division.  This confirms that the Bianchi solver, validated
+numerically against Table~III and Figure~6 above, also produces correct
+throughput predictions when embedded in the full simulation engine with
+real RF parameters and dynamic recalculation.
 
 
 %% ============================================================
@@ -1091,72 +1100,37 @@ three sizes (2$\times$2, 3$\times$3, 4$\times$4) and three DAG complexities
 Nodes have heterogeneous compute capacities (80--300 units/s).
 \Cref{tab:routing} shows the results.
 
-\Cref{fig:routing_diamond} illustrates \emph{why} routing strategy matters
-using a diamond topology with asymmetric paths.  The widest-path algorithm
-selects the high-bandwidth bottom path (200\,MB/s, 0.1\,s latency per hop),
-achieving a makespan of 2.6\,s.  Shortest-path selects the low-latency top
-path (20\,MB/s, 0.001\,s per hop), yielding 7.0\,s---a 2.7$\times$ slowdown
-because the 100\,MB transfer dominates the total time.
+We evaluate these two strategies on a 4$\times$4 grid wireless mesh network
+(16 nodes, 68 bidirectional links) running a 20-task DAG with 5-stage pipeline
+structure.  Nodes are spaced 40\,m apart with heterogeneous compute capacities
+(80--300 compute units/s).  All tasks have compute cost 500 and all edges carry
+10\,MB data transfers.  The HEFT scheduler assigns tasks to nodes; the routing
+strategy determines the multi-hop path for each inter-node data transfer.  WiFi
+link rates follow the 802.11ax MCS table based on SNR at each link distance,
+and all links contend for airtime under the CSMA/Bianchi MAC model.
+
+\Cref{fig:routing-topo} shows the resulting link utilization for each strategy.
+Link color and thickness indicate the number of bidirectional data flows
+traversing each link.  Widest-path routing funnels nearly all traffic through
+an 8-hop perimeter corridor (nodes 0--1--2--6--10--14--13--12), loading each
+link with 9--10 flows and leaving the right half of the network idle.
+Shortest-path routing distributes traffic across 12 links with shorter routes
+(avg 3.1 hops vs.\ 4.5), spreading load more evenly.  Under CSMA contention,
+widest-path's flow concentration produces severe airtime competition: its
+makespan is 1341\,s compared to 712\,s for shortest-path (1.9$\times$ slower).
+The result illustrates that single-flow optimal routing (maximizing bottleneck
+bandwidth) becomes counterproductive when multiple concurrent transfers compete
+for shared wireless airtime.
 
 \begin{figure}[t]
 \centering
-\begin{subfigure}[b]{\columnwidth}
-\centering
-\begin{tikzpicture}[
-  node distance=2cm and 2.8cm,
-  nnode/.style={circle, draw, thick, minimum size=8mm, font=\small},
-  sel/.style={-{Stealth[length=3mm]}, very thick, blue!70!black},
-  dim/.style={-{Stealth[length=2mm]}, thin, gray!50},
-  lbl/.style={font=\scriptsize, fill=white, inner sep=1pt},
-]
-  \node[nnode] (src) {src};
-  \node[nnode, above right=1.2cm and 2.5cm of src] (fast) {R\textsubscript{f}};
-  \node[nnode, below right=1.2cm and 2.5cm of src] (wide) {R\textsubscript{w}};
-  \node[nnode, right=5cm of src] (dst) {dst};
-
-  % Shortest path highlighted
-  \draw[sel] (src) -- node[lbl, above, sloped] {20 MB/s, 1\,ms} (fast);
-  \draw[sel] (fast) -- node[lbl, above, sloped] {20 MB/s, 1\,ms} (dst);
-
-  % Wide path dimmed
-  \draw[dim] (src) -- node[lbl, below, sloped] {200 MB/s, 50\,ms} (wide);
-  \draw[dim] (wide) -- node[lbl, below, sloped] {200 MB/s, 50\,ms} (dst);
-\end{tikzpicture}
-\caption{Shortest-path routing selects the top path (lower latency).\\
-  Makespan: $1.0 + (100/20 + 0.002) + 1.0 = 7.0$\,s.}
-\end{subfigure}
-
-\vspace{6pt}
-
-\begin{subfigure}[b]{\columnwidth}
-\centering
-\begin{tikzpicture}[
-  node distance=2cm and 2.8cm,
-  nnode/.style={circle, draw, thick, minimum size=8mm, font=\small},
-  sel/.style={-{Stealth[length=3mm]}, very thick, orange!80!black},
-  dim/.style={-{Stealth[length=2mm]}, thin, gray!50},
-  lbl/.style={font=\scriptsize, fill=white, inner sep=1pt},
-]
-  \node[nnode] (src) {src};
-  \node[nnode, above right=1.2cm and 2.5cm of src] (fast) {R\textsubscript{f}};
-  \node[nnode, below right=1.2cm and 2.5cm of src] (wide) {R\textsubscript{w}};
-  \node[nnode, right=5cm of src] (dst) {dst};
-
-  % Fast path dimmed
-  \draw[dim] (src) -- node[lbl, above, sloped] {20 MB/s, 1\,ms} (fast);
-  \draw[dim] (fast) -- node[lbl, above, sloped] {20 MB/s, 1\,ms} (dst);
-
-  % Widest path highlighted
-  \draw[sel] (src) -- node[lbl, below, sloped] {200 MB/s, 50\,ms} (wide);
-  \draw[sel] (wide) -- node[lbl, below, sloped] {200 MB/s, 50\,ms} (dst);
-\end{tikzpicture}
-\caption{Widest-path routing selects the bottom path (higher bandwidth).\\
-  Makespan: $1.0 + (100/200 + 0.1) + 1.0 = 2.6$\,s.}
-\end{subfigure}
-\caption{Routing strategy comparison on a diamond topology with a 100\,MB
-  transfer.  When transfer size dominates, widest-path outperforms
-  shortest-path by 2.7$\times$.}
-\label{fig:routing_diamond}
+\includegraphics[width=\columnwidth]{figures/routing_topo_4x4_largedag.png}
+\caption{Link utilization under widest-path (left) vs.\ shortest-path (right)
+  routing on a 4$\times$4 grid mesh with a 20-task DAG.  Widest-path
+  concentrates 9--10 flows on an 8-hop perimeter corridor; shortest-path
+  spreads traffic across 12 links with shorter routes, reducing makespan by
+  1.9$\times$ under CSMA contention.}
+\label{fig:routing-topo}
 \end{figure}
 
 \begin{table}[t]
@@ -1385,68 +1359,7 @@ parallelism-maximizing placement creates dense contention.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=\columnwidth,
-  height=6.5cm,
-  xlabel={Oracle makespan under csma\_bianchi (s)},
-  ylabel={Naive makespan under csma\_bianchi (s)},
-  xmin=0, xmax=1100,
-  ymin=0, ymax=1650,
-  grid=major,
-  grid style={gray!30},
-  thick,
-  every axis label/.style={font=\small},
-  tick label style={font=\scriptsize},
-  legend pos=north west,
-  legend style={font=\scriptsize},
-]
-% Diagonal (zero regret line)
-\addplot[dashed, gray!50, thin, domain=0:1100] {x};
-
-% Oracle points
-\addplot[only marks, mark=o, mark size=2pt, blue!70!black]
-  coordinates {
-    (11.434, 11.434) (11.434, 11.434)
-    (20.071, 20.071) (26.032, 26.032)
-    (43.887, 43.887) (36.510, 36.510)
-    (12.375, 12.375) (12.375, 12.375)
-    (36.325, 50.819) (25.040, 28.832)
-    (69.282, 69.282) (55.312, 56.102)
-    (53.967, 315.197) (8.934, 8.934)
-    (253.907, 1396.857) (184.773, 434.129)
-    (937.411, 1524.713) (676.194, 676.194)
-  };
-
-% Regret arrows for inversions
-\draw[-{Stealth}, red!60!black, thick]
-  (axis cs:53.967, 53.967) -- (axis cs:53.967, 315.197);
-\draw[-{Stealth}, red!60!black, thick]
-  (axis cs:253.907, 253.907) -- (axis cs:253.907, 1396.857);
-\draw[-{Stealth}, red!60!black, thick]
-  (axis cs:184.773, 184.773) -- (axis cs:184.773, 434.129);
-\draw[-{Stealth}, red!60!black, thick]
-  (axis cs:937.411, 937.411) -- (axis cs:937.411, 1524.713);
-\draw[-{Stealth}, orange!70!black]
-  (axis cs:36.325, 36.325) -- (axis cs:36.325, 50.819);
-\draw[-{Stealth}, orange!70!black]
-  (axis cs:25.040, 25.040) -- (axis cs:25.040, 28.832);
-\draw[-{Stealth}, orange!70!black]
-  (axis cs:55.312, 55.312) -- (axis cs:55.312, 56.102);
-
-% Labels for extreme points
-\node[font=\tiny, anchor=west, red!60!black] at (axis cs:60, 330)
-  {484\%};
-\node[font=\tiny, anchor=west, red!60!black] at (axis cs:260, 1410)
-  {450\%};
-\node[font=\tiny, anchor=west, red!60!black] at (axis cs:190, 450)
-  {135\%};
-\node[font=\tiny, anchor=south, red!60!black] at (axis cs:937, 1540)
-  {63\%};
-
-\legend{Zero regret, Oracle $=$ Naive}
-\end{axis}
-\end{tikzpicture}
+\includegraphics[width=\columnwidth]{figures/regret_scatter.png}
 \caption{Makespan regret scatter plot.  Each arrow connects the oracle
   makespan (best scheduler under csma\_bianchi) to the naive makespan
   (scheduler chosen under interference-free model, run under
@@ -1509,32 +1422,7 @@ environments where many edge computing deployments operate.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=\columnwidth,
-  height=5cm,
-  xlabel={Path Loss Exponent $n$},
-  ylabel={Slowdown Factor ($\times$)},
-  xmin=1.8, xmax=3.7,
-  ymin=0, ymax=110,
-  grid=major,
-  grid style={gray!30},
-  thick,
-  every axis label/.style={font=\small},
-  tick label style={font=\scriptsize},
-  legend pos=north west,
-  legend style={font=\scriptsize},
-  xtick={2.0, 2.5, 3.0, 3.5},
-]
-\addplot[blue!80!black, very thick, mark=square*, mark size=2pt]
-  coordinates {
-    (2.0, 1.33) (2.5, 1.80) (3.0, 2.00) (3.5, 104.61)
-  };
-\legend{Slowdown (Bianchi/none)}
-\draw[-{Stealth}, thick, red!70!black] (axis cs:3.3,50) -- (axis cs:3.48,100);
-\node[font=\scriptsize, red!70!black, anchor=east] at (axis cs:3.3,45) {regime cliff};
-\end{axis}
-\end{tikzpicture}
+\includegraphics[width=\columnwidth]{figures/sensitivity_pathloss.png}
 \caption{Interference slowdown vs.\ path loss exponent on 3$\times$3 grid
   (10-task DAG, HEFT, shortest-path).  A dramatic regime transition occurs
   between $n{=}3.0$ ($2\times$ slowdown) and $n{=}3.5$ ($105\times$).}
@@ -1567,40 +1455,7 @@ comparable).
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=\columnwidth,
-  height=5cm,
-  xlabel={Data Size per Edge (MB)},
-  ylabel={Slowdown Factor ($\times$)},
-  xmode=log,
-  xmin=0.8, xmax=120,
-  ymin=0.8, ymax=4.2,
-  grid=major,
-  grid style={gray!30},
-  thick,
-  every axis label/.style={font=\small},
-  tick label style={font=\scriptsize},
-  legend pos=north east,
-  legend style={font=\scriptsize},
-  xtick={1,2,5,10,20,50,100},
-  xticklabels={1,2,5,10,20,50,100},
-]
-\addplot[blue!80!black, very thick, mark=square*, mark size=2pt]
-  coordinates {
-    (1, 1.08) (2, 1.54) (5, 3.55) (10, 2.63) (20, 3.82) (50, 2.24) (100, 1.00)
-  };
-\addplot[orange!80!black, thick, mark=triangle*, mark size=2pt]
-  coordinates {
-    (1, 1.14) (2, 1.37) (5, 1.38) (10, 1.96) (20, 2.13) (50, 1.00) (100, 1.00)
-  };
-\addplot[green!60!black, thick, mark=o, mark size=2pt]
-  coordinates {
-    (1, 1.06) (2, 1.12) (5, 1.29) (10, 1.47) (20, 1.00) (50, 1.00) (100, 1.00)
-  };
-\legend{20-task, 10-task, 5-task}
-\end{axis}
-\end{tikzpicture}
+\includegraphics[width=\columnwidth]{figures/sensitivity_ccr.png}
 \caption{Interference slowdown vs.\ data size per edge (3$\times$3 grid,
   HEFT, shortest-path).  Slowdown peaks at intermediate CCR values
   where transfers are long enough to contend but not so large that the
@@ -1636,34 +1491,7 @@ substantially underestimate the makespan of multi-tenant edge deployments.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=\columnwidth,
-  height=5cm,
-  xlabel={Number of Concurrent DAGs ($k$)},
-  ylabel={Makespan (s)},
-  xmin=0.5, xmax=5.5,
-  ymin=0, ymax=45,
-  grid=major,
-  grid style={gray!30},
-  thick,
-  every axis label/.style={font=\small},
-  tick label style={font=\scriptsize},
-  legend pos=north west,
-  legend style={font=\scriptsize},
-  xtick={1,2,3,4,5},
-]
-\addplot[gray!70!black, thick, mark=o, mark size=2pt]
-  coordinates {
-    (1, 8.43) (2, 10.43) (3, 13.33) (4, 15.32) (5, 18.03)
-  };
-\addplot[red!70!black, very thick, mark=square*, mark size=2pt]
-  coordinates {
-    (1, 12.37) (2, 17.75) (3, 25.35) (4, 32.56) (5, 39.92)
-  };
-\legend{No interference, CSMA/CA Bianchi}
-\end{axis}
-\end{tikzpicture}
+\includegraphics[width=\columnwidth]{figures/multidag.png}
 \caption{Multi-DAG makespan scaling on 3$\times$3 grid (5-task DAGs,
   HEFT, shortest-path).  Contention amplifies super-linearly: the
   gap between the curves widens from $1.47\times$ ($k{=}1$) to
@@ -1727,103 +1555,6 @@ remains tractable for the scheduling studies \ncsim{} targets.
 
 
 %% ============================================================
-\section{Visualization and Tooling}
-\label{sec:viz}
-
-In order to support debugging and pedagogical use, \ncsim{} includes a
-React/D3 web-based visualization frontend.  The visualization provides three
-complementary views:
-\begin{enumerate}[itemsep=1pt,leftmargin=*]
-\item A \textbf{network topology view} that displays nodes with their compute
-  capacities, links with their current bandwidths, and active transfers
-  highlighted with color-coded flow indicators.
-\item A \textbf{Gantt chart} showing task execution and data transfer timelines
-  per node, making it possible to visually identify scheduling bottlenecks,
-  idle periods, and contention-induced delays.
-\item An \textbf{animated replay} with playback controls (play, pause, step,
-  speed adjustment) that allows researchers to observe the dynamic evolution
-  of the simulation, including the bandwidth recalculation cascades described
-  in \Cref{sec:engine}.
-\end{enumerate}
-
-Simulation output is written in JSONL trace format, with one JSON object
-per event, enabling integration with external analysis tools such as
-pandas, matplotlib, and custom post-processing scripts.  The command-line
-interface supports batch execution with configurable scheduling, routing,
-and interference parameters, facilitating the automated parameter sweeps
-used throughout \Cref{sec:eval}.
-
-
-%% ============================================================
-\section{Discussion and Limitations}
-\label{sec:discussion}
-
-In this section, we discuss the implications of our findings, the
-boundaries of \ncsim{}'s modeling approach, and directions these results
-suggest for future scheduler design.
-
-\textbf{When is flow-level modeling trustworthy?}
-\ncsim{}'s flow-level approach (\Cref{tab:scope}) models data transfers
-as bulk flows with analytically-derived rates rather than simulating
-individual packets.  This abstraction is appropriate for the workloads
-studied here (10\,MB payloads per edge), where steady-state throughput
-dominates and TCP slow-start transients are negligible.  For workloads
-with many short transfers (e.g., sub-100\,KB control messages or
-request-response patterns), the slow-start phase represents a significant
-fraction of each transfer's duration, and packet-level simulation would
-be warranted.  The Bianchi model further assumes saturation conditions,
-meaning that every station always has a packet ready to transmit.  This
-assumption overapproximates interference during periods of low load,
-making our interference-aware makespans conservative upper bounds.
-In practice, this means that the rank inversions and regret values we
-report may be \emph{understated} relative to non-saturated conditions
-where bursty traffic patterns create intermittent but intense contention.
-
-\textbf{Scope of the experimental study.}
-Our study covers three schedulers, three DAG sizes, and three grid
-topologies, all with deterministic parameters (fixed seed, no stochastic
-fading).  While this covers a meaningful range of conditions, the grid
-topology is regular and symmetric; real deployments may have irregular
-node placements that create asymmetric interference patterns.  Scaling
-to 50--100 node networks is computationally feasible with \ncsim{} but
-was not explored here.  Real wireless channels exhibit fading and
-mobility effects that could either smooth or amplify the interference
-effects we observe; we used deterministic path loss throughout to isolate
-the effects of contention and hidden terminals.
-
-\textbf{Implications for scheduler design.}
-The rank inversion finding suggests that the next generation of DAG
-schedulers for wireless edge computing should be \emph{interference-aware}:
-the scheduler should account for wireless contention when making placement
-decisions, not merely optimize the critical path assuming uncontested
-bandwidth.  Our results point to several concrete design directions.
-First, schedulers could query the conflict graph during placement to
-estimate how many concurrent transfers a candidate placement would
-create, penalizing placements that generate dense contention neighborhoods.
-Second, two-phase scheduling could first compute a placement assuming
-uncontested bandwidth (using HEFT or similar), then simulate the resulting
-contention and iteratively reassign tasks that contribute most to
-contention.  Third, schedulers could incorporate an interference
-``budget'' analogous to energy budgets in sensor network scheduling,
-limiting the number of concurrent cross-node transfers to keep contention
-within acceptable bounds.  \ncsim{} provides the simulation infrastructure
-needed to develop and evaluate such approaches.
-
-\textbf{Implications for edge computing research.}
-More broadly, the rank inversion finding carries a methodological
-implication for the edge computing research community.  DAG scheduling
-evaluations that assume uncontested links risk not only inaccurate
-performance predictions but systematically wrong conclusions about which
-algorithms are superior.  A researcher who evaluates HEFT against
-round-robin on a fixed-bandwidth model would conclude that HEFT is
-universally superior; our results show that this conclusion reverses
-in 4 of 6 scenarios involving the 4$\times$4 grid.  \ncsim{} enables
-researchers to incorporate realistic wireless modeling at low cost---a
-single 108-run comparison completes in under 4 minutes---avoiding these
-systematic blind spots.
-
-
-%% ============================================================
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
@@ -1852,6 +1583,21 @@ revealed that interference impact exhibits sharp regime transitions with
 path loss exponent, peaks at moderate communication-to-computation ratios,
 and amplifies super-linearly with concurrent workflows---conditions that
 characterize the wireless edge deployments that motivate this research.
+
+The rank inversion finding suggests that the next generation of DAG
+schedulers for wireless edge computing should be \emph{interference-aware}:
+the scheduler should account for wireless contention when making placement
+decisions, not merely optimize the critical path assuming uncontested
+bandwidth.  Concrete design directions include querying the conflict graph
+during placement to penalize dense contention neighborhoods, two-phase
+scheduling that first places tasks then iteratively reassigns those
+contributing most to contention, and interference ``budgets'' that limit
+concurrent cross-node transfers.  More broadly, DAG scheduling evaluations
+that assume uncontested links risk systematically wrong conclusions about
+which algorithms are superior.  \ncsim{} enables researchers to
+incorporate realistic wireless modeling at low cost---a single 108-run
+comparison completes in under 4 minutes---avoiding these systematic blind
+spots.
 
 These findings underscore the value of tools like \ncsim{} that make
 realistic wireless modeling accessible without the computational overhead
