@@ -1,4 +1,6 @@
 """Generate regret scatter plot for ncsim paper (fig:regret_scatter)."""
+import json
+import sys
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -11,49 +13,40 @@ plt.rcParams.update({
     'ytick.labelsize': 7,
 })
 
-# Oracle = Naive points (on diagonal)
-diag_x = [11.434, 11.434, 20.071, 26.032, 43.887, 36.510,
-           12.375, 12.375, 69.282, 8.934, 676.194]
-diag_y = diag_x[:]
+script_dir = Path(__file__).resolve().parent
+results_path = script_dir.parent / '_results' / 'rank_inversion_sweep.json'
 
-# Points with regret (oracle_x, naive_y)
-regret_points = [
-    (36.325, 50.819),
-    (25.040, 28.832),
-    (55.312, 56.102),
-    (53.967, 315.197),
-    (253.907, 1396.857),
-    (184.773, 434.129),
-    (937.411, 1524.713),
-]
+if not results_path.exists():
+    print(f"Error: {results_path} not found. Run run_rank_inversion_sweep.py first.")
+    sys.exit(1)
 
-# Red arrows (rank inversions) - large regret
-red_arrows = [
-    (53.967, 53.967, 53.967, 315.197),
-    (253.907, 253.907, 253.907, 1396.857),
-    (184.773, 184.773, 184.773, 434.129),
-    (937.411, 937.411, 937.411, 1524.713),
-]
+with open(results_path) as f:
+    data = json.load(f)
 
-# Orange arrows (moderate regret)
-orange_arrows = [
-    (36.325, 36.325, 36.325, 50.819),
-    (25.040, 25.040, 25.040, 28.832),
-    (55.312, 55.312, 55.312, 56.102),
-]
+scenarios = data['scenarios']
 
-# Labels for extreme points
-labels = [
-    (60, 330, '484%'),
-    (260, 1410, '450%'),
-    (190, 450, '135%'),
-    (937, 1540, '63%'),
-]
+# Compute oracle vs naive makespans for each scenario
+diag_x, diag_y = [], []
+regret_points = []  # (oracle, naive)
+
+for s in scenarios:
+    oracle = s['bianchi_makespans'][s['best_bianchi']]
+    naive = s['bianchi_makespans'][s['best_none']]
+    if s['inversion']:
+        regret_points.append((oracle, naive))
+    else:
+        diag_x.append(oracle)
+        diag_y.append(oracle)
 
 fig, ax = plt.subplots(figsize=(3.5, 3.2))
 
+# Axis limits
+all_vals = diag_x + [p[0] for p in regret_points] + [p[1] for p in regret_points]
+max_val = max(all_vals) * 1.1
+
 # Diagonal line
-ax.plot([0, 1100], [0, 1100], '--', color='gray', linewidth=0.8, alpha=0.5, label='Zero regret')
+ax.plot([0, max_val], [0, max_val], '--', color='gray', linewidth=0.8, alpha=0.5,
+        label='Zero regret')
 
 # All points
 all_x = diag_x + [p[0] for p in regret_points]
@@ -61,31 +54,27 @@ all_y = diag_y + [p[1] for p in regret_points]
 ax.plot(all_x, all_y, 'o', color='#2266bb', markersize=3.5, label='Oracle = Naive',
         markeredgewidth=0.5, markerfacecolor='none', markeredgecolor='#2266bb')
 
-# Red arrows
-for x1, y1, x2, y2 in red_arrows:
-    ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                arrowprops=dict(arrowstyle='->', color='#cc4444', lw=1.5))
-
-# Orange arrows
-for x1, y1, x2, y2 in orange_arrows:
-    ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                arrowprops=dict(arrowstyle='->', color='#dd8800', lw=1.2))
-
-# Labels
-for x, y, txt in labels:
-    ha = 'center' if x > 900 else 'left'
-    va = 'bottom' if x > 900 else 'center'
-    ax.text(x, y, txt, fontsize=5.5, color='#cc4444', ha=ha, va=va)
+# Arrows from diagonal to actual point, colored by regret magnitude
+for oracle, naive in regret_points:
+    regret_pct = (naive - oracle) / oracle * 100 if oracle > 0 else 0
+    color = '#cc4444' if regret_pct > 50 else '#dd8800'
+    lw = 1.5 if regret_pct > 50 else 1.2
+    ax.annotate('', xy=(oracle, naive), xytext=(oracle, oracle),
+                arrowprops=dict(arrowstyle='->', color=color, lw=lw))
+    # Label for significant regret
+    if regret_pct > 50:
+        ax.text(oracle * 1.05, naive * 1.01, f'{regret_pct:.0f}%',
+                fontsize=5.5, color='#cc4444')
 
 ax.set_xlabel('Oracle makespan under csma_bianchi (s)')
 ax.set_ylabel('Naive makespan under csma_bianchi (s)')
-ax.set_xlim(0, 1100)
-ax.set_ylim(0, 1650)
+ax.set_xlim(0, max_val)
+ax.set_ylim(0, max_val * 1.1)
 ax.grid(True, color='#cccccc', linewidth=0.5)
 ax.legend(fontsize=6, loc='upper left')
 
 plt.tight_layout(pad=0.3)
-out = Path(__file__).resolve().parent.parent / 'figures' / 'regret_scatter.png'
+out = script_dir.parent / 'figures' / 'regret_scatter.png'
 fig.savefig(out, dpi=300, bbox_inches='tight', facecolor='white')
 plt.close()
 print(f'Saved {out}')

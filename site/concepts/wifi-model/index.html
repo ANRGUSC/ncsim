@@ -1,0 +1,3660 @@
+<!DOCTYPE html><html lang="en" class="no-js"><head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Comprehensive guide to the Networked Compute Simulator">
+      
+      
+      
+        <link rel="canonical" href="https://anrgusc.github.io/ncsim/concepts/wifi-model/">
+      
+      
+        <link rel="prev" href="../interference/">
+      
+      
+        <link rel="next" href="../../scenarios/yaml-reference/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>WiFi Model - ncsim Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/print-site.css">
+    
+      <link rel="stylesheet" href="../../css/print-site-material.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  <link href="../../assets/stylesheets/glightbox.min.css" rel="stylesheet"><script src="../../assets/javascripts/glightbox.min.js"></script><style id="glightbox-style">
+            html.glightbox-open { overflow: initial; height: 100%; }
+            .gslide-title { margin-top: 0px; user-select: text; }
+            .gslide-desc { color: #666; user-select: text; }
+            .gslide-image img { background: white; }
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color); }
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color); }
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color); }
+        </style></head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#wifi-model" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ncsim Documentation" class="md-header__button md-logo" aria-label="ncsim Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ncsim Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              WiFi Model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue" aria-label="Switch to dark mode" type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden="">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"></path></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="blue" aria-label="Switch to light mode" type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden="">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"></path></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required="">
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix="">
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ANRGUSC/ncsim" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+  </div>
+  <div class="md-source__repository">
+    ANRGUSC/ncsim
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Core Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../scenarios/yaml-reference/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Scenarios
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/cli-reference/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  CLI Usage
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../viz/viz-overview/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Visualization
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../experiments/interference-verification/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Experiments
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/tutorial-1-first-sim/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/faq/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../print_page/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Full Documentation (Printable)
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ncsim Documentation" class="md-nav__button md-logo" aria-label="ncsim Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+
+    </a>
+    ncsim Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ANRGUSC/ncsim" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+  </div>
+  <div class="md-source__repository">
+    ANRGUSC/ncsim
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix="">
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2">
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked="">
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../simulation-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulation Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scheduling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WiFi Model
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WiFi Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#path-loss-and-received-power" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path Loss and Received Power
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Path Loss and Received Power">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#friis-reference-loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Friis Reference Loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#log-distance-path-loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Log-Distance Path Loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#received-power" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Received Power
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#snr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SNR
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mcs-rate-adaptation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCS Rate Adaptation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCS Rate Adaptation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mcs-tables-1-spatial-stream-20-mhz-base" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCS Tables (1 Spatial Stream, 20 MHz Base)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCS Tables (1 Spatial Stream, 20 MHz Base)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#80211n-ht" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        802.11n (HT)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#80211ac-vht" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        802.11ac (VHT)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#80211ax-he" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        802.11ax (HE)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#summary-by-standard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary by Standard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#channel-width-scaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Channel Width Scaling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unit-conversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit Conversion
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conflict-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conflict Graph
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Conflict Graph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#carrier-sensing-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Carrier Sensing Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conflict-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conflict Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#max-clique-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Max Clique Computation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bianchi-mac-efficiency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bianchi MAC Efficiency
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bianchi MAC Efficiency">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coupled-equations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coupled Equations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#efficiency-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Efficiency Values
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#csma-clique-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CSMA Clique Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CSMA Clique Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bandwidth-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bandwidth Assignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interference-factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interference Factor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When To Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#csma-bianchi-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CSMA Bianchi Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CSMA Bianchi Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-1-contention-domain-time-sharing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism 1: Contention Domain Time-Sharing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-2-hidden-terminal-sinr-degradation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism 2: Hidden Terminal SINR Degradation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined Factor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recalculation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recalculation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shadow-fading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shadow Fading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rf-configuration-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RF Configuration Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RF Configuration Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#full-yaml-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full YAML Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-override-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI Override Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4">
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scenarios
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Scenarios
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scenarios/yaml-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scenarios/scenario-gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scenario Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scenarios/writing-scenarios/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing Scenarios
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5">
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/output-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/batch-experiments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Experiments
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/trace-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trace Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6">
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Visualization
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../viz/viz-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../viz/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../viz/configure-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configure &amp; Run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../viz/visualization-tabs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization Tabs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../viz/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7">
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Experiments
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Experiments
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../experiments/interference-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interference Verification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../experiments/routing-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Routing Comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../experiments/custom-experiments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Experiments
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8">
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/tutorial-1-first-sim/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial 1: First Simulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/tutorial-2-custom-scenario/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial 2: Custom Scenario
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/tutorial-3-wifi-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial 3: WiFi Experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/tutorial-4-compare-schedulers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial 4: Compare Schedulers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/tutorial-5-viz-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial 5: Viz Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9">
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../print_page/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Full Documentation (Printable)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#path-loss-and-received-power" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path Loss and Received Power
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Path Loss and Received Power">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#friis-reference-loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Friis Reference Loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#log-distance-path-loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Log-Distance Path Loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#received-power" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Received Power
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#snr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SNR
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mcs-rate-adaptation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCS Rate Adaptation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCS Rate Adaptation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mcs-tables-1-spatial-stream-20-mhz-base" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCS Tables (1 Spatial Stream, 20 MHz Base)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCS Tables (1 Spatial Stream, 20 MHz Base)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#80211n-ht" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        802.11n (HT)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#80211ac-vht" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        802.11ac (VHT)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#80211ax-he" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        802.11ax (HE)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#summary-by-standard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary by Standard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#channel-width-scaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Channel Width Scaling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unit-conversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit Conversion
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conflict-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conflict Graph
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Conflict Graph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#carrier-sensing-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Carrier Sensing Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conflict-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conflict Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#max-clique-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Max Clique Computation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bianchi-mac-efficiency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bianchi MAC Efficiency
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bianchi MAC Efficiency">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coupled-equations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coupled Equations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#efficiency-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Efficiency Values
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#csma-clique-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CSMA Clique Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CSMA Clique Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bandwidth-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bandwidth Assignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interference-factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interference Factor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When To Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#csma-bianchi-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CSMA Bianchi Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CSMA Bianchi Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-1-contention-domain-time-sharing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism 1: Contention Domain Time-Sharing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-2-hidden-terminal-sinr-degradation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism 2: Hidden Terminal SINR Degradation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined Factor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recalculation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recalculation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shadow-fading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shadow Fading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rf-configuration-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RF Configuration Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RF Configuration Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#full-yaml-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full YAML Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-override-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI Override Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="wifi-model">WiFi Model<a class="headerlink" href="#wifi-model" title="Permanent link">¶</a></h1>
+<p>The WiFi model replaces manually specified link bandwidths with physically
+grounded data rates derived from RF propagation, SNR-based MCS selection,
+and 802.11 MAC contention. It is used by the <code>csma_clique</code> and <code>csma_bianchi</code>
+interference models.</p>
+<p>The implementation lives in two modules:</p>
+<ul>
+<li><code>ncsim/models/wifi.py</code> -- RF propagation, MCS tables, conflict graph
+  construction, Bianchi MAC efficiency</li>
+<li><code>ncsim/models/interference.py</code> -- <code>CsmaCliqueInterference</code> and
+  <code>CsmaBianchiInterference</code> classes</li>
+</ul>
+<hr>
+<h2 id="path-loss-and-received-power">Path Loss and Received Power<a class="headerlink" href="#path-loss-and-received-power" title="Permanent link">¶</a></h2>
+<p>ncsim uses the <strong>log-distance path loss model</strong> with a Friis free-space
+reference at distance d0 = 1 m.</p>
+<h3 id="friis-reference-loss">Friis Reference Loss<a class="headerlink" href="#friis-reference-loss" title="Permanent link">¶</a></h3>
+<p>The free-space path loss at the reference distance d0:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>PL(d0) = 20 * log10(4 * pi * d0 * f / c)
+</span></code></pre></div>
+<p>At 5 GHz with d0 = 1 m, this evaluates to approximately <strong>46.4 dB</strong>.
+At 2.4 GHz with d0 = 1 m, approximately <strong>40.0 dB</strong>.</p>
+<h3 id="log-distance-path-loss">Log-Distance Path Loss<a class="headerlink" href="#log-distance-path-loss" title="Permanent link">¶</a></h3>
+<p>For distance d &gt;= d0:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>PL(d) = PL(d0) + 10 * n * log10(d / d0)
+</span></code></pre></div>
+<p>Where <strong>n</strong> is the path loss exponent:</p>
+<table>
+<thead>
+<tr>
+<th>Environment</th>
+<th>Typical n</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Free space</td>
+<td>2.0</td>
+</tr>
+<tr>
+<td>Indoor (open office)</td>
+<td>2.5 - 3.0</td>
+</tr>
+<tr>
+<td>Indoor (with walls)</td>
+<td>3.0 - 4.0</td>
+</tr>
+<tr>
+<td>Dense indoor</td>
+<td>4.0 - 5.0</td>
+</tr>
+</tbody>
+</table>
+<h3 id="received-power">Received Power<a class="headerlink" href="#received-power" title="Permanent link">¶</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Prx(d) = Ptx - PL(d) - X_SF
+</span></code></pre></div>
+<p>Where <code>X_SF</code> is the shadow fading component (0 by default, see
+<a href="#shadow-fading">Shadow Fading</a> below).</p>
+<h3 id="snr">SNR<a class="headerlink" href="#snr" title="Permanent link">¶</a></h3>
+<p>Signal-to-noise ratio in dB:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>SNR = Prx - N0
+</span></code></pre></div>
+<p>Where <code>N0</code> is the noise floor (default -95 dBm).</p>
+<hr>
+<h2 id="mcs-rate-adaptation">MCS Rate Adaptation<a class="headerlink" href="#mcs-rate-adaptation" title="Permanent link">¶</a></h2>
+<p>The received SNR selects the <strong>highest MCS</strong> (Modulation and Coding Scheme)
+whose minimum SNR threshold is met. If the SNR falls below 5 dB (the lowest
+threshold), the link is considered <strong>not viable</strong> and the rate is 0.</p>
+<h3 id="mcs-tables-1-spatial-stream-20-mhz-base">MCS Tables (1 Spatial Stream, 20 MHz Base)<a class="headerlink" href="#mcs-tables-1-spatial-stream-20-mhz-base" title="Permanent link">¶</a></h3>
+<h4 id="80211n-ht">802.11n (HT)<a class="headerlink" href="#80211n-ht" title="Permanent link">¶</a></h4>
+<table>
+<thead>
+<tr>
+<th>MCS</th>
+<th>Modulation</th>
+<th>Min SNR (dB)</th>
+<th>Rate (Mbps)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>BPSK 1/2</td>
+<td>5</td>
+<td>6.5</td>
+</tr>
+<tr>
+<td>1</td>
+<td>QPSK 1/2</td>
+<td>8</td>
+<td>13.0</td>
+</tr>
+<tr>
+<td>2</td>
+<td>QPSK 3/4</td>
+<td>11</td>
+<td>19.5</td>
+</tr>
+<tr>
+<td>3</td>
+<td>16-QAM 1/2</td>
+<td>14</td>
+<td>26.0</td>
+</tr>
+<tr>
+<td>4</td>
+<td>16-QAM 3/4</td>
+<td>18</td>
+<td>39.0</td>
+</tr>
+<tr>
+<td>5</td>
+<td>64-QAM 2/3</td>
+<td>22</td>
+<td>52.0</td>
+</tr>
+<tr>
+<td>6</td>
+<td>64-QAM 3/4</td>
+<td>25</td>
+<td>58.5</td>
+</tr>
+<tr>
+<td>7</td>
+<td>64-QAM 5/6</td>
+<td>29</td>
+<td>65.0</td>
+</tr>
+</tbody>
+</table>
+<h4 id="80211ac-vht">802.11ac (VHT)<a class="headerlink" href="#80211ac-vht" title="Permanent link">¶</a></h4>
+<table>
+<thead>
+<tr>
+<th>MCS</th>
+<th>Modulation</th>
+<th>Min SNR (dB)</th>
+<th>Rate (Mbps)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>BPSK 1/2</td>
+<td>5</td>
+<td>6.5</td>
+</tr>
+<tr>
+<td>1</td>
+<td>QPSK 1/2</td>
+<td>8</td>
+<td>13.0</td>
+</tr>
+<tr>
+<td>2</td>
+<td>QPSK 3/4</td>
+<td>11</td>
+<td>19.5</td>
+</tr>
+<tr>
+<td>3</td>
+<td>16-QAM 1/2</td>
+<td>14</td>
+<td>26.0</td>
+</tr>
+<tr>
+<td>4</td>
+<td>16-QAM 3/4</td>
+<td>18</td>
+<td>39.0</td>
+</tr>
+<tr>
+<td>5</td>
+<td>64-QAM 2/3</td>
+<td>22</td>
+<td>52.0</td>
+</tr>
+<tr>
+<td>6</td>
+<td>64-QAM 3/4</td>
+<td>25</td>
+<td>58.5</td>
+</tr>
+<tr>
+<td>7</td>
+<td>64-QAM 5/6</td>
+<td>29</td>
+<td>65.0</td>
+</tr>
+<tr>
+<td>8</td>
+<td>256-QAM 3/4</td>
+<td>32</td>
+<td>78.0</td>
+</tr>
+<tr>
+<td>9</td>
+<td>256-QAM 5/6</td>
+<td>35</td>
+<td>86.7</td>
+</tr>
+</tbody>
+</table>
+<h4 id="80211ax-he">802.11ax (HE)<a class="headerlink" href="#80211ax-he" title="Permanent link">¶</a></h4>
+<table>
+<thead>
+<tr>
+<th>MCS</th>
+<th>Modulation</th>
+<th>Min SNR (dB)</th>
+<th>Rate (Mbps)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>BPSK 1/2</td>
+<td>5</td>
+<td>8.6</td>
+</tr>
+<tr>
+<td>1</td>
+<td>QPSK 1/2</td>
+<td>8</td>
+<td>17.2</td>
+</tr>
+<tr>
+<td>2</td>
+<td>QPSK 3/4</td>
+<td>11</td>
+<td>25.8</td>
+</tr>
+<tr>
+<td>3</td>
+<td>16-QAM 1/2</td>
+<td>14</td>
+<td>34.4</td>
+</tr>
+<tr>
+<td>4</td>
+<td>16-QAM 3/4</td>
+<td>18</td>
+<td>51.6</td>
+</tr>
+<tr>
+<td>5</td>
+<td>64-QAM 2/3</td>
+<td>22</td>
+<td>68.8</td>
+</tr>
+<tr>
+<td>6</td>
+<td>64-QAM 3/4</td>
+<td>25</td>
+<td>77.4</td>
+</tr>
+<tr>
+<td>7</td>
+<td>64-QAM 5/6</td>
+<td>29</td>
+<td>86.0</td>
+</tr>
+<tr>
+<td>8</td>
+<td>256-QAM 3/4</td>
+<td>32</td>
+<td>103.2</td>
+</tr>
+<tr>
+<td>9</td>
+<td>256-QAM 5/6</td>
+<td>35</td>
+<td>114.7</td>
+</tr>
+<tr>
+<td>10</td>
+<td>1024-QAM 3/4</td>
+<td>38</td>
+<td>129.0</td>
+</tr>
+<tr>
+<td>11</td>
+<td>1024-QAM 5/6</td>
+<td>41</td>
+<td>143.4</td>
+</tr>
+</tbody>
+</table>
+<h3 id="summary-by-standard">Summary by Standard<a class="headerlink" href="#summary-by-standard" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Standard</th>
+<th>MCS Range</th>
+<th>Peak Rate (20 MHz)</th>
+<th>Modulation Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>802.11n</td>
+<td>0--7</td>
+<td>65.0 Mbps</td>
+<td>BPSK -- 64-QAM</td>
+</tr>
+<tr>
+<td>802.11ac</td>
+<td>0--9</td>
+<td>86.7 Mbps</td>
+<td>BPSK -- 256-QAM</td>
+</tr>
+<tr>
+<td>802.11ax</td>
+<td>0--11</td>
+<td>143.4 Mbps</td>
+<td>BPSK -- 1024-QAM</td>
+</tr>
+</tbody>
+</table>
+<h3 id="channel-width-scaling">Channel Width Scaling<a class="headerlink" href="#channel-width-scaling" title="Permanent link">¶</a></h3>
+<p>Rates scale <strong>linearly</strong> with channel width. The table values are for
+20 MHz; multiply by the channel width factor:</p>
+<table>
+<thead>
+<tr>
+<th>Channel Width</th>
+<th>Factor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>20 MHz</td>
+<td>1x</td>
+</tr>
+<tr>
+<td>40 MHz</td>
+<td>2x</td>
+</tr>
+<tr>
+<td>80 MHz</td>
+<td>4x</td>
+</tr>
+<tr>
+<td>160 MHz</td>
+<td>8x</td>
+</tr>
+</tbody>
+</table>
+<p>For example, 802.11ax MCS 11 at 80 MHz: 143.4 * 4 = 573.6 Mbps.</p>
+<h3 id="unit-conversion">Unit Conversion<a class="headerlink" href="#unit-conversion" title="Permanent link">¶</a></h3>
+<p>ncsim uses <strong>MB/s</strong> internally for bandwidth. PHY rates are converted:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>rate_MBps = rate_Mbps / 8
+</span></code></pre></div>
+<hr>
+<h2 id="conflict-graph">Conflict Graph<a class="headerlink" href="#conflict-graph" title="Permanent link">¶</a></h2>
+<p>The conflict graph determines which links <strong>cannot transmit simultaneously</strong>
+under the 802.11 CSMA/CA protocol model.</p>
+<h3 id="carrier-sensing-range">Carrier Sensing Range<a class="headerlink" href="#carrier-sensing-range" title="Permanent link">¶</a></h3>
+<p>The maximum distance at which a transmission triggers Clear Channel Assessment
+(CCA):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>d_CS = d0 * 10^((Ptx - theta_CCA - PL(d0)) / (10 * n))
+</span></code></pre></div>
+<p>Where <code>theta_CCA</code> is the CCA threshold (default -82 dBm).</p>
+<h3 id="conflict-rules">Conflict Rules<a class="headerlink" href="#conflict-rules" title="Permanent link">¶</a></h3>
+<p>Two links A and B conflict if carrier sensing prevents them from transmitting
+at the same time.</p>
+<p><strong>Without RTS/CTS</strong> (default): links A and B conflict if:</p>
+<ul>
+<li>Transmitter of A can sense <strong>any node</strong> of link B, <strong>OR</strong></li>
+<li>Transmitter of B can sense <strong>any node</strong> of link A</li>
+</ul>
+<p>"Can sense" means the distance between the two nodes is within the carrier
+sensing range.</p>
+<p><strong>With RTS/CTS</strong> (<code>rts_cts: true</code>): links A and B conflict if:</p>
+<ul>
+<li><strong>Any node</strong> of link A can sense <strong>any node</strong> of link B</li>
+</ul>
+<p>RTS/CTS extends the conflict zone to protect receivers, which reduces hidden
+terminal problems but increases contention.</p>
+<pre class="mermaid"><code>graph TB
+    subgraph "Without RTS/CTS"
+        direction LR
+        txA1["TX(A)"] --&gt;|"sense?"| txB1["TX(B)"]
+        txA1 --&gt;|"sense?"| rxB1["RX(B)"]
+        txB1 --&gt;|"sense?"| txA1b["TX(A)"]
+        txB1 --&gt;|"sense?"| rxA1["RX(A)"]
+    end
+
+    subgraph "With RTS/CTS"
+        direction LR
+        txA2["TX(A)"] --&gt;|"sense?"| txB2["TX(B)"]
+        txA2 --&gt;|"sense?"| rxB2["RX(B)"]
+        rxA2["RX(A)"] --&gt;|"sense?"| txB2b["TX(B)"]
+        rxA2 --&gt;|"sense?"| rxB2b["RX(B)"]
+    end</code></pre>
+<h3 id="max-clique-computation">Max Clique Computation<a class="headerlink" href="#max-clique-computation" title="Permanent link">¶</a></h3>
+<p>For each link, ncsim computes the <strong>maximum clique size</strong> -- the largest set
+of mutually conflicting links that includes the given link.</p>
+<ul>
+<li><strong>Exact</strong> (Bron-Kerbosch with pivoting): used when the network has 50 or
+  fewer links. Finds all maximal cliques and records the largest one
+  containing each link.</li>
+<li><strong>Greedy approximation</strong>: used for larger networks. Builds a clique greedily
+  starting from each link by adding the most-connected candidate that is
+  adjacent to all current clique members.</li>
+</ul>
+<hr>
+<h2 id="bianchi-mac-efficiency">Bianchi MAC Efficiency<a class="headerlink" href="#bianchi-mac-efficiency" title="Permanent link">¶</a></h2>
+<p>Bianchi's saturation throughput model computes the MAC-layer efficiency
+<code>eta(n)</code> for <strong>n</strong> contending stations sharing the channel under 802.11 DCF.</p>
+<h3 id="coupled-equations">Coupled Equations<a class="headerlink" href="#coupled-equations" title="Permanent link">¶</a></h3>
+<p>The model solves for the transmission probability <code>tau</code> and collision
+probability <code>p</code> via fixed-point iteration:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>tau = 2(1 - 2p) / [(1 - 2p)(W + 1) + pW(1 - (2p)^m)]
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>p   = 1 - (1 - tau)^(n - 1)
+</span></code></pre></div>
+<p>Where:</p>
+<ul>
+<li><strong>W</strong> = 16 (CWmin, minimum contention window for 802.11)</li>
+<li><strong>m</strong> = 6 (maximum backoff stage; CWmax = W * 2^m = 1024)</li>
+</ul>
+<h3 id="efficiency-values">Efficiency Values<a class="headerlink" href="#efficiency-values" title="Permanent link">¶</a></h3>
+<p>From the converged <code>tau</code> and <code>p</code>, the model computes idle, success, and
+collision probabilities per slot, then derives the fraction of channel time
+carrying successful payload:</p>
+<table>
+<thead>
+<tr>
+<th>n (stations)</th>
+<th>eta(n)</th>
+<th>Per-station share eta(n)/n</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>1.000</td>
+<td>1.000</td>
+</tr>
+<tr>
+<td>2</td>
+<td>~0.88</td>
+<td>~0.44</td>
+</tr>
+<tr>
+<td>5</td>
+<td>~0.72</td>
+<td>~0.14</td>
+</tr>
+<tr>
+<td>10</td>
+<td>~0.59</td>
+<td>~0.059</td>
+</tr>
+<tr>
+<td>20</td>
+<td>~0.47</td>
+<td>~0.024</td>
+</tr>
+</tbody>
+</table>
+<p>Properties:</p>
+<ul>
+<li><code>eta(1) = 1.0</code> -- a single station has no contention overhead.</li>
+<li><code>eta(n)</code> is monotonically decreasing but always positive.</li>
+<li>The per-station share <code>eta(n)/n</code> decreases faster than <code>1/n</code> due to
+  collision overhead.</li>
+</ul>
+<p>ncsim precomputes a lookup table for n = 1 to 100 at startup.</p>
+<hr>
+<h2 id="csma-clique-model">CSMA Clique Model<a class="headerlink" href="#csma-clique-model" title="Permanent link">¶</a></h2>
+<p>The <strong>static</strong> WiFi interference model. Contention is computed once at setup
+and baked into each link's bandwidth.</p>
+<h3 id="bandwidth-assignment">Bandwidth Assignment<a class="headerlink" href="#bandwidth-assignment" title="Permanent link">¶</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>link.bandwidth = PHY_rate / omega(l)
+</span></code></pre></div>
+<p>Where <code>omega(l)</code> is the maximum clique size containing link l.</p>
+<h3 id="interference-factor">Interference Factor<a class="headerlink" href="#interference-factor" title="Permanent link">¶</a></h3>
+<p>Always <strong>1.0</strong>. Since contention is already reflected in the bandwidth,
+the interference model does not apply any additional reduction during
+simulation.</p>
+<h3 id="when-to-use">When To Use<a class="headerlink" href="#when-to-use" title="Permanent link">¶</a></h3>
+<p><code>csma_clique</code> is appropriate when you want WiFi-aware bandwidth estimation
+without the computational cost of dynamic recalculation. It provides a
+<strong>conservative worst-case bound</strong>: the bandwidth assumes all links in the
+largest clique are always active, even if only a subset actually transmits
+at any given time.</p>
+<hr>
+<h2 id="csma-bianchi-model">CSMA Bianchi Model<a class="headerlink" href="#csma-bianchi-model" title="Permanent link">¶</a></h2>
+<p>The <strong>dynamic</strong> WiFi interference model. It correctly separates two
+interference mechanisms and recalculates the factor whenever transfers start
+or complete.</p>
+<h3 id="mechanism-1-contention-domain-time-sharing">Mechanism 1: Contention Domain Time-Sharing<a class="headerlink" href="#mechanism-1-contention-domain-time-sharing" title="Permanent link">¶</a></h3>
+<p>Links that are neighbors in the conflict graph operate under CSMA/CA and
+<strong>cannot transmit simultaneously</strong>. Each of n contending links gets:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>contention_factor = eta(n) / n
+</span></code></pre></div>
+<p>No SINR degradation occurs from these links because CSMA prevents concurrent
+transmission.</p>
+<h3 id="mechanism-2-hidden-terminal-capture-threshold">Mechanism 2: Hidden Terminal (Capture Threshold)<a class="headerlink" href="#mechanism-2-hidden-terminal-capture-threshold" title="Permanent link">¶</a></h3>
+<p>Active links that are <strong>not</strong> in the conflict graph may transmit
+simultaneously, causing interference at the receiver. The SINR is computed
+in the linear domain:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>SINR = P_signal / (P_noise + sum(P_interferers))
+</span></code></pre></div>
+<p>In 802.11, each frame is transmitted at a pre-selected MCS and either
+decoded successfully or lost entirely — there is no fallback to a lower MCS
+during reception. The SINR is compared against a <strong>capture threshold</strong>
+(decode_threshold = MCS selection threshold − 5 dB capture margin).
+If SINR ≥ threshold, the frame is captured (decoded successfully).
+If SINR &lt; threshold, the frame fails.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>f_HT = 1.0  if SINR >= decode_threshold  (capture: frame succeeds)
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>f_HT = 0.01 otherwise                    (frame failure)
+</span></code></pre></div>
+<h3 id="combined-factor">Combined Factor<a class="headerlink" href="#combined-factor" title="Permanent link">¶</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>factor = f_HT * contention_factor
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>       = f_HT * (eta(n) / n)
+</span></code></pre></div>
+<p>The factor is clamped to the range [0.01, 1.0].</p>
+<h3 id="recalculation">Recalculation<a class="headerlink" href="#recalculation" title="Permanent link">¶</a></h3>
+<p>When any transfer starts or completes, <strong>all</strong> other active links have their
+factors recalculated. This ensures both contention domain changes and hidden
+terminal changes are captured symmetrically.</p>
+<pre class="mermaid"><code>flowchart TD
+    A["Transfer starts/completes on link L"] --&gt; B["Identify active links"]
+    B --&gt; C["For each active link K != L"]
+    C --&gt; D["Classify neighbors:&lt;br/&gt;contending vs. hidden"]
+    D --&gt; E["Compute contention_factor = eta(n)/n"]
+    D --&gt; F["Compute SINR from hidden terminals"]
+    F --&gt; G["Compare SINR vs capture threshold"]
+    E --&gt; H["factor = f_HT * (eta(n) / n)"]
+    G --&gt; H
+    H --&gt; I["Recalculate transfer completion time"]</code></pre>
+<div class="admonition warning">
+<p class="admonition-title">Key design decision</p>
+<p>Contending links affect throughput via <strong>time-sharing</strong> (Bianchi), not
+via SINR. Only hidden terminals cause frame loss (via the capture-threshold
+model). Conflating the two (e.g., including contending links in the SINR
+calculation) would double-count their impact and produce unrealistically
+low throughput.</p>
+</div>
+<hr>
+<h2 id="shadow-fading">Shadow Fading<a class="headerlink" href="#shadow-fading" title="Permanent link">¶</a></h2>
+<p>Optional log-normal shadow fading adds randomness to path loss. In the dB
+domain, fading values are drawn from a Gaussian distribution N(0, sigma).</p>
+<ul>
+<li><strong>Per-node-pair</strong>: each pair of nodes gets its own fading value.</li>
+<li><strong>Symmetric</strong>: fading(A, B) = fading(B, A).</li>
+<li><strong>Deterministic from seed</strong>: the same seed always produces the same fading
+  map, ensuring reproducibility.</li>
+<li>Configured via <code>shadow_fading_sigma</code> (default <strong>0.0</strong>, meaning no fading).</li>
+</ul>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">config</span><span class="p">:</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">rf</span><span class="p">:</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">shadow_fading_sigma</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.0</span><span class="w">   </span><span class="c1"># dB standard deviation</span>
+</span></code></pre></div>
+<p>The fading value is subtracted from received power:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>Prx(d) = Ptx - PL(d) - X_SF
+</span></code></pre></div>
+<p>Where <code>X_SF ~ N(0, sigma)</code> for the specific node pair.</p>
+<hr>
+<h2 id="rf-configuration-parameters">RF Configuration Parameters<a class="headerlink" href="#rf-configuration-parameters" title="Permanent link">¶</a></h2>
+<p>All RF parameters are specified in the <code>rf:</code> section of the scenario YAML.
+Several can also be overridden via CLI flags.</p>
+<table>
+<thead>
+<tr>
+<th>YAML Key</th>
+<th>CLI Flag</th>
+<th>Unit</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tx_power_dBm</code></td>
+<td><code>--tx-power</code></td>
+<td>dBm</td>
+<td>20.0</td>
+<td>Transmit power (typical AP: 15--23 dBm)</td>
+</tr>
+<tr>
+<td><code>freq_ghz</code></td>
+<td><code>--freq</code></td>
+<td>GHz</td>
+<td>5.0</td>
+<td>Carrier frequency (2.4 or 5.0)</td>
+</tr>
+<tr>
+<td><code>path_loss_exponent</code></td>
+<td><code>--path-loss-exponent</code></td>
+<td>--</td>
+<td>3.0</td>
+<td>Path loss exponent n (2.0 = free space, 3--4 = indoor)</td>
+</tr>
+<tr>
+<td><code>noise_floor_dBm</code></td>
+<td>--</td>
+<td>dBm</td>
+<td>-95.0</td>
+<td>Effective noise floor including receiver noise figure</td>
+</tr>
+<tr>
+<td><code>cca_threshold_dBm</code></td>
+<td>--</td>
+<td>dBm</td>
+<td>-82.0</td>
+<td>CCA signal detect threshold</td>
+</tr>
+<tr>
+<td><code>channel_width_mhz</code></td>
+<td>--</td>
+<td>MHz</td>
+<td>20</td>
+<td>Channel width (20, 40, 80, 160)</td>
+</tr>
+<tr>
+<td><code>wifi_standard</code></td>
+<td><code>--wifi-standard</code></td>
+<td>--</td>
+<td><code>ax</code></td>
+<td>MCS table selection (<code>n</code>, <code>ac</code>, <code>ax</code>)</td>
+</tr>
+<tr>
+<td><code>shadow_fading_sigma</code></td>
+<td>--</td>
+<td>dB</td>
+<td>0.0</td>
+<td>Std dev of log-normal shadow fading (0 = none)</td>
+</tr>
+<tr>
+<td><code>rts_cts</code></td>
+<td><code>--rts-cts</code></td>
+<td>--</td>
+<td><code>false</code></td>
+<td>Enable RTS/CTS (extends conflict zone)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="full-yaml-example">Full YAML Example<a class="headerlink" href="#full-yaml-example" title="Permanent link">¶</a></h3>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">config</span><span class="p">:</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">interference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">csma_bianchi</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">rf</span><span class="p">:</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nt">tx_power_dBm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">    </span><span class="nt">freq_ghz</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5.0</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span><span class="nt">path_loss_exponent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="nt">noise_floor_dBm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-95</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="nt">cca_threshold_dBm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-82</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">    </span><span class="nt">channel_width_mhz</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">    </span><span class="nt">wifi_standard</span><span class="p">:</span><span class="w"> </span><span class="s">"ax"</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">    </span><span class="nt">shadow_fading_sigma</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">    </span><span class="nt">rts_cts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Omitting link bandwidth</p>
+<p>When using <code>csma_clique</code> or <code>csma_bianchi</code>, link bandwidth is <strong>derived
+from RF parameters</strong> and node positions. You can omit the <code>bandwidth</code> key
+from link definitions -- ncsim will compute it automatically. If you do
+specify a bandwidth, it will be kept as-is (not overwritten by the WiFi
+model), which is useful for mixing wired and wireless links in the same
+topology.</p>
+</div>
+<h3 id="cli-override-example">CLI Override Example<a class="headerlink" href="#cli-override-example" title="Permanent link">¶</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>ncsim<span class="w"> </span>--scenario<span class="w"> </span>wifi_topology.yaml<span class="w"> </span>--output<span class="w"> </span>results/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">      </span>--interference<span class="w"> </span>csma_bianchi<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">      </span>--tx-power<span class="w"> </span><span class="m">23</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">      </span>--freq<span class="w"> </span><span class="m">2</span>.4<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">      </span>--path-loss-exponent<span class="w"> </span><span class="m">3</span>.5<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">      </span>--wifi-standard<span class="w"> </span>ac<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">      </span>--rts-cts
+</span></code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden="">
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright © 2026 Autonomous Networks Research Group (ANRG), University of Southern California
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ANRGUSC/ncsim" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../js/print-site.js"></script>
+      
+    
+  
+<script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(()=>{ lightbox.reload(); });
+</script></body></html>

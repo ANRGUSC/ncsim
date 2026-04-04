@@ -13,7 +13,7 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 - **HEFT/CPOP/Manual scheduling**: Integrated with [anrg-saga](https://github.com/ANRGUSC/saga) schedulers, plus manual assignment via `pinned_to`
 - **Multi-hop routing**: Direct, widest-path (max-min bandwidth), and shortest-path (min-latency)
 - **802.11 WiFi PHY/MAC**: Log-distance path loss, SNR-based MCS rate adaptation (802.11n/ac/ax)
-- **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (dynamic SINR)
+- **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (capture-aware)
 - **Fair bandwidth sharing** when multiple transfers share a link
 - **Experiment scripts** for interference verification and routing comparison
 - **Documentation**: [installation guide](docs/installation.html), [user guide](docs/userguide.html), [architecture overview](docs/architecture.html), and [WiFi interference model](docs/wifi_interference_model.pdf)

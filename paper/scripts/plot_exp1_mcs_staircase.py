@@ -1,6 +1,17 @@
-"""Generate MCS staircase plot for ncsim paper (fig:exp1)."""
+"""Generate MCS staircase plot for ncsim paper (fig:exp1).
+
+Computes the rate staircase directly from ncsim's WiFi model functions,
+so it always reflects the current MCS table and RF parameters.
+"""
+import sys
 import matplotlib.pyplot as plt
 from pathlib import Path
+
+# Add project root to path for ncsim imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from ncsim.models.wifi import (
+    snr_to_rate_mbps, path_loss_dB, rate_mbps_to_MBps, RFConfig,
+)
 
 plt.rcParams.update({
     'font.family': 'serif',
@@ -11,23 +22,37 @@ plt.rcParams.update({
     'ytick.labelsize': 7,
 })
 
-# MCS staircase data
-staircase_x = [
-    1, 8.30, 8.30, 10.46, 10.46, 13.16, 13.16, 16.57,
-    16.57, 20.86, 20.86, 28.36, 28.36, 35.70, 35.70, 48.53,
-    48.53, 65.97, 65.97, 83.05, 83.05, 104.55, 104.55, 131.62,
-    131.62, 145,
-]
-staircase_y = [
-    17.925, 17.925, 16.125, 16.125, 14.338, 14.338, 12.900, 12.900,
-    10.750, 10.750, 9.675, 9.675, 8.600, 8.600, 6.450, 6.450,
-    4.300, 4.300, 3.225, 3.225, 2.150, 2.150, 1.075, 1.075,
-    0, 0,
-]
+rf = RFConfig()
 
-# Verified points
+# Sweep distances at fine resolution to capture MCS transitions
+distances = [d / 10.0 for d in range(10, 1451)]  # 1.0 to 145.0m by 0.1m
+rates = []
+for d in distances:
+    pl = path_loss_dB(d, rf.freq_ghz, rf.path_loss_exponent)
+    rx_power = rf.tx_power_dBm - pl
+    snr = rx_power - rf.noise_floor_dBm
+    rate_mbps = snr_to_rate_mbps(snr, rf.wifi_standard, rf.channel_width_mhz)
+    rates.append(rate_mbps_to_MBps(rate_mbps))
+
+# Build staircase coordinates (step function)
+staircase_x, staircase_y = [distances[0]], [rates[0]]
+for i in range(1, len(distances)):
+    if rates[i] != rates[i - 1]:
+        # Step down: add point at current distance with old rate, then new rate
+        staircase_x.append(distances[i])
+        staircase_y.append(rates[i - 1])
+    staircase_x.append(distances[i])
+    staircase_y.append(rates[i])
+
+# Compute verified points at specific distances
 vp_x = [1, 12, 30, 50, 75, 105, 140]
-vp_y = [17.925, 14.338, 8.600, 4.300, 3.225, 1.075, 0]
+vp_y = []
+for d in vp_x:
+    pl = path_loss_dB(d, rf.freq_ghz, rf.path_loss_exponent)
+    rx_power = rf.tx_power_dBm - pl
+    snr = rx_power - rf.noise_floor_dBm
+    rate_mbps = snr_to_rate_mbps(snr, rf.wifi_standard, rf.channel_width_mhz)
+    vp_y.append(rate_mbps_to_MBps(rate_mbps))
 
 fig, ax = plt.subplots(figsize=(3.5, 2.2))
 

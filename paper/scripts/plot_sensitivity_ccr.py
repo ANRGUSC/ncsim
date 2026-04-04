@@ -1,4 +1,6 @@
 """Generate CCR sensitivity plot for ncsim paper (fig:ccr)."""
+import json
+import sys
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -11,14 +13,26 @@ plt.rcParams.update({
     'ytick.labelsize': 7,
 })
 
-data_sizes = [1, 2, 5, 10, 20, 50, 100]
+script_dir = Path(__file__).resolve().parent
+results_path = script_dir.parent / '_results' / 'sensitivity_ccr.json'
 
-# 20-task
-s20 = [1.08, 1.54, 3.55, 2.63, 3.82, 2.24, 1.00]
-# 10-task
-s10 = [1.14, 1.37, 1.38, 1.96, 2.13, 1.00, 1.00]
-# 5-task
-s5 = [1.06, 1.12, 1.29, 1.47, 1.00, 1.00, 1.00]
+if not results_path.exists():
+    print(f"Error: {results_path} not found. Run run_sensitivity_ccr.py first.")
+    sys.exit(1)
+
+with open(results_path) as f:
+    data = json.load(f)
+
+# Group by dag_size: small=5-task, medium=10-task, large=20-task
+results = data['results']
+small = [r for r in results if r['dag_size'] == 'small']
+medium = [r for r in results if r['dag_size'] == 'medium']
+large = [r for r in results if r['dag_size'] == 'large']
+
+data_sizes = [r['data_size_MB'] for r in small]
+s5 = [r['slowdown_factor'] for r in small]
+s10 = [r['slowdown_factor'] for r in medium]
+s20 = [r['slowdown_factor'] for r in large]
 
 fig, ax = plt.subplots(figsize=(3.5, 2.5))
 
@@ -31,13 +45,13 @@ ax.set_xlabel('Data Size per Edge (MB)')
 ax.set_ylabel(r'Slowdown Factor ($\times$)')
 ax.set_xlim(0.8, 120)
 ax.set_ylim(0.8, 4.2)
-ax.set_xticks([1, 2, 5, 10, 20, 50, 100])
-ax.set_xticklabels(['1', '2', '5', '10', '20', '50', '100'])
+ax.set_xticks(data_sizes)
+ax.set_xticklabels([str(int(x)) if x == int(x) else str(x) for x in data_sizes])
 ax.grid(True, color='#cccccc', linewidth=0.5)
 ax.legend(fontsize=7, loc='upper right')
 
 plt.tight_layout(pad=0.3)
-out = Path(__file__).resolve().parent.parent / 'figures' / 'sensitivity_ccr.png'
+out = script_dir.parent / 'figures' / 'sensitivity_ccr.png'
 fig.savefig(out, dpi=300, bbox_inches='tight', facecolor='white')
 plt.close()
 print(f'Saved {out}')

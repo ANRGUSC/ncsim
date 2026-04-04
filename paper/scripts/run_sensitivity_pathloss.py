@@ -37,7 +37,7 @@ SEED = 42
 _CAPACITIES = [200, 100, 150, 80, 300, 120, 250, 180, 160, 90, 220, 140, 280, 110, 190, 170]
 
 # Path loss exponents to sweep: free-space through heavy indoor
-PATH_LOSS_EXPONENTS = [2.0, 2.5, 3.0, 3.5, 4.0]
+PATH_LOSS_EXPONENTS = [2.0, 2.5, 3.0, 3.25]
 
 # Interference models to compare
 INTERFERENCE_MODES = ["none", "csma_bianchi"]

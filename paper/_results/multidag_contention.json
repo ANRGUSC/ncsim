@@ -29,10 +29,10 @@
         0.0
       ],
       "makespan_none": 8.43411,
-      "makespan_csma_bianchi": 12.37487,
+      "makespan_csma_bianchi": 19.061428,
       "contention_scale_none": 1.0,
       "contention_scale_csma_bianchi": 1.0,
-      "slowdown_factor": 1.467240763992881
+      "slowdown_factor": 2.2600402413532663
     },
     {
       "num_dags": 2,
@@ -42,10 +42,10 @@
         0.5
       ],
       "makespan_none": 10.43411,
-      "makespan_csma_bianchi": 17.749739,
+      "makespan_csma_bianchi": 31.122855,
       "contention_scale_none": 1.2371323115302029,
-      "contention_scale_csma_bianchi": 1.4343374112212899,
-      "slowdown_factor": 1.7011263059331367
+      "contention_scale_csma_bianchi": 1.6327661810017593,
+      "slowdown_factor": 2.982799203765343
     },
     {
       "num_dags": 3,
@@ -56,10 +56,10 @@
         1.0
       ],
       "makespan_none": 13.333336,
-      "makespan_csma_bianchi": 25.352553,
+      "makespan_csma_bianchi": 45.346879,
       "contention_scale_none": 1.580882393044435,
-      "contention_scale_csma_bianchi": 2.0487126733452556,
-      "slowdown_factor": 1.9014410947117812
+      "contention_scale_csma_bianchi": 2.378986453690668,
+      "slowdown_factor": 3.4010152447969513
     },
     {
       "num_dags": 4,
@@ -71,10 +71,10 @@
         1.5
       ],
       "makespan_none": 15.317831,
-      "makespan_csma_bianchi": 32.56203,
+      "makespan_csma_bianchi": 59.595919,
       "contention_scale_none": 1.8161763363295,
-      "contention_scale_csma_bianchi": 2.6313027934838913,
-      "slowdown_factor": 2.1257598415859267
+      "contention_scale_csma_bianchi": 3.126519114937244,
+      "slowdown_factor": 3.8906238748815025
     },
     {
       "num_dags": 5,
@@ -87,10 +87,10 @@
         2.0
       ],
       "makespan_none": 18.034885,
-      "makespan_csma_bianchi": 39.915155,
+      "makespan_csma_bianchi": 73.542894,
       "contention_scale_none": 2.1383269841156918,
-      "contention_scale_csma_bianchi": 3.2255009547575044,
-      "slowdown_factor": 2.2132192692107546
+      "contention_scale_csma_bianchi": 3.8582048522282806,
+      "slowdown_factor": 4.077813304603828
     }
   ]
 }

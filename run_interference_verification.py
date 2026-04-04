@@ -596,6 +596,38 @@ def run_exp2():
     print()
     print(f"  All match: {'YES' if all_match else 'NO'}")
     print()
+
+    # Save results to JSON for plot scripts
+    json_results = []
+    solo_rate = base_rate
+    for r in results:
+        if r[1] is None:
+            continue
+        sep, in_conflict, pred_a, pred_b, sim_a, sim_b, makespan = r
+        regime = "contention" if in_conflict else "hidden_terminal"
+        json_results.append({
+            "separation_m": sep,
+            "in_conflict": in_conflict,
+            "regime": regime,
+            "predicted_rate_MBps": pred_a,
+            "simulated_rate_a_MBps": sim_a,
+            "simulated_rate_b_MBps": sim_b,
+            "makespan_s": makespan,
+        })
+
+    json_out = Path(__file__).parent / "paper" / "_results" / "exp2_separation.json"
+    json_out.parent.mkdir(parents=True, exist_ok=True)
+    with open(json_out, "w") as f:
+        json.dump({
+            "experiment": "exp2_parallel_separation",
+            "description": "Two parallel 30m links at varying separation",
+            "solo_rate_MBps": solo_rate,
+            "cs_range_m": cs,
+            "results": json_results,
+        }, f, indent=2)
+    print(f"  Saved {json_out}")
+    print()
+
     return all_match
 
 

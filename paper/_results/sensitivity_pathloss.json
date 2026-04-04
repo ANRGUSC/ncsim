@@ -16,49 +16,40 @@
     2.0,
     2.5,
     3.0,
-    3.5,
-    4.0
+    3.25
   ],
   "results": [
     {
       "path_loss_exponent": 2.0,
       "makespan_none": 10.83939,
-      "makespan_csma_bianchi": 14.377418,
-      "slowdown_factor": 1.3264047146564522,
+      "makespan_csma_bianchi": 25.499789,
+      "slowdown_factor": 2.3525114420645443,
       "wifi_rate_40m_MBps": 14.3375,
       "wifi_rate_diag_MBps": 12.9
     },
     {
       "path_loss_exponent": 2.5,
       "makespan_none": 10.733852,
-      "makespan_csma_bianchi": 19.270304,
-      "slowdown_factor": 1.7952831844523287,
+      "makespan_csma_bianchi": 46.643527,
+      "slowdown_factor": 4.345460231797494,
       "wifi_rate_40m_MBps": 9.675,
       "wifi_rate_diag_MBps": 8.6
     },
     {
       "path_loss_exponent": 3.0,
       "makespan_none": 12.545222,
-      "makespan_csma_bianchi": 25.040481,
-      "slowdown_factor": 1.996017368205999,
+      "makespan_csma_bianchi": 35.160909,
+      "slowdown_factor": 2.8027331042846426,
       "wifi_rate_40m_MBps": 6.45,
       "wifi_rate_diag_MBps": 4.3
     },
     {
-      "path_loss_exponent": 3.5,
-      "makespan_none": 14.868218,
-      "makespan_csma_bianchi": 1555.415374,
-      "slowdown_factor": 104.61343612260728,
-      "wifi_rate_40m_MBps": 3.225,
-      "wifi_rate_diag_MBps": 1.075
-    },
-    {
-      "path_loss_exponent": 4.0,
-      "makespan_none": null,
-      "makespan_csma_bianchi": null,
-      "slowdown_factor": null,
-      "wifi_rate_40m_MBps": 0.0,
-      "wifi_rate_diag_MBps": 0.0
+      "path_loss_exponent": 3.25,
+      "makespan_none": 18.453489,
+      "makespan_csma_bianchi": 75.797728,
+      "slowdown_factor": 4.10750118852863,
+      "wifi_rate_40m_MBps": 4.3,
+      "wifi_rate_diag_MBps": 3.225
     }
   ]
 }
