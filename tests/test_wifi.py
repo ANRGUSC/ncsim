@@ -167,15 +167,18 @@ class TestMCSRateSelection:
 
 class TestBianchi:
     def test_single_station(self):
-        assert bianchi_efficiency(1) == 1.0
+        e = bianchi_efficiency(1)
+        assert 0.3 < e < 1.0
 
     def test_two_stations(self):
         e = bianchi_efficiency(2)
-        assert 0.5 < e < 1.0
+        assert 0.2 < e < 1.0
 
-    def test_monotonically_decreasing(self):
-        prev = 1.0
-        for n in range(2, 30):
+    def test_monotonically_decreasing_after_peak(self):
+        """Efficiency peaks at small n (channel utilization improving),
+        then decreases monotonically as collisions dominate."""
+        prev = bianchi_efficiency(5)
+        for n in range(6, 30):
             e = bianchi_efficiency(n)
             assert e <= prev
             prev = e
@@ -185,8 +188,9 @@ class TestBianchi:
             assert bianchi_efficiency(n) > 0
 
     def test_zero_and_negative(self):
-        assert bianchi_efficiency(0) == 1.0
-        assert bianchi_efficiency(-1) == 1.0
+        e1 = bianchi_efficiency(1)
+        assert bianchi_efficiency(0) == e1
+        assert bianchi_efficiency(-1) == e1
 
     def test_large_n(self):
         """Beyond lookup table size, should still return a value."""

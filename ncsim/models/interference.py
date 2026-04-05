@@ -235,7 +235,7 @@ class CsmaBianchiInterference(InterferenceModel):
     ) -> float:
         from ncsim.models.wifi import (
             euclidean_distance, received_power_dBm, sinr_dB,
-            snr_to_rate_mbps, rate_mbps_to_MBps, bianchi_efficiency,
+            bianchi_efficiency, capture_sinr_threshold,
         )
 
         if link_id not in active_link_ids:
@@ -254,8 +254,22 @@ class CsmaBianchiInterference(InterferenceModel):
         contending_active = active_link_ids & conflict_neighbors
         hidden_active = (active_link_ids - conflict_neighbors) - {link_id}
 
-        # SINR degradation from hidden terminals ONLY
-        # (contending links don't transmit simultaneously under CSMA)
+        # Hidden terminal interference: capture-threshold model
+        #
+        # 802.11 frames succeed or fail at their selected MCS — there is no
+        # "partial success" at a lower rate.  When hidden terminals are active,
+        # we compute the SINR and compare it to the decode threshold for the
+        # link's operating MCS.  If SINR >= threshold, the frame is captured
+        # (decoded successfully despite interference).  If SINR < threshold,
+        # the frame fails entirely.
+        #
+        # The simulation's event-driven execution handles temporal dynamics:
+        # this factor is recomputed whenever the set of active links changes,
+        # so the fraction of time with/without interference is modeled by the
+        # simulation itself.
+        #
+        # Refs: Daneshgaran et al. (2008) DOI:10.1109/tcomm.2008.060397
+        #       Zorzi & Rao (1994)        DOI:10.1109/49.329345
         sinr_factor = 1.0
         if hidden_active:
             dist = euclidean_distance(tx_node.position, rx_node.position)
@@ -284,14 +298,19 @@ class CsmaBianchiInterference(InterferenceModel):
             link_sinr = sinr_dB(
                 desired_power, interference_powers, self.rf.noise_floor_dBm
             )
-            sinr_rate_mbps = snr_to_rate_mbps(
-                link_sinr, self.rf.wifi_standard, self.rf.channel_width_mhz
-            )
-            sinr_rate_MBps = rate_mbps_to_MBps(sinr_rate_mbps)
 
-            if sinr_rate_MBps <= 0:
-                return 0.01  # Hidden terminal destroyed the link
-            sinr_factor = sinr_rate_MBps / base_rate
+            # Capture threshold: minimum SINR for successful decode at the
+            # link's operating MCS (selection threshold - capture margin)
+            base_rate_mbps = base_rate * 8.0  # MBps -> Mbps
+            ct = capture_sinr_threshold(
+                base_rate_mbps, self.rf.wifi_standard,
+                self.rf.channel_width_mhz,
+            )
+
+            if link_sinr >= ct:
+                sinr_factor = 1.0   # Capture: frame decoded despite interference
+            else:
+                sinr_factor = 0.01  # Frame failure: link effectively blocked
 
         # Bianchi contention domain sharing
         # n contending stations share the channel: each gets eta(n)/n

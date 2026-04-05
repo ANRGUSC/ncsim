@@ -200,7 +200,7 @@ MCS_TABLE_AC: List[Tuple[float, float]] = [
 ]
 
 MCS_TABLE_AX: List[Tuple[float, float]] = [
-    # 802.11ax HE, 20 MHz, 1SS, 3.2us GI
+    # 802.11ax HE, 20 MHz, 1SS, 0.8us GI
     (5.0,   8.6),    # MCS 0: BPSK 1/2
     (8.0,   17.2),   # MCS 1: QPSK 1/2
     (11.0,  25.8),   # MCS 2: QPSK 3/4
@@ -253,27 +253,176 @@ def rate_mbps_to_MBps(rate_mbps: float) -> float:
     return rate_mbps / 8.0
 
 
+# ─── Capture Effect Model ───────────────────────────────────────
+#
+# 802.11 frames either succeed or fail at their selected MCS — there is
+# no "partial success" at a lower rate.  The MCS rate selection thresholds
+# in MCS_TABLE_* include operating margins (implementation loss, fading,
+# AGC settling) that are not needed when evaluating whether a received
+# frame can be *decoded*.  The decode threshold is lower than the
+# selection threshold by the capture margin.
+#
+# References:
+#   Daneshgaran et al. (2008), IEEE Trans. Comm.  DOI:10.1109/tcomm.2008.060397
+#   Zorzi & Rao (1994), IEEE JSAC.                DOI:10.1109/49.329345
+#   Hadzi-Velkov & Spasenovski (2002), IEEE PIMRC. DOI:10.1109/pimrc.2002.1046683
+
+CAPTURE_MARGIN_DB: float = 5.0
+"""Gap between MCS rate-selection threshold and minimum decode SINR.
+
+Accounts for implementation margin (~2 dB), fading margin (~2 dB), and
+PER operating-point margin (~1 dB) that are built into the selection
+thresholds but are not required for frame decoding in static channels.
+Consistent with measured capture thresholds of 4-10 dB in the literature
+and with the gap between ns-3's IdealWifiManager selection and its
+TableBasedErrorRateModel decode thresholds."""
+
+
+def mcs_min_sinr(
+    rate_mbps: float,
+    wifi_standard: str = "ax",
+    channel_width_mhz: int = 20,
+) -> float:
+    """Return the MCS rate-selection threshold (dB) for the given PHY rate.
+
+    Finds the MCS entry whose rate matches ``rate_mbps`` and returns its
+    minimum SNR.  Returns 0.0 if no matching entry is found.
+    """
+    table = MCS_TABLES.get(wifi_standard, MCS_TABLE_AX)
+    cw_factor = channel_width_mhz / 20.0
+    for min_snr, rate in table:
+        if abs(rate * cw_factor - rate_mbps) < 0.1:
+            return min_snr
+    return 0.0
+
+
+def capture_sinr_threshold(
+    rate_mbps: float,
+    wifi_standard: str = "ax",
+    channel_width_mhz: int = 20,
+    capture_margin_dB: float = CAPTURE_MARGIN_DB,
+) -> float:
+    """Minimum SINR (dB) for successful frame decode at the given MCS.
+
+    This is the **decode threshold**, not the rate-selection threshold.
+    A frame at ``rate_mbps`` can be captured (decoded despite interference)
+    if SINR >= this value.
+
+    decode_threshold = selection_threshold - capture_margin
+    """
+    sel_threshold = mcs_min_sinr(rate_mbps, wifi_standard, channel_width_mhz)
+    return sel_threshold - capture_margin_dB
+
+
+def saturated_airtime_fraction(
+    W: int = 16,
+    phy_rate_mbps: float = 68.8,
+    psdu_bytes: int = 1542,
+    preamble_us: float = 44.0,
+    ofdm_symbol_us: float = 13.6,
+    sifs_us: float = 16.0,
+    slot_us: float = 9.0,
+    ack_dur_us: float = 28.0,
+    aifs_us: float = 43.0,
+    prop_us: float = 0.1,
+) -> float:
+    """Fraction of time a saturated single link's STA is transmitting data.
+
+    Under Bianchi with n=1 (no contention), the STA cycles through:
+      backoff → data TX → SIFS → ACK → AIFS → backoff → ...
+
+    Only the data TX period generates interference at hidden terminals.
+    Returns f_busy = tau * T_data / E[slot_duration].
+    """
+    tau = 2.0 / (W + 1)
+
+    # Data frame air time (same OFDM symbol math as Bianchi)
+    coded_bits_per_symbol = phy_rate_mbps * ofdm_symbol_us
+    psdu_bits = 16 + psdu_bytes * 8 + 6
+    num_symbols = math.ceil(psdu_bits / coded_bits_per_symbol)
+    psdu_air_us = num_symbols * ofdm_symbol_us
+    T_data = preamble_us + psdu_air_us
+
+    # T_success includes full cycle overhead
+    T_success = T_data + sifs_us + prop_us + ack_dur_us + aifs_us + prop_us
+
+    # Expected slot duration for n=1
+    E_slot = (1.0 - tau) * slot_us + tau * T_success
+
+    return tau * T_data / E_slot
+
+
+def hidden_terminal_success_rate(
+    sinr_dB: float,
+    decode_threshold_dB: float,
+    airtime_fraction: float,
+) -> float:
+    """Frame success rate for a link with one hidden terminal interferer.
+
+    Combines temporal overlap probability with capture-threshold model:
+      - With probability (1 - airtime_fraction), no interference is present
+        and the frame succeeds (SINR = SNR >> threshold).
+      - With probability airtime_fraction, interference is present and the
+        frame succeeds only if SINR >= decode_threshold (capture effect).
+
+    Returns a value in [0, 1] representing the fraction of frames that
+    succeed.  Multiply by solo_rate to get effective throughput.
+    """
+    p_capture = 1.0 if sinr_dB >= decode_threshold_dB else 0.0
+    return (1.0 - airtime_fraction) + airtime_fraction * p_capture
+
+
 # ─── Bianchi MAC Efficiency ──────────────────────────────────────
 
-def _bianchi_efficiency_compute(n: int, W: int = 16, m: int = 6) -> float:
+def _bianchi_efficiency_compute(
+    n: int,
+    W: int = 16,
+    m: int = 6,
+    goodput_bytes: int = 1472,
+    psdu_bytes: int = 1542,
+    phy_rate_mbps: float = 68.8,
+    preamble_us: float = 44.0,
+    ofdm_symbol_us: float = 13.6,
+    sifs_us: float = 16.0,
+    slot_us: float = 9.0,
+    ack_dur_us: float = 28.0,
+    aifs_us: float = 43.0,
+    prop_us: float = 0.1,
+) -> float:
     """Compute Bianchi saturation throughput efficiency for n contending stations.
 
     Based on Bianchi (2000). Solves the coupled equations:
       tau = 2(1-2p) / ((1-2p)(W+1) + pW(1-(2p)^m))
       p = 1 - (1-tau)^(n-1)
 
-    Returns the fraction of channel time used for successful payload
-    delivery (MAC efficiency), in (0, 1].
+    Returns goodput efficiency: the fraction of PHY capacity delivered as
+    application payload. Used as: per_link_rate = base_PHY_rate * eta(n) / n.
+
+    Frame duration uses OFDM symbol math (ceiling to integer symbols) for
+    accuracy. Timing parameters match 802.11ax HE / ns-3 defaults:
+      - HE SU preamble: 44μs (L-STF/LTF=16 + L-SIG/RL-SIG=8 + HE-SIG-A=8 + HE-STF/LTF=12)
+      - OFDM symbol: 12.8μs + 0.8μs GI = 13.6μs
+      - ACK at 24 Mbps non-HT OFDM: 20μs preamble + 8μs data = 28μs
+      - AIFS for AC_BE: SIFS(16) + AIFSN(3)×slot(9) = 43μs
+      - PSDU: MAC(26) + LLC/SNAP(8) + IP(20) + UDP(8) + payload(1472) + FCS(4) + delimiter(4) = 1542 bytes
 
     Args:
         n: Number of contending stations (>= 1)
         W: CWmin (minimum contention window, default 16 for 802.11)
         m: Max backoff stage (CWmax = W * 2^m, default 6 -> CWmax=1024)
+        goodput_bytes: Application payload size in bytes (UDP payload)
+        psdu_bytes: Total PSDU size including all headers/FCS/delimiter
+        phy_rate_mbps: PHY data rate in Mbps
+        preamble_us: PHY preamble duration in μs
+        ofdm_symbol_us: OFDM symbol duration including GI in μs
+        sifs_us: SIFS duration in μs
+        slot_us: Empty slot duration in μs
+        ack_dur_us: ACK frame duration in μs (legacy preamble + ACK data)
+        aifs_us: AIFS duration in μs (SIFS + AIFSN×slot for AC_BE)
+        prop_us: One-way propagation delay in μs
     """
     if n <= 0:
-        return 1.0
-    if n == 1:
-        return 1.0
+        n = 1
 
     # Iterative fixed-point solution for tau and p
     tau = 2.0 / (W + 1)
@@ -298,25 +447,38 @@ def _bianchi_efficiency_compute(n: int, W: int = 16, m: int = 6) -> float:
             break
         tau = tau_new
 
-    # Compute throughput efficiency
+    # 802.11ax HE frame timing with OFDM symbol math
+    # Coded bits per OFDM symbol derived from PHY rate and symbol duration
+    coded_bits_per_symbol = phy_rate_mbps * ofdm_symbol_us
+    # PSDU transmission: service(16) + data + tail(6) bits, ceil to symbol boundary
+    psdu_bits = 16 + psdu_bytes * 8 + 6
+    num_symbols = math.ceil(psdu_bits / coded_bits_per_symbol)
+    psdu_air_us = num_symbols * ofdm_symbol_us
+
+    T_data = preamble_us + psdu_air_us  # total data frame airtime
+    T_success = T_data + sifs_us + prop_us + ack_dur_us + aifs_us + prop_us
+    # After collision, stations wait EIFS = SIFS + ACK_time + AIFS (not just AIFS)
+    # because the failed reception triggers extended inter-frame spacing.
+    T_collision = T_data + sifs_us + ack_dur_us + aifs_us + prop_us
+
+    # Goodput payload duration (continuous — not OFDM-quantized, since this
+    # represents the fraction of PHY capacity used for application data)
+    goodput_dur = goodput_bytes * 8 / phy_rate_mbps  # μs
+
+    # Compute throughput efficiency (Bianchi S formula)
     p_idle = (1.0 - tau) ** n
     p_success = n * tau * (1.0 - tau) ** (n - 1)
     p_collision = 1.0 - p_idle - p_success
 
-    # Slot durations (5 GHz OFDM PHY)
-    T_slot_us = 9.0       # Empty slot
-    T_success_us = 500.0  # Typical successful frame (DATA + SIFS + ACK)
-    T_collision_us = 500.0  # Collision duration (similar, no ACK)
+    E_slot = (p_idle * slot_us
+              + p_success * T_success
+              + p_collision * T_collision)
 
-    E_slot_us = (p_idle * T_slot_us
-                 + p_success * T_success_us
-                 + p_collision * T_collision_us)
-
-    if E_slot_us <= 0:
+    if E_slot <= 0:
         return 0.01
 
-    # Efficiency = fraction of time channel carries successful payload
-    efficiency = (p_success * T_success_us) / E_slot_us
+    # Goodput efficiency: fraction of PHY rate delivered as application payload
+    efficiency = (p_success * goodput_dur) / E_slot
     return max(0.01, min(1.0, efficiency))
 
 
@@ -328,16 +490,16 @@ _BIANCHI_MAX_N = 100
 def bianchi_efficiency(n: int) -> float:
     """Look up precomputed Bianchi MAC efficiency for n contending stations.
 
-    Returns efficiency factor in (0, 1]. For n=1, returns 1.0 (no contention).
+    Returns efficiency factor in (0, 1] including 802.11ax PHY overhead.
     """
     global _BIANCHI_TABLE
     if _BIANCHI_TABLE is None:
-        _BIANCHI_TABLE = [1.0]  # Index 0 unused
+        _BIANCHI_TABLE = [0.0]  # Index 0 unused
         for i in range(1, _BIANCHI_MAX_N + 1):
             _BIANCHI_TABLE.append(_bianchi_efficiency_compute(i))
 
     if n <= 0:
-        return 1.0
+        n = 1
     if n >= len(_BIANCHI_TABLE):
         return _BIANCHI_TABLE[-1]
     return _BIANCHI_TABLE[n]
