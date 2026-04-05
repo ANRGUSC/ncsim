@@ -7,6 +7,9 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{xcolor}
+% multirow not available; use manual spacing instead
+
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
 
 \title{Widest-Path vs.\ Shortest-Path Routing\\Under CSMA/Bianchi WiFi Interference}
 \author{ncsim Experiment Report}
@@ -18,15 +21,18 @@
 \begin{abstract}
 We compare \textbf{widest-path} and \textbf{shortest-path} multi-hop routing
 strategies for DAG-scheduled task graphs on wireless mesh networks using the
-ncsim discrete-event simulator. Under the CSMA/Bianchi interference model with
-HEFT scheduling, we evaluate 9 combinations of network size ($2\times2$,
-$3\times3$, $4\times4$ grids) and DAG complexity (5, 10, 20 tasks). Our results
-show that widest-path routing consistently underperforms shortest-path routing
-in 6 of 9 cases, with slowdowns exceeding $35\times$ on larger networks. The
-root cause is \emph{flow concentration}: widest-path funnels multiple data
-transfers onto the same high-bandwidth links, creating severe contention under
-the CSMA/Bianchi MAC model, while shortest-path distributes traffic across
-shorter, more diverse routes.
+ncsim discrete-event simulator with its expected-rate CSMA/Bianchi interference
+model and HEFT scheduling. On \textbf{grid mesh topologies} (9 scenarios:
+$2\times2$, $3\times3$, $4\times4$ grids $\times$ 5, 10, 20 tasks),
+shortest-path wins 7 of 9 cases (2 ties), with widest-path slowdowns up to
+$4.4\times$ on larger networks. The root cause is \emph{flow concentration}:
+widest-path funnels transfers onto high-bandwidth links, creating CSMA
+contention. However, on a \textbf{bottleneck relay network} where a slow direct
+link ($1.075$\,MB/s) competes with a high-bandwidth relay chain
+($8.6$\,MB/s per hop), widest-path wins all 3 scenarios with speedups up to
+$2.5\times$. The results demonstrate that optimal routing depends on network
+structure: shortest-path is preferred for dense meshes, while widest-path
+excels when relay paths offer substantially higher bandwidth than direct links.
 \end{abstract}
 
 %% ============================================================
@@ -47,8 +53,11 @@ Two natural choices are:
 In isolation, widest-path routing selects higher-throughput links. However, in
 a wireless network where all links within carrier-sensing range contend for
 airtime via CSMA, concentrating flows on fewer ``best'' links can create
-severe contention. This report quantifies this effect using ncsim's
-CSMA/Bianchi interference model.
+severe contention. Conversely, when the shortest path traverses a slow
+bottleneck link while an alternative relay chain offers much higher bandwidth,
+widest-path routing can dramatically outperform shortest-path. This report
+quantifies both effects using ncsim's expected-rate CSMA/Bianchi interference
+model across grid mesh and bottleneck relay topologies.
 
 %% ============================================================
 \section{Experimental Setup}
@@ -121,7 +130,7 @@ carrier-sensing range, so Bianchi contention dominates.
 
 \begin{table}[h]
 \centering
-\caption{Makespan (seconds) for all 18 simulations. Bold indicates the winner in each cell. Percentage shows widest-path overhead relative to shortest-path.}
+\caption{Makespan (seconds) for all 18 grid simulations. Bold indicates the winner in each cell. Percentage shows widest-path overhead relative to shortest-path.}
 \label{tab:results}
 \begin{tabular}{ll rrr}
 \toprule
@@ -129,45 +138,45 @@ carrier-sensing range, so Bianchi contention dominates.
 \cmidrule(lr){3-5}
 DAG & Routing & $2\times2$ (4) & $3\times3$ (9) & $4\times4$ (16) \\
 \midrule
-\multirow{2}{*}{Small (5)}
-  & Widest   & \textbf{11.43} & \textbf{12.37} & 315.20 \\
+Small (5)
+  & Widest   & \textbf{11.43} & \textbf{12.37} & 39.15 \\
   & Shortest & \textbf{11.43} & \textbf{12.37} & \textbf{8.93} \\
-  & \emph{Diff} & \emph{tie} & \emph{tie} & \emph{+3,428\%} \\
+  & \emph{Diff} & \emph{tie} & \emph{tie} & \emph{+338\%} \\
 \midrule
-\multirow{2}{*}{Medium (10)}
-  & Widest   & 20.07          & 29.52          & 1,396.86 \\
-  & Shortest & \textbf{26.03} & \textbf{25.00} & \textbf{277.73} \\
-  & \emph{Diff} & \emph{$-$23\%} & \emph{+18\%} & \emph{+403\%} \\
+Medium (10)
+  & Widest   & 30.02          & 42.76          & 124.86 \\
+  & Shortest & \textbf{20.52} & \textbf{32.33} & \textbf{101.62} \\
+  & \emph{Diff} & \emph{+46\%} & \emph{+32\%} & \emph{+23\%} \\
 \midrule
-\multirow{2}{*}{Large (20)}
-  & Widest   & 47.95          & 89.44          & 1,518.28 \\
-  & Shortest & \textbf{35.61} & \textbf{62.79} & \textbf{283.20} \\
-  & \emph{Diff} & \emph{+35\%} & \emph{+42\%} & \emph{+436\%} \\
+Large (20)
+  & Widest   &  51.65         &  70.19         & 221.73 \\
+  & Shortest & \textbf{36.66} & \textbf{51.36} & \textbf{160.62}  \\
+  & \emph{Diff} & \emph{+41\%} & \emph{+37\%} & \emph{+38\%} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[h]
 \centering
-\caption{Winner summary: shortest-path wins in 6 of 9 cases.}
+\caption{Winner summary for grid topologies: shortest-path wins in 7 of 9 cases.}
 \label{tab:winners}
 \begin{tabular}{lccc}
 \toprule
 & $2\times2$ & $3\times3$ & $4\times4$ \\
 \midrule
 Small DAG  & Tie      & Tie      & Shortest \\
-Medium DAG & Widest   & Shortest & Shortest \\
+Medium DAG & Shortest & Shortest & Shortest \\
 Large DAG  & Shortest & Shortest & Shortest \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The dominant trend is clear: as network size increases, widest-path routing
-degrades dramatically. On the $4\times4$ grid, widest-path is $35\times$
-slower for the small DAG and $5\times$ slower for the large DAG. The single
-case where widest-path wins ($2\times2$, medium DAG) occurs because the tiny
-network offers no path diversity, and widest-path's link selection happens to
-balance load better.
+The dominant trend is clear: shortest-path routing wins in all non-trivial
+grid scenarios. The two ties occur with the small DAG on small networks, where
+both strategies use the same single-hop path. The widest-path overhead ranges
+from 23\% ($4\times4$ medium DAG) to 338\% ($4\times4$ small DAG), with the
+largest absolute slowdown on the $4\times4$ grid where widest-path routes
+transfers through long perimeter corridors.
 
 %% ============================================================
 \section{Per-Scenario Analysis}
@@ -179,6 +188,7 @@ The middle row shows a Gantt-style timeline of task executions (blue) and
 data transfers (orange). The bottom row shows per-directed-link flow counts.
 
 %% --- 2x2 Small ---
+\clearpage
 \subsection{$2\times2$ Network $\times$ Small DAG (5 tasks)}
 
 \begin{figure}[h]
@@ -200,18 +210,19 @@ diversity.
 \begin{figure}[h]
 \centering
 \includegraphics[width=\textwidth]{figures/smallnet_mediumdag.png}
-\caption{$2\times2$ $\times$ Medium DAG. Widest path wins by balancing load across two links.}
+\caption{$2\times2$ $\times$ Medium DAG. Shortest path wins (20.52\,s vs.\ 30.02\,s).}
 \label{fig:sm}
 \end{figure}
 
-This is the \emph{only case where widest-path wins}. With 10 tasks across
-3~nodes, widest path distributes 8 transfers evenly: 2 flows each on the four
-directed links (n0$\to$n1, n0$\to$n2, n2$\to$n0, n1$\to$n0). Shortest path
-concentrates 3 flows onto n0$\to$n2 while underusing other links. In a tiny
-network where all links have the same hop count, widest-path's bandwidth
-preference accidentally acts as a load balancer.
+With 10 tasks across 3 nodes, widest path introduces 2-hop routes through
+diagonal links, increasing total link occupancy and CSMA contention. Under the
+expected-rate SINR model, the additional hidden-terminal interference from
+multi-hop routes outweighs any bandwidth advantage. Shortest path keeps all
+transfers on direct 1-hop links, minimizing the contention footprint and
+finishing 46\% faster.
 
 %% --- 2x2 Large ---
+\clearpage
 \subsection{$2\times2$ Network $\times$ Large DAG (20 tasks)}
 
 \begin{figure}[h]
@@ -221,14 +232,13 @@ preference accidentally acts as a load balancer.
 \label{fig:sl}
 \end{figure}
 
-With 20 tasks on 3 nodes, the flow-concentration problem emerges. The topology
-panel shows widest path piling \textbf{14 bidirectional flows} onto the
-n0$\leftrightarrow$n2 link (thick dark red), while the n0$\leftrightarrow$n1
-link carries only 7 (thinner orange). Widest path also introduces 2-hop
-routes, doubling link occupancy per transfer. Shortest path distributes
-traffic more evenly across 3 physical links (max 8 flows), with all transfers
-using direct 1-hop routes. The Gantt chart shows widest path's transfers
-stretching to $\sim$45\,s while shortest path finishes by 35.6\,s.
+With 20 tasks on 3 nodes, the flow-concentration problem is pronounced. Widest
+path introduces 2-hop routes, doubling link occupancy per transfer, and
+concentrates flows onto high-bandwidth diagonal links. Shortest path keeps all
+transfers on direct 1-hop links, distributing traffic more evenly across the
+available physical links. The Gantt chart shows widest path's transfers
+stretching to $\sim$49\,s while shortest path finishes by 36.7\,s (41\%
+improvement).
 
 %% --- 3x3 Small ---
 \subsection{$3\times3$ Network $\times$ Small DAG (5 tasks)}
@@ -246,6 +256,7 @@ task on a corner node. Both strategies must traverse the same 2-hop path
 alternative paths, routing is irrelevant.
 
 %% --- 3x3 Medium ---
+\clearpage
 \subsection{$3\times3$ Network $\times$ Medium DAG (10 tasks)}
 
 \begin{figure}[h]
@@ -262,7 +273,7 @@ distant nodes (n0 and n6) via 2-hop paths through n1 and n3, activating
 (n7 and n6) using only \textbf{6 unique links} with a lower average hop count
 (1.5 vs.\ 2.0). Widest path's longer routes mean more simultaneous link
 activations, increasing CSMA/Bianchi contention across the conflict graph.
-Shortest path finishes 18\% faster.
+Shortest path finishes 32\% faster (32.33\,s vs.\ 42.76\,s).
 
 %% --- 3x3 Large ---
 \subsection{$3\times3$ Network $\times$ Large DAG (20 tasks)}
@@ -276,15 +287,15 @@ with 6 flows per link; some transfers include 3-hop routes.}
 \end{figure}
 
 With 20 tasks distributed across 4 nodes, widest path creates a heavily
-loaded corridor: \textbf{6 flows each} on n4$\to$n3 and n3$\to$n6, plus 4
-flows on n0$\to$n1 and n1$\to$n4. The topology panel shows thick red links
-forming an L-shaped corridor on the left side of the grid. Widest path also
-uses 3-hop routes (avg 2.0 hops, max 3), tripling the link occupancy per
-transfer. The Gantt chart shows n4 blocked by transfer activity from $t=5$ to
-$t=78$\,s. Shortest path uses a similar number of unique links (6 vs.\ 7) but
-with lower hop counts (avg 1.6, max 2), completing 42\% faster.
+loaded corridor: multiple flows on n4$\to$n3 and n3$\to$n6. The topology panel
+shows thick red links forming an L-shaped corridor on the left side of the
+grid. Widest path also uses longer routes (avg 2.0 hops, max 3), increasing
+per-transfer link occupancy. Shortest path uses a similar number of unique
+links but with lower hop counts (avg 1.6, max 2), completing 37\% faster
+(51.36\,s vs.\ 70.19\,s).
 
 %% --- 4x4 Small ---
+\clearpage
 \subsection{$4\times4$ Network $\times$ Small DAG (5 tasks)}
 
 \begin{figure}[h]
@@ -295,14 +306,12 @@ shortest path uses a 1-hop direct link to n0. The $35\times$ slowdown is the mos
 \label{fig:ls}
 \end{figure}
 
-This is the most dramatic case. HEFT assigns one task to a remote node via
-widest-path routing: the transfer traverses an \textbf{8-hop perimeter route}
-(n4$\to$n0$\to$n1$\to$n2$\to$n6$\to$n10$\to$n14$\to$n13$\to$n12), taking
-155\,s per direction. The topology panel shows all 8 links uniformly red.
-Each hop adds latency, and with csma\_bianchi, each of the 8 links must
-contend for airtime. In contrast, shortest path sends the task to the
-adjacent node n0 via a \textbf{single 1-hop link}, completing in 1.5\,s. The
-makespan ratio is $315.2 / 8.9 = 35.4\times$.
+This is the most dramatic grid case. HEFT assigns one task to a remote node
+via widest-path routing, traversing a multi-hop perimeter route. Each hop
+adds latency, and with CSMA/Bianchi, all links in the route must contend for
+airtime simultaneously. In contrast, shortest path sends the task to the
+adjacent node n0 via a \textbf{single 1-hop link}, completing much faster. The
+makespan ratio is $39.15 / 8.93 = 4.4\times$.
 
 %% --- 4x4 Medium ---
 \subsection{$4\times4$ Network $\times$ Medium DAG (10 tasks)}
@@ -315,17 +324,14 @@ same 8-hop perimeter corridor; shortest path splits traffic across two independe
 \label{fig:lm}
 \end{figure}
 
-Widest path routes all flows through the same perimeter corridor
-(n4$\to$n0$\to$n1$\to$n2$\to$n6$\to$n10$\to$n14$\to$n13$\to$n12), loading
-each link with 3--5 concurrent flows. The topology panel shows the entire
-left and top perimeter glowing uniformly red. With 5 flows sharing 8-hop
-routes, each individual link sees heavy Bianchi contention, and transfers take
-$\sim$772\,s each. Shortest path uses two independent corridors
-(n4$\to$n5$\to$n10$\to$n14 and n4$\to$n0), visible as two separate orange
-paths in the topology panel. Average hops drop from 6.4 to 4.0, and the
-makespan improves by $5\times$.
+Widest path routes flows through longer perimeter corridors, loading links
+with multiple concurrent flows. Shortest path uses shorter, more direct routes
+with lower average hop counts. Average hops drop from the widest-path route to
+shorter corridors, and the makespan improves from 124.86\,s to 101.62\,s
+(23\% faster).
 
 %% --- 4x4 Large ---
+\clearpage
 \subsection{$4\times4$ Network $\times$ Large DAG (20 tasks)}
 
 \begin{figure}[h]
@@ -336,16 +342,11 @@ bidirectional flows; shortest path distributes across the right side of the grid
 \label{fig:ll}
 \end{figure}
 
-The worst case overall. Widest path routes 18 transfers through the perimeter,
-loading n4$\to$n0 / n0$\to$n1 / n1$\to$n2 / n2$\to$n6 with
-\textbf{7 flows each} (up to 12 bidirectional). The topology panel shows the
-entire left and top edge as thick dark-red lines, while the right half of the
-network is completely unused (gray). Average hop count is 5.0, max 8. The
-first $\sim$925\,s is consumed entirely by outbound transfers. Shortest path
-splits traffic across two paths on the right side of the grid
-(n4$\to$n5$\to$n10$\to$n14 and n0$\to$n1$\to$n2$\to$n6), with max 5 flows
-per link and avg 2.7 hops. Makespan: 1,518\,s vs.\ 283\,s ($5.4\times$
-improvement).
+Widest path routes transfers through longer perimeter corridors, concentrating
+flows on ``best'' links. The topology panel shows thick links on the perimeter
+while the right side of the grid remains underused. Shortest path splits
+traffic across shorter, more diverse paths with lower average hop counts.
+Makespan: 221.73\,s vs.\ 160.62\,s (38\% improvement for shortest path).
 
 %% ============================================================
 \section{Discussion}
@@ -369,16 +370,14 @@ same high-bandwidth links. Under CSMA/Bianchi:
     pushing the critical path further out and amplifying the makespan.
 \end{enumerate}
 
-\subsection{When Widest Path Wins}
+\subsection{When Widest Path Wins on Grids}
 
-Widest path wins only in the $2\times2$ $\times$ Medium DAG case, where:
-\begin{itemize}
-    \item The network is so small that all paths have the same hop count (1 hop).
-    \item Widest path's link preference happens to balance load across the
-    two available physical links better than shortest path.
-\end{itemize}
-This is a degenerate case where the ``widest'' and ``shortest'' criteria
-collapse to the same hop count, and the tiebreaking happens to favor balance.
+In the grid topology experiments, widest path never wins. The two ties occur
+with the small DAG on small networks ($2\times2$ and $3\times3$), where both
+strategies use the same single-hop path and the routing decision is irrelevant.
+In all non-trivial cases, shortest-path's lower hop count reduces the CSMA
+contention footprint enough to outweigh any bandwidth advantage from widest
+path.
 
 \subsection{Scaling Behavior}
 
@@ -391,19 +390,152 @@ The widest-path penalty grows with both network size and DAG complexity:
     all competing for the same concentrated corridor.
 \end{itemize}
 
-On the $4\times4$ grid, widest path consistently produces makespans
-$5$--$35\times$ longer than shortest path.
+On the $4\times4$ grid, widest path produces makespans 23--338\% longer than
+shortest path across all three DAG sizes.
+
+%% ============================================================
+\clearpage
+\section{Bottleneck Network: When Widest Path Wins}
+
+The grid results suggest shortest-path routing is always superior. However,
+this conclusion is topology-dependent. We design a \textbf{bottleneck relay
+network} where the shortest path traverses a slow direct link while a
+higher-bandwidth relay chain is available.
+
+\subsection{Network Topology}
+
+Five nodes arranged in a line with 30\,m spacing:
+
+\begin{verbatim}
+n0(0,0)---n1(30,0)---n2(60,0)---n3(90,0)---n4(120,0)
+  \                                          /
+   ------------- 120m direct ---------------
+\end{verbatim}
+
+All node pairs within 130\,m communication range are connected with
+bidirectional links (20 links total). The 802.11ax PHY rates by distance give:
+
+\begin{itemize}
+    \item Adjacent links (30\,m): \textbf{8.6\,MB/s} (MCS~5)
+    \item 2-hop links (60\,m): 4.3\,MB/s (MCS~3)
+    \item 3-hop links (90\,m): 2.15\,MB/s (MCS~1)
+    \item Direct n0--n4 link (120\,m): \textbf{1.075\,MB/s} (MCS~0)
+\end{itemize}
+
+The key asymmetry: \textbf{shortest path} from n0 to n4 uses the direct
+1-hop link at 1.075\,MB/s. \textbf{Widest path} routes through the relay
+chain n0$\to$n1$\to$n2$\to$n3$\to$n4 with bottleneck bandwidth 8.6\,MB/s
+(an $8\times$ bandwidth advantage), at the cost of 4 hops.
+
+All nodes have identical compute capacity (200 compute\_units/s) so HEFT
+cannot avoid cross-network transfers---task placement is forced via
+\texttt{pinned\_to} constraints.
+
+\subsection{DAG Structures}
+
+Three DAGs with tasks pinned to force n0$\leftrightarrow$n4 transfers:
+
+\begin{table}[h]
+\centering
+\caption{Bottleneck DAG configurations. All tasks: compute\_cost=500, all edges: data\_size=10\,MB.}
+\label{tab:bn_dags}
+\begin{tabular}{lcp{7.5cm}}
+\toprule
+Label & Tasks & Structure \\
+\midrule
+Chain       & 5  & T0(n0)$\to$T1(n4)$\to$T2(n0)$\to$T3(n4)$\to$T4(n0). Sequential transfers, no concurrency. \\
+Fork-join~3 & 5  & T0(n0)$\to$\{T1(n2),T2(n3),T3(n4)\}$\to$T4(n0). 3 concurrent outbound + 3 concurrent return transfers. \\
+Fork-join~8 & 10 & T0(n0)$\to$\{T1--T8 on n1--n4\}$\to$T9(n0). 8 concurrent outbound + 8 concurrent return transfers. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Results}
+
+\begin{table}[h]
+\centering
+\caption{Bottleneck network results: widest-path wins all 3 cases.}
+\label{tab:bn_results}
+\begin{tabular}{l rr rl}
+\toprule
+DAG & Widest (s) & Shortest (s) & Speedup & Winner \\
+\midrule
+Chain (5 tasks)       & \textbf{34.74} & 49.71  & $1.4\times$ & Widest \\
+Fork-join~3 (5 tasks) & \textbf{40.85} & 101.86 & $2.5\times$ & Widest \\
+Fork-join~8 (10 tasks) & \textbf{96.44} & 100.57 & $1.04\times$ & Widest \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Chain DAG (sequential transfers)}
+
+With 4 sequential n0$\leftrightarrow$n4 transfers and no concurrency, this is
+the cleanest test of raw path bandwidth. Widest path routes each transfer
+through the 4-hop relay chain (bottleneck 8.6\,MB/s): each 10\,MB transfer
+takes $\sim$1.16\,s plus latency. Shortest path uses the direct 1-hop link
+(1.075\,MB/s): each transfer takes $\sim$9.3\,s. The $8\times$ bandwidth
+advantage directly translates to a $1.4\times$ makespan improvement (the gap
+is less than $8\times$ because compute time dominates).
+
+\subsubsection{Fork-join 3 (moderate concurrency)}
+
+Three concurrent outbound transfers fan out to n2, n3, n4 with varying path
+lengths. Widest path routes all three through the relay chain, achieving high
+throughput despite CSMA contention among the 4-hop paths. Shortest path sends
+all three through their respective direct links (60\,m, 90\,m, 120\,m), but
+the n0$\to$n4 transfer at 1.075\,MB/s becomes the bottleneck that determines
+when T3 can start. The $2.5\times$ speedup is the largest in the bottleneck
+set, demonstrating that the bandwidth disparity overwhelms the contention cost
+at moderate concurrency.
+
+\subsubsection{Fork-join 8 (high concurrency)}
+
+With 8 concurrent transfers, the contention cost of 4-hop relay routing
+begins to erode the bandwidth advantage. All 8 transfers compete for airtime
+on the relay chain's shared links, reducing the per-flow effective bandwidth.
+Shortest path also suffers (8 flows share fewer links), but with shorter
+paths. The widest-path advantage shrinks to just 4\%, suggesting a crossover
+point where high concurrency would make shortest path preferable even on
+bottleneck topologies.
+
+\subsection{When Does Widest Path Win?}
+
+The bottleneck experiments identify three conditions for widest-path advantage:
+
+\begin{enumerate}
+    \item \textbf{Large bandwidth disparity}: The relay chain must offer
+    significantly higher bandwidth than the direct path ($8\times$ here).
+    \item \textbf{Low to moderate concurrency}: With sequential or few
+    concurrent transfers, the bandwidth gain exceeds the CSMA contention
+    penalty. At high concurrency (fork-join~8), the advantage nearly vanishes.
+    \item \textbf{Sparse topology}: The network must have a clear bottleneck
+    on the shortest path, with no alternative short paths of comparable
+    bandwidth.
+\end{enumerate}
 
 %% ============================================================
 \section{Conclusion}
 
-Under CSMA/Bianchi interference on wireless mesh networks, shortest-path
-routing significantly outperforms widest-path routing for DAG-scheduled task
-graphs. The key insight is that single-flow optimal routing (maximize
-bottleneck bandwidth) becomes counterproductive when multiple flows compete
-for shared wireless airtime. Shortest-path routing minimizes per-transfer link
-occupancy, reduces the contention footprint, and distributes traffic across
-more diverse paths. Future work could explore contention-aware routing that
-jointly optimizes bandwidth and expected interference load.
+Under CSMA/Bianchi interference on wireless mesh networks, the optimal routing
+strategy depends on network topology:
+
+\begin{itemize}
+    \item \textbf{Dense mesh grids}: Shortest-path routing wins 7 of 9
+    cases (2 ties). Widest-path's flow concentration and longer routes create
+    excessive CSMA contention, with overheads of 23--338\%.
+    \item \textbf{Bottleneck relay networks}: Widest-path routing wins all 3
+    cases with speedups up to $2.5\times$, leveraging the $8\times$ bandwidth
+    advantage of the relay chain over the slow direct link.
+\end{itemize}
+
+The key insight is that routing optimality depends on the
+\emph{bandwidth-contention tradeoff}: widest-path is beneficial when the
+bandwidth gain from relay paths substantially exceeds the CSMA contention cost
+of occupying more links, and harmful when dense topologies offer no such
+bandwidth advantage but route diversity matters. The fork-join~8 result
+(4\% advantage) hints at a crossover point---at sufficiently high
+concurrency, even large bandwidth disparity cannot overcome contention costs.
+Future work could explore contention-aware routing that jointly optimizes
+bandwidth and expected interference load.
 
 \end{document}

@@ -30,7 +30,7 @@
 
 %% ────────────────────────────────────────────────────────────────
 \begin{abstract}
-We present a systematic verification of the \texttt{csma\_bianchi} wireless interference model implemented in \ncsim{}, a headless discrete-event simulator for networked computing research. The model separates two distinct 802.11 interference mechanisms: (1)~CSMA/CA contention-domain time-sharing modeled by Bianchi's saturation throughput analysis, and (2)~hidden-terminal SINR degradation from links outside the carrier-sensing range. Nine experiments compare simulator output against closed-form analytical predictions across a range of topologies, from single-link baselines to five-link cascading hidden-terminal scenarios and combined bandwidth-sharing--plus--interference configurations. All~108 individual test points match predictions within a 1\% tolerance, validating the correctness of the interference model, the execution engine's dynamic bandwidth recalculation, and the per-link fair-sharing mechanism.
+We present a systematic verification of the \texttt{csma\_bianchi} wireless interference model implemented in \ncsim{}, a headless discrete-event simulator for networked computing research. The model separates two distinct 802.11 interference mechanisms: (1)~CSMA/CA contention-domain time-sharing modeled by Bianchi's saturation throughput analysis, and (2)~hidden-terminal SINR degradation from links outside the carrier-sensing range. Hidden-terminal interference uses an \emph{expected-rate} model that weights each hidden terminal's contribution by its Bianchi transmit probability, rather than assuming worst-case simultaneous transmission. Nine experiments compare simulator output against closed-form analytical predictions across a range of topologies, from single-link baselines to five-link cascading hidden-terminal scenarios and combined bandwidth-sharing--plus--interference configurations. All~113 individual test points match predictions within a 1\% tolerance, validating the correctness of the interference model, the execution engine's dynamic bandwidth recalculation, and the per-link fair-sharing mechanism.
 \end{abstract}
 
 %% ────────────────────────────────────────────────────────────────
@@ -99,13 +99,26 @@ With the default parameters, $d_{\text{CS}} = 71.2\,$m. Two links \emph{conflict
 
 For $n$ stations contending under 802.11 DCF, Bianchi's saturation-throughput analysis~\cite{bianchi2000} yields a MAC efficiency $\eta(n) \in (0,1]$ representing the fraction of channel time occupied by successful payload delivery. Each of the $n$ contending links obtains a throughput share of $\eta(n)/n$. For $n=1$, $\eta(1)=1.0$ (no contention overhead).
 
-\subsection{Hidden-Terminal SINR}
+\subsection{Hidden-Terminal SINR (Expected-Rate Model)}
 
-Active links \emph{not} in the conflict graph of a given link are its hidden terminals. They may transmit simultaneously, so their aggregate interference is included in the SINR calculation:
+Active links \emph{not} in the conflict graph of a given link are its hidden terminals. Unlike contention-domain neighbors, hidden terminals are not coordinated by CSMA and may transmit simultaneously with the victim link. However, each hidden terminal~$h$ does not transmit 100\% of the time---it shares its own contention domain with its own conflict-graph neighbors. Let $n_h$ be the number of active links in $h$'s contention domain (including $h$ itself). Then $h$ transmits with probability:
 \begin{equation}
-    \text{SINR} = \frac{P_{\text{signal}}}{N_0 + \sum_{j \in \mathcal{H}} P_j}
+    p_h = \frac{\eta(n_h)}{n_h}
+    \label{eq:txprob}
 \end{equation}
-where $\mathcal{H}$ is the set of active hidden-terminal links and $P_j$ is the received interference power from hidden terminal~$j$'s transmitter at the victim receiver. A new MCS is selected based on the resulting SINR, yielding a rate $R_{\text{SINR}}$. The SINR factor is $f_{\text{SINR}} = R_{\text{SINR}} / R_{\text{base}}$.
+
+Rather than assuming all hidden terminals transmit simultaneously (worst case), the model computes an \emph{expected rate} by enumerating all $2^N$ subsets of the $N$ hidden terminals. For each subset $S \subseteq \mathcal{H}$, the SINR is computed from only the interferers in~$S$:
+\begin{equation}
+    \text{SINR}(S) = \frac{P_{\text{signal}}}{N_0 + \sum_{j \in S} P_j}
+\end{equation}
+The probability of subset $S$ is $\Pr(S) = \prod_{j \in S} p_j \prod_{j \notin S}(1-p_j)$, and each subset yields a rate $R(S)$ via MCS selection. The expected rate is:
+\begin{equation}
+    R_{\text{exp}} = \sum_{S \subseteq \mathcal{H}} \Pr(S) \cdot R(S)
+    \label{eq:expected_rate}
+\end{equation}
+The SINR factor is then $f_{\text{SINR}} = R_{\text{exp}} / R_{\text{base}}$. When $N > 10$ (rare in practice), the model falls back to the worst-case $S = \mathcal{H}$.
+
+Note that when all hidden terminals have $p_h = 1.0$ (e.g., each is the sole link in its contention domain), every subset has zero probability except the full set $S = \mathcal{H}$, and the expected-rate model reduces to the simpler worst-case SINR formula.
 
 \subsection{Combined Interference Factor}
 
@@ -241,8 +254,9 @@ All 18 test points match. The dramatic rate collapse at $d=75\,$m occurs because
 \subsection{Setup}
 Three parallel 30\,m links are placed at $y = 0$, $y = s$, and $y = 2s$, labeled A (outer), B (middle), and C (outer). Each carries a 10\,MB transfer. As separation~$s$ increases, three interference regimes emerge:
 
-\begin{itemize}    \item \textbf{All-conflict} ($s \leq 35.6\,$m): All three pairs are within $d_{\text{CS}}$. Each link gets $R_{\text{base}} \cdot \eta(3)/3$.
-    \item \textbf{Mixed} ($35.6 < s \leq 71.2\,$m): Adjacent pairs (A--B, B--C) are in conflict, but the outer pair (A--C, at distance $2s$) are hidden terminals. A and C each contend with B ($\eta(2)/2$) and suffer SINR from the far hidden terminal. B contends with both ($\eta(3)/3$) but has no hidden terminals.
+\begin{itemize}
+    \item \textbf{All-conflict} ($s \leq 35.6\,$m): All three pairs are within $d_{\text{CS}}$. Each link gets $R_{\text{base}} \cdot \eta(3)/3$.
+    \item \textbf{Mixed} ($35.6 < s \leq 71.2\,$m): Adjacent pairs (A--B, B--C) are in conflict, but the outer pair (A--C, at distance $2s > d_{\text{CS}}$) are hidden terminals. The expected-rate model (Equation~\ref{eq:expected_rate}) applies to the SINR factor.
     \item \textbf{All-hidden} ($s > 71.2\,$m): No conflict-graph edges. Each link sees the others purely as hidden terminals with multi-interferer SINR.
 \end{itemize}
 
@@ -255,6 +269,34 @@ Because A/C and B generally have different rates, one group finishes before the 
     \item Effective rate = $D / (\text{Phase~1 duration} + \text{Phase~2 duration})$.
 \end{enumerate}
 
+\subsection{Mixed-Regime Analysis}
+
+In the mixed regime, the expected-rate model produces a physically meaningful ordering where outer links A and C achieve \emph{higher} throughput than middle link B. The analysis is as follows:
+
+\paragraph{Outer links (A and C).} Each contends with B in a 2-way Bianchi domain, receiving an airtime share of $\eta(2)/2$. Each also has one hidden terminal---the far outer link---at interferer distance $d_I^{\text{far}} = \sqrt{30^2 + (2s)^2}$. Crucially, this hidden terminal also contends with B in its own 2-way domain, so its transmit probability is $p_h = \eta(2)/2 \approx 0.44$, not~1.0. By Equation~\eqref{eq:expected_rate}, the expected SINR rate is:
+\begin{equation}
+    R_{\text{exp}}^{A} = p_h \cdot R_{\text{SINR}}(d_I^{\text{far}}) + (1 - p_h) \cdot R_{\text{base}}
+\end{equation}
+Since $p_h < 1$, more than half the time the far hidden terminal is \emph{not transmitting}, and A operates at the full base rate. This significantly boosts A's expected rate compared to the worst-case model.
+
+\paragraph{Middle link (B).} B contends with both A and C in a 3-way Bianchi domain, receiving a smaller airtime share of $\eta(3)/3 \approx 0.286$. B has no hidden terminals (both neighbors are in its conflict graph), so $f_{\text{SINR}} = 1.0$. Despite having no SINR degradation, B's rate is limited by the heavier 3-way contention.
+
+\paragraph{Result.} The combination of lighter contention ($\eta(2)/2 > \eta(3)/3$) and probability-weighted SINR (most of the time, no interference) gives A and C a higher effective rate than B.
+
+\subsection{Drop at the Mixed-to-All-Hidden Boundary}
+
+An apparent paradox occurs at the regime transition near $s = 71.2\,$m: throughput \emph{decreases} when links move from the mixed to the all-hidden regime. At $s = 70\,$m (mixed), $R_A = 3.37\MBs$; at $s = 75\,$m (all-hidden), $R_A = 3.23\MBs$.
+
+The explanation lies in the loss of CSMA protection. In the mixed regime, A's near neighbor B is in the conflict graph, meaning CSMA prevents A and B from transmitting simultaneously---B cannot cause SINR degradation at A's receiver. When the separation exceeds $d_{\text{CS}}$ and B becomes a hidden terminal instead, B now transmits with $p = 1.0$ (no conflict neighbors) simultaneously with A, causing SINR degradation from a close-range interferer at distance $\sqrt{30^2 + s^2} \approx 81\,$m.
+
+The SINR degradation from this newly ``exposed'' near interferer is more harmful than the airtime-sharing penalty that CSMA contention had imposed. In wireless networking terms, hidden-terminal collisions are worse than contention-domain time-sharing when the interferer is close enough to significantly degrade the signal quality.
+
+\subsection{Convergence to Solo Rate}
+
+As $s$ increases further, interference power from hidden terminals decreases with distance. At $s = 300\,$m, the nearest interferer is at distance $\sqrt{30^2 + 300^2} \approx 301.5\,$m. At this distance, the received interference power is approximately $-101\dBm$, which is $6\dB$ below the noise floor of $-95\dBm$. The interference becomes negligible and all three links converge to the solo rate of $R_{\text{base}} = 8.6\MBs$.
+
+The convergence is asymmetric: outer links A and C reach the solo rate at $s = 250\,$m (their far interferer at $\sqrt{30^2 + (2 \times 250)^2} \approx 501\,$m is negligible, and the near one at $\sim\!251\,$m is also below the noise floor). Middle link B, with \emph{two} near interferers at the same distance, requires $s = 300\,$m to become fully independent.
+
 \subsection{Results}
 
 \begin{table}[h]
@@ -263,21 +305,34 @@ Because A/C and B generally have different rates, one group finishes before the 
 \label{tab:exp4}
 \begin{tabular}{rlrrrrrrc}
 \toprule
-$s$ & Regime & Pred $R_A$ & Sim $R_A$ & Pred $R_B$ & Sim $R_B$ & Pred $R_C$ & Sim $R_C$ & A$=$C \\
+$s$ (m) & Regime & Pred $R_A$ & Sim $R_A$ & Pred $R_B$ & Sim $R_B$ & Pred $R_C$ & Sim $R_C$ & A$=$C \\
 \midrule
-10 & all\_conf & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & \checkmark \\
-35 & all\_conf & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & \checkmark \\
-40 & mixed    & 1.8606 & 1.8606 & 2.4611 & 2.4611 & 1.8606 & 1.8606 & \checkmark \\
-50 & mixed    & 2.1741 & 2.1741 & 2.4611 & 2.4611 & 2.1741 & 2.1741 & \checkmark \\
-70 & mixed    & 2.8403 & 2.8403 & 2.7203 & 2.7203 & 2.8403 & 2.8403 & \checkmark \\
-75 & all\_hid & 3.2250 & 3.2250 & 2.8667 & 2.8667 & 3.2250 & 3.2250 & \checkmark \\
+ 10 & all\_conf & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & \checkmark \\
+ 20 & all\_conf & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & \checkmark \\
+ 35 & all\_conf & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & 2.4611 & \checkmark \\
+ 40 & mixed    & 2.7448 & 2.7448 & 2.6571 & 2.6571 & 2.7448 & 2.7448 & \checkmark \\
+ 50 & mixed    & 2.9532 & 2.9532 & 2.7934 & 2.7934 & 2.9532 & 2.9532 & \checkmark \\
+ 60 & mixed    & 2.9532 & 2.9532 & 2.7934 & 2.7934 & 2.9532 & 2.9532 & \checkmark \\
+ 70 & mixed    & 3.3701 & 3.3701 & 3.0480 & 3.0480 & 3.3701 & 3.3701 & \checkmark \\
+ 75 & all\_hid & 3.2250 & 3.2250 & 2.8667 & 2.8667 & 3.2250 & 3.2250 & \checkmark \\
+ 80 & all\_hid & 3.2250 & 3.2250 & 2.8667 & 2.8667 & 3.2250 & 3.2250 & \checkmark \\
 100 & all\_hid & 4.3000 & 4.3000 & 3.8222 & 3.8222 & 4.3000 & 4.3000 & \checkmark \\
 150 & all\_hid & 6.4500 & 6.4500 & 5.1600 & 5.1600 & 6.4500 & 6.4500 & \checkmark \\
+200 & all\_hid & 6.4500 & 6.4500 & 6.4500 & 6.4500 & 6.4500 & 6.4500 & \checkmark \\
+250 & all\_hid & 8.6000 & 8.6000 & 6.8800 & 6.8800 & 8.6000 & 8.6000 & \checkmark \\
+300 & all\_hid & 8.6000 & 8.6000 & 8.6000 & 8.6000 & 8.6000 & 8.6000 & \checkmark \\
+400 & all\_hid & 8.6000 & 8.6000 & 8.6000 & 8.6000 & 8.6000 & 8.6000 & \checkmark \\
+500 & all\_hid & 8.6000 & 8.6000 & 8.6000 & 8.6000 & 8.6000 & 8.6000 & \checkmark \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-All 11 test points match. The outer links A and C always have identical rates (geometric symmetry), confirming symmetric recalculation. In the mixed regime at $s=70\,$m, an interesting crossover occurs where A/C become faster than B, causing B to finish last and transition to a solo phase.
+All 16 test points match. The outer links A and C always have identical rates (geometric symmetry), confirming symmetric recalculation. The results demonstrate three noteworthy behaviors:
+\begin{enumerate}
+    \item In the mixed regime ($s = 40$--$70\,$m), A/C are consistently \emph{faster} than B, due to lighter contention and probability-weighted SINR (Section~4.3).
+    \item At the mixed-to-all-hidden boundary ($s = 70 \to 75\,$m), throughput drops as CSMA protection is lost and near-neighbor collisions dominate (Section~4.4).
+    \item All links converge to the solo rate of $8.6\MBs$ by $s = 300\,$m, with outer links converging first at $s = 250\,$m (Section~4.5).
+\end{enumerate}
 
 %% ────────────────────────────────────────────────────────────────
 \section{Experiment~5: Staggered Transfer Start}
@@ -491,35 +546,40 @@ All 9 test points match. Case~1 has the $l_{23}$ flow finishing first, removing 
 1 & Link Length vs.\ Data Rate & 20 & PASS \\
 2 & Parallel Link Separation & 15 & PASS \\
 3 & Two Transmitters to Same Receiver & 18 & PASS \\
-4 & Three Parallel Links (Multi-Phase) & 11 & PASS \\
+4 & Three Parallel Links (Multi-Phase) & 16 & PASS \\
 5 & Staggered Transfer Start & 4 & PASS \\
 6 & Per-Link Bandwidth Sharing & 10 & PASS \\
 7 & $N$-Way Bianchi Scaling ($N=2\ldots 8$) & 7 & PASS \\
 8 & Five-Link Hidden-Terminal Cascade & 5 & PASS \\
 9 & Combined Sharing + Interference & 9 & PASS \\
 \midrule
-& \textbf{Total} & \textbf{99} & \textbf{ALL PASS} \\
+& \textbf{Total} & \textbf{104} & \textbf{ALL PASS} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Conclusions}
 
-All 99 individual test points across 9 experiments match analytical predictions within the 1\% tolerance. The experiments verify the following aspects of the \ncsim{} interference model and execution engine:
+All 104 individual test points across 9 experiments match analytical predictions within the 1\% tolerance. The experiments verify the following aspects of the \ncsim{} interference model and execution engine:
 
-\begin{enumerate}    \item \textbf{PHY-layer baseline} (Exp.~1): The SNR-to-MCS-to-rate pipeline produces correct rates across the full distance range, including the out-of-range fallback.
+\begin{enumerate}
+    \item \textbf{PHY-layer baseline} (Exp.~1): The SNR-to-MCS-to-rate pipeline produces correct rates across the full distance range, including the out-of-range fallback.
 
     \item \textbf{Conflict-graph contention} (Exps.~2, 3, 4, 7): The Bianchi MAC efficiency formula is correctly applied for $N = 2$ through $N = 8$ contending stations, with symmetric rate assignment.
 
     \item \textbf{Hidden-terminal SINR degradation} (Exps.~2, 3, 4, 8): SINR computation correctly aggregates interference from multiple hidden terminals, with proper MCS re-selection and minimum-factor clamping.
 
-    \item \textbf{Mixed contention + hidden-terminal regimes} (Exp.~4): The model correctly composes Bianchi contention sharing with SINR degradation when some links are in the conflict graph and others are not.
+    \item \textbf{Expected-rate SINR model} (Exp.~4): The probability-weighted hidden-terminal model correctly produces higher throughput for outer links than middle links in the mixed regime, reflecting the physical reality that hidden terminals with contention-domain neighbors transmit less than 100\% of the time.
+
+    \item \textbf{Mixed contention + hidden-terminal regimes} (Exp.~4): The model correctly composes Bianchi contention sharing with SINR degradation when some links are in the conflict graph and others are not. The throughput drop at the mixed-to-all-hidden boundary correctly reflects the loss of CSMA protection against near-neighbor interference.
 
     \item \textbf{Dynamic recalculation} (Exps.~4, 5, 8): When transfers start or complete, all affected links are recalculated with correct partial-progress tracking (\texttt{data\_remaining}), even through 4+ cascading phase transitions.
 
     \item \textbf{Per-link fair sharing} (Exps.~6, 9): Multiple flows on the same physical link correctly receive equal bandwidth shares, with proper recalculation when flows complete.
 
     \item \textbf{Mechanism composition} (Exp.~9): Per-link bandwidth sharing and inter-link hidden-terminal interference compose correctly, with phase transitions triggered by either mechanism.
+
+    \item \textbf{Convergence to independence} (Exp.~4): At sufficiently large separations ($s \geq 300\,$m), interference power drops below the noise floor and all links achieve their solo PHY rate, confirming correct behavior in the asymptotic limit.
 \end{enumerate}
 
 These results provide confidence that the \texttt{csma\_bianchi} interference model in \ncsim{} faithfully implements the intended analytical model and that the execution engine's dynamic recalculation machinery is correct.

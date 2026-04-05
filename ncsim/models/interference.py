@@ -199,14 +199,21 @@ class CsmaBianchiInterference(InterferenceModel):
 
     2. **Hidden terminals (active links NOT in conflict graph)**: These
        may transmit simultaneously, causing SINR degradation at the
-       receiver. MCS is selected based on SINR including only hidden
-       terminal interference.
+       receiver. Each hidden terminal h transmits with probability
+       p_h = eta(n_h)/n_h, where n_h is the number of contending links
+       in h's own contention domain (1 + its active conflict neighbors).
+
+    The SINR factor uses an **expected-rate model**: enumerate all 2^N
+    subsets of hidden terminals (N typically 1-3), compute the SINR rate
+    for each subset weighted by the probability of that subset transmitting,
+    and derive the expected rate. Falls back to worst-case (all transmit)
+    if N > 10.
 
     The factor is computed as:
-        factor = (sinr_rate / base_rate) * (eta(n) / n)
+        factor = (expected_sinr_rate / base_rate) * (eta(n) / n)
 
-    where sinr_rate accounts for hidden terminal interference only,
-    and eta(n)/n accounts for contention domain time-sharing.
+    where expected_sinr_rate accounts for probabilistic hidden terminal
+    interference, and eta(n)/n accounts for contention domain time-sharing.
     """
 
     def __init__(
