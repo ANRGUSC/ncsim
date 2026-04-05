@@ -66,29 +66,23 @@ jared.coleman@lmu.edu}
 
 %% ============================================================
 \begin{abstract}
-We present \ncsim{}, a deterministic discrete-event simulator for evaluating
-DAG task scheduling algorithms on static wireless edge networks with
-IEEE~802.11 interference.
-\ncsim{} models directed acyclic graph (DAG) workflows, multi-hop routing
-with bandwidth sharing, and IEEE~802.11 WiFi links with a
-physically-grounded CSMA/CA interference model based on Bianchi's analysis,
-including contention and hidden terminal SINR degradation.
-The simulator supports pluggable scheduling
-algorithms (including HEFT and CPOP via the SAGA library) and three routing
-strategies.
-Implemented in approximately 5,500 lines of Python with YAML-driven scenario
-specification, \ncsim{} fills a gap between heavyweight network simulators
-like ns-3 and task-centric simulators like SimGrid, enabling rapid
-exploration of how wireless contention affects compute placement decisions
-in 802.11 edge deployments.  We validate the WiFi model against
-analytical predictions across nine internal experiments (all matching within
-1\% tolerance) and externally against Bianchi's published results (matching
-within 0.003\%).  Using \ncsim{}, we conduct a 108-run experimental study
-demonstrating that, under these modeled conditions, ignoring wireless
-interference leads to not just inaccurate makespan predictions but
-systematically wrong scheduler choices in 27.8\% of the tested scenarios,
-with performance regret reaching 168\%---underscoring the need for
-interference-aware simulation in wireless edge computing research.
+Evaluating DAG task schedulers for wireless edge computing requires
+jointly modeling compute placement and wireless interference, yet
+existing tools treat them in isolation.  This gap leads to
+\emph{rank inversions}: the scheduler that appears optimal under an
+interference-free model can be the worst choice under realistic
+wireless conditions.  We present \ncsim{}, a lightweight
+discrete-event simulator that bridges this gap by combining DAG
+workflow scheduling with physically-grounded IEEE~802.11 CSMA/CA
+interference modeling in a single Python package.  A 108-run
+factorial experiment reveals rank inversions in 27.8\% of scenarios,
+with the interference-free-optimal scheduler producing up to
+$2.7\times$ worse makespan than a simple round-robin baseline;
+scaling to a 100-node random geometric graph raises the inversion
+rate to 50\%.  Interference-free evaluation does not merely
+mis-predict performance but can reverse which algorithm a
+researcher would deploy, thereby justifying the design and use
+of \ncsim{}.
 \end{abstract}
 
 %% ============================================================
@@ -116,57 +110,43 @@ domain-specific features but use simplified wireless models that do not
 capture the distance-dependent rates, CSMA contention, or hidden terminal
 interference that characterize real 802.11 deployments.
 
-This gap matters more than one might expect.  In a 108-run experimental
-study that we conduct using \ncsim{}, we find that the scheduler which
-appears optimal under an interference-free model is \emph{dominated} under
-realistic CSMA/CA conditions in 27.8\% of scenarios, with makespan errors
-exceeding $94\times$.  The sophisticated HEFT scheduler, optimized under
-a model that ignores wireless contention, can produce \emph{worse} outcomes
-than a simple round-robin baseline.  These findings underscore that realistic
-wireless modeling is not merely a refinement---it is essential for
-meaningful evaluation of edge computing scheduling algorithms.
+This gap matters more than one might expect.  In a 108-run factorial
+study, we find that the scheduler appearing optimal under an
+interference-free model is outperformed under realistic CSMA/CA
+conditions in 27.8\% of scenarios, a \emph{rank inversion}.  In the
+most striking case, the HEFT scheduler produces $2.7\times$ worse makespan
+than a simple round-robin baseline, yet an interference-free evaluation
+would confidently select HEFT.  Realistic wireless modeling is essential
+for meaningful evaluation of edge computing scheduling algorithms.
 
-We present \ncsim{}, a lightweight, flow-level, static-topology
-discrete-event simulator that bridges this gap.  \ncsim{} combines DAG
-workflow scheduling with physically-grounded 802.11 WiFi models in a
-single, easy-to-use Python package.  The contributions are demonstrated
-through a case study on small-to-medium 802.11 grid networks (up to 16
-nodes) with static topologies:
+We present \ncsim{},\footnote{Open-source: \url{https://github.com/ANRGUSC/ncsim}}
+a lightweight, flow-level discrete-event simulator that bridges this gap
+by combining DAG workflow scheduling with physically-grounded 802.11
+WiFi models in a single Python package.  The contributions are:
 
 \begin{enumerate}[itemsep=2pt,leftmargin=*]
-\item A modular simulation architecture with abstract base classes for
-  schedulers, routing models, interference models, link models, and queue
-  models, enabling pluggable experimentation.
-\item An 802.11 WiFi model incorporating log-distance path loss, MCS rate
-  adaptation (802.11n/ac/ax), conflict graph construction, CSMA/CA contention
-  via Bianchi's analysis, and hidden terminal SINR degradation.
-\item Multi-hop routing with dynamic bandwidth sharing and three routing
-  strategies (direct, widest-path, shortest-path).
-\item Comprehensive validation: nine internal experiments achieving exact
-  match with analytical predictions, plus external validation against
-  Bianchi's published results~\cite{bianchi2000} (within 0.003\%).
-\item Experimental demonstration---via a 108-run scheduler comparison
-  and sensitivity analyses---that interference-free models lead to
-  systematically wrong scheduling decisions, motivating the need for
-  tools like \ncsim{}.
-\item An open-source implementation in ${\sim}5{,}500$ lines of Python with
-  YAML-driven scenarios, JSONL trace output, and a React/D3 visualization
-  frontend.
+\item \textbf{\ncsim{} simulator:} a modular architecture combining DAG
+  scheduling (HEFT, CPOP, round-robin) with 802.11 WiFi models
+  (log-distance path loss, MCS rate adaptation, Bianchi CSMA/CA
+  contention, hidden terminal SINR degradation, multi-hop routing with
+  dynamic bandwidth sharing) in ${\sim}5{,}500$ lines of Python.
+\item \textbf{Three-stage validation:} nine internal experiments matching
+  analytical predictions exactly, reproduction of Bianchi's published
+  results~\cite{bianchi2000}, and cross-validation against ns-3
+  packet-level simulations (mean error 4\%).
+\item \textbf{Rank inversion finding:} a 108-run factorial on grid networks
+  revealing that interference-free evaluation produces wrong scheduler
+  rankings in 27.8\% of scenarios.
+\item \textbf{Scalability confirmation:} a 36-run study on a 100-node
+  random geometric graph with 30--50 task DAGs, where the rank inversion
+  rate rises to 50\%.
 \end{enumerate}
 
-The remainder of this paper is organized as follows.
-\Cref{sec:related} surveys related work in DAG scheduling algorithms,
-edge orchestration systems, and simulation tools, positioning \ncsim{} in
-the landscape.  \Cref{sec:arch} describes the modular architecture and its design
-rationale.  \Cref{sec:model} presents the system model, including the
-physically-grounded WiFi equations.  \Cref{sec:engine} details the
-discrete-event simulation engine.  \Cref{sec:validation} validates the WiFi
-model through both internal analytical experiments and external reproduction
-of Bianchi's published results.  \Cref{sec:eval} presents the experimental
-evaluation, including routing comparison, interference impact analysis,
-a 108-run scheduler comparison revealing rank inversions, and sensitivity
-analyses.  Finally, \Cref{sec:conclusion} discusses implications and concludes with
-directions for future work.
+\Cref{sec:related,sec:arch,sec:model,sec:engine} survey related work and
+describe \ncsim{}'s architecture, system model, and simulation engine.
+\Cref{sec:validation} validates the WiFi model, and \Cref{sec:eval}
+presents the experimental evaluation.  \Cref{sec:conclusion} discusses
+implications and future directions.
 
 
 %% ============================================================
@@ -179,139 +159,69 @@ tools that model wireless network effects.  We survey both and highlight the
 gap that motivates our work.  \Cref{tab:sim_comparison} compares simulation tools.
 
 \textbf{Classic DAG scheduling heuristics.}
-DAG scheduling has a long history in parallel and distributed computing,
-with many heuristics built around the list-scheduling
-paradigm~\cite{Adam1974ListSchedules,KwokAhmad1999Survey}.
-Dynamic-level scheduling (DLS) accounts for interprocessor communication and
-heterogeneous interconnect constraints via dynamically updated task--processor
-priorities~\cite{Sih1993DLS}.
-Among the most widely used baselines, HEFT and CPOP introduced rank-based
-task prioritization and greedy resource selection for heterogeneous processors
-with communication costs, and remain common reference points~\cite{heft}.
-However, their standard formulations assume a largely stable platform with
-known execution and communication costs---a poor fit for wireless/edge
-deployments where load, link rates, and node availability vary over time.
+DAG scheduling has a rich history in parallel computing, from
+list-scheduling~\cite{Adam1974ListSchedules,KwokAhmad1999Survey} and
+dynamic-level scheduling~\cite{Sih1993DLS} to the widely used
+HEFT and CPOP heuristics~\cite{heft}.  These formulations assume stable
+platforms with known costs, a poor fit for wireless/edge deployments.
 
 \textbf{Benchmarking and parametric scheduler design.}
-A persistent challenge in this area is that comparative conclusions depend
-strongly on benchmark selection and implementation details.
-Coleman and Krishnamachari introduce SAGA, a modular open-source library for
-comparing task-graph schedulers, and PISA, a simulated-annealing adversarial
-search that identifies instances where one scheduler maximally underperforms
-another~\cite{Coleman2024PISA,SAGARepo}.
-Their results show that algorithms with similar average performance can
-diverge dramatically under adversarially chosen instances.
-Complementary parametric scheduling work decomposes list schedulers into
-interchangeable components, enabling systematic ablations across 72 hybrid
-variants~\cite{Coleman2024Parametric}.
-These tools provide a stronger methodological foundation for robustness
-claims---especially important for wireless/IoT settings where typical
-instances may not resemble the stress cases encountered under interference
-or congestion.
+Comparative conclusions depend strongly on benchmark selection.  SAGA and
+PISA~\cite{Coleman2024PISA,SAGARepo} enable adversarial search across
+schedulers, while parametric decomposition~\cite{Coleman2024Parametric}
+supports systematic ablations across 72 hybrid variants.  These tools do
+not model the wireless layer.
 
 \textbf{Dispersed and edge execution systems.}
-Beyond algorithm design, several systems integrate DAG scheduling with
-profiling and orchestration.
-Jupiter is an open-source networked computing architecture that orchestrates
-DAG task graphs using container-based deployment with both centralized
-(HEFT-style) and decentralized scheduling, reporting experiments on
-geographically distributed cloud nodes and Raspberry Pi
-clusters~\cite{Ghosh2021Jupiter}.
-Tactical Jupiter adapts this to the tactical edge, addressing intermittent
-connectivity, bandwidth variability, and node attrition with disruption
-handling and ML-based task completion time
-estimation~\cite{Poylisher2021TacticalJupiter}.
-Throughput-oriented extensions target pipelined DAG workloads in dispersed
-settings~\cite{Zhao2021TPHEFT}.
-These efforts emphasize that scheduling quality depends not only on the
-heuristic but also on profiling fidelity, control-plane overhead, and
-resilience to network dynamics.
+Jupiter~\cite{Ghosh2021Jupiter}, Tactical
+Jupiter~\cite{Poylisher2021TacticalJupiter}, and throughput-oriented
+extensions~\cite{Zhao2021TPHEFT} integrate DAG scheduling with profiling
+and orchestration on real clusters.  These efforts highlight that scheduling
+quality depends on profiling fidelity and network dynamics, but do not model
+wireless contention.
 
 \textbf{DAG scheduling in wireless/edge/IoT environments.}
-A growing body of work targets edge environments with heterogeneous devices
-and unreliable participation.
-I-BOT studies orchestration on unmanaged edge devices where heterogeneity,
-sporadic exits, and interference among co-located tasks
-dominate~\cite{Suryavansh2020IBOT}.
-IBDASH schedules DAG applications on mixed commercial and personal edge
-devices, jointly optimizing latency and failure probability with strategic
-replication and availability prediction~\cite{Li2022IBDASH}.
-M-TEC generalizes to multi-tier edge computing with explicit cost
-considerations and evaluation on a commercial CBRS 4G
-network~\cite{Li2024MTEC}.
-On the platform side, LAVEA provides edge-first video analytics with task
-offloading optimization~\cite{Yi2017LAVEA}, Hetero-Edge targets real-time
-vision on heterogeneous edge clouds with latency-predicted
-scheduling~\cite{Zhang2019HeteroEdge}, and Petrel combines sample-based load
-balancing with task-type-aware policies~\cite{Lin2019Petrel}.
-MEC-oriented DAG offloading work commonly models wireless links via abstract
-rates~\cite{Liang2021JointOffloading}, with recent extensions for energy
-budgets~\cite{Li2024EnergyConstrained} and security
-constraints~\cite{Long2025SecDS}.
-The fog/edge computing context motivating these systems is surveyed
-in~\cite{Chiang2016FogIoT,Chiang2017Fog10Q}, while coded computing offers
-complementary reliability via redundancy~\cite{Kim2020CodedEdge}.
-These works are particularly relevant for IoBT-like settings where
-reliability and disruption are non-negotiable; however, most assume abstract
-network models that do not capture wireless contention at the physical layer.
+A growing body of work targets edge environments with heterogeneous devices:
+I-BOT~\cite{Suryavansh2020IBOT} addresses unmanaged edge devices,
+IBDASH~\cite{Li2022IBDASH} jointly optimizes latency and failure
+probability, and M-TEC~\cite{Li2024MTEC} generalizes to multi-tier
+settings.  Platform-oriented systems include
+LAVEA~\cite{Yi2017LAVEA}, Hetero-Edge~\cite{Zhang2019HeteroEdge},
+and Petrel~\cite{Lin2019Petrel}.  MEC-oriented DAG offloading commonly
+models wireless links via abstract
+rates~\cite{Liang2021JointOffloading,Li2024EnergyConstrained,Long2025SecDS},
+and the broader fog/edge context is surveyed
+in~\cite{Chiang2016FogIoT,Chiang2017Fog10Q,Kim2020CodedEdge}.
+Most of these works assume abstract network models that do not capture
+wireless contention at the physical layer.
 
 \textbf{Network simulators.}
-ns-3~\cite{ns3} and OMNeT++~\cite{omnetpp} provide detailed WiFi,
-LTE, and TCP/IP protocol stacks with high-fidelity channel models, making
-them the standard choice for protocol-level wireless research.
-However, these tools are heavyweight: configuring an ns-3 scenario with
-custom DAG scheduling requires integrating external workflow engines,
-writing C++ glue code, and accepting simulation times that are orders of
-magnitude longer than the simulated duration.  In our experience, a single
-16-node scenario that \ncsim{} completes in under 2~seconds would require
-several minutes in ns-3 with equivalent WiFi and application-layer setup.
-This computational cost makes parameter sweeps across hundreds of
-scheduler/routing/topology combinations prohibitive for researchers whose
-primary interest is scheduling algorithm design rather than protocol
-engineering.
+ns-3~\cite{ns3} and OMNeT++~\cite{omnetpp} provide detailed WiFi, LTE,
+and TCP/IP stacks with high-fidelity channel models.  However, they are
+heavyweight: configuring custom DAG scheduling requires external workflow
+engines and C++ glue code, and packet-level simulation times make large
+parameter sweeps prohibitive (see \Cref{tab:sim_comparison}).
 
 \textbf{Task scheduling simulators.}
-SimGrid~\cite{simgrid} and WRENCH~\cite{wrench} model distributed
-computing platforms with analytical network models and support DAG
-workflows natively.  CloudSim~\cite{cloudsim} targets cloud computing with
-VM-level abstractions, and has been widely adopted for evaluating resource
-allocation policies.  These tools model networks as links with
-fixed or analytically-derived bandwidths, without wireless contention,
-hidden terminal effects, or carrier-sense-based spatial reuse.  This
-abstraction is appropriate for wired data center networks where bandwidth
-is dedicated and predictable.  However, in wireless edge deployments, the
-effective bandwidth of a link depends on which other links are
-simultaneously active---a dependency that fixed-bandwidth models cannot
-capture.  As we demonstrate in \Cref{sec:eval}, this omission can lead to
-not merely inaccurate predictions but systematically wrong conclusions about
-which scheduling algorithm is superior.
+SimGrid~\cite{simgrid}, WRENCH~\cite{wrench}, and CloudSim~\cite{cloudsim}
+support DAG workflows natively but model networks as links with fixed or
+analytically-derived bandwidths.  This abstraction fits wired data centers
+but omits wireless contention, hidden terminals, and spatial reuse,
+precisely the phenomena whose effective bandwidth depends on which other
+links are simultaneously active.
 
 \textbf{Edge/fog-specific simulators.}
-iFogSim~\cite{ifogsim} extends CloudSim for fog computing topologies,
-adding latency-sensitive application placement.
-EdgeCloudSim~\cite{edgecloudsim} adds mobility and simplified WLAN
-models, typically using constant bandwidth with optional capacity
-degradation under load.  While these tools capture some aspects of
-edge deployments, their wireless models do not account for
-distance-dependent rates, CSMA/CA contention dynamics, or hidden
-terminal interference---the phenomena that, as we show, most strongly
-affect scheduling outcomes in multi-hop wireless networks.
+iFogSim~\cite{ifogsim} and EdgeCloudSim~\cite{edgecloudsim} add
+edge-specific features (latency-sensitive placement, mobility) but use
+simplified wireless models that do not capture distance-dependent rates,
+CSMA/CA contention, or hidden terminal interference.
 
 \textbf{Positioning of \ncsim{}.}
-\ncsim{} occupies a position between these tool classes: it combines
-DAG-aware task scheduling with physically-grounded 802.11 wireless models
-(SNR-based MCS rate adaptation, Bianchi MAC efficiency, SINR-based hidden
-terminal modeling) in a lightweight Python package.  Unlike ns-3, \ncsim{}
-does not simulate packet-level protocol stacks, which keeps simulation
-times tractable for large parameter sweeps.  Unlike SimGrid and WRENCH,
-\ncsim{} does not abstract away wireless interference, which preserves the
-scheduling-relevant effects of contention and hidden terminals.
-Unlike the DAG scheduling and orchestration systems surveyed above---which
-either assume abstract network models or rely on physical testbeds---\ncsim{}
-provides a controlled simulation environment where wireless effects can be
-systematically varied and their impact on scheduling quality precisely
-measured.  \Cref{tab:sim_comparison} summarizes
-this positioning.
+As \Cref{tab:sim_comparison} summarizes, \ncsim{} uniquely combines
+DAG-aware scheduling with physically-grounded 802.11 wireless models
+in a lightweight Python package, providing a controlled simulation
+environment where wireless effects can be systematically varied and their
+impact on scheduling quality precisely measured.
 
 \begin{table}[t]
 \centering
@@ -341,10 +251,6 @@ EdgeCloudSim~\cite{edgecloudsim} & \xmark & \cmark & \xmark & \xmark & \xmark & 
 \end{tabular}
 \end{table}
 
-\ncsim{} is thus well-suited for rapid exploration of scheduling
-algorithms in wireless edge computing scenarios where both compute placement
-and wireless network effects matter.
-
 %% ============================================================
 \section{Architecture}
 \label{sec:arch}
@@ -364,105 +270,35 @@ specification through simulation to output traces.
 
 \subsection{Design Goals}
 
-The design of \ncsim{} is guided by four principles, each motivated by
-the requirements of scheduling research in wireless edge computing.
+The design of \ncsim{} is guided by four principles.
 
 \textbf{Determinism.}  Given the same scenario and random seed, \ncsim{}
-produces bit-identical results across runs and platforms.  We achieve this by
-rounding all floating-point simulation times to microsecond precision
-($10^{-6}$\,s), which prevents the accumulation of platform-dependent
-rounding errors that can reorder near-simultaneous events.  Determinism is
-essential for reproducible scheduling comparisons: if two schedulers produce
-makespans of 12.37\,s and 12.39\,s, the ranking must not change when the
-experiment is re-run on a different machine.
+produces bit-identical results across runs and platforms by rounding all
+simulation times to microsecond precision ($10^{-6}$\,s), preventing
+platform-dependent rounding errors from reordering near-simultaneous events.
 
-\textbf{Modularity.}  Six abstract base classes (ABCs) define clean extension
-points: \texttt{Scheduler}, \texttt{RoutingModel}, \texttt{InterferenceModel},
-\texttt{LinkModel}, \texttt{QueueModel}, and \texttt{DAGSource}.  We chose
-this design because scheduling research often requires comparing algorithms
-across identical scenarios---modularity ensures that swapping a scheduler
-does not require changes to the network model, and vice versa.  New
-strategies can be added by implementing a single ABC without modifying the
-core simulation engine.
+\textbf{Modularity.}  Six abstract base classes define clean extension
+points (\Cref{tab:abstractions}), ensuring that swapping a scheduler does
+not require changes to the network model, and vice versa.
 
-\textbf{Simplicity.}  Scenarios are specified in YAML files that declaratively
-describe the network topology, DAG workflows, and simulation parameters.
-The entire simulator is implemented in approximately 5,500 lines of Python
-with minimal dependencies (only the optional SAGA library for HEFT/CPOP
-scheduling).  We deliberately chose Python over C++ or Java to lower the
-barrier for researchers who wish to extend the simulator or inspect its
-internals.  \Cref{lst:yaml} shows a minimal WiFi scenario; note that
-omitting explicit \texttt{bandwidth} from links causes \ncsim{} to derive
-rates from the \texttt{rf} configuration block.
-
-\begin{figure}[t]
-\begin{lstlisting}[language={},label={lst:yaml},
-  caption={Minimal WiFi scenario (abridged).},
-  morekeywords={scenario,network,nodes,links,dags,config,
-    rf,id,position,from,to,tasks,edges,scheduler,
-    interference,tx_power_dBm,freq_ghz,path_loss_exponent,
-    wifi_standard,compute_capacity,compute_cost,
-    data_size,inject_at,latency,pinned_to,seed}]
-scenario:
-  network:
-    nodes:
-      - {id: n0, compute_capacity: 1000,
-         position: {x: 0, y: 0}}
-      - {id: n1, compute_capacity: 1000,
-         position: {x: 30, y: 0}}
-    links:
-      - {id: l01, from: n0, to: n1, latency: 0.0}
-  dags:
-    - id: dag_1
-      inject_at: 0.0
-      tasks:
-        - {id: T0, compute_cost: 10, pinned_to: n0}
-        - {id: T1, compute_cost: 10, pinned_to: n1}
-      edges:
-        - {from: T0, to: T1, data_size: 50}
-  config:
-    scheduler: round_robin
-    seed: 42
-    interference: csma_bianchi
-    rf:
-      tx_power_dBm: 20
-      freq_ghz: 5.0
-      path_loss_exponent: 3.0
-      wifi_standard: "ax"
-\end{lstlisting}
-\end{figure}
+\textbf{Simplicity.}  Scenarios are specified in declarative YAML files.
+The entire simulator is approximately 5,500 lines of Python with minimal
+dependencies.  Example scenario files are available in the project
+repository.\footnote{\url{https://github.com/ANRGUSC/ncsim}}
 
 \textbf{Physical grounding.}  Wireless link bandwidths are derived from RF
 parameters (transmit power, frequency, path loss exponent) rather than
-specified as arbitrary constants.  This ensures that link rates are
-physically consistent with node positions---a property that is essential
-for meaningful interference modeling, since contention and hidden terminal
-effects depend on the spatial relationships among transmitters and receivers.
+specified as arbitrary constants, ensuring that link rates are physically
+consistent with node positions.
 
-\subsection{Design Trade-offs}
+\subsection{Scope and Assumptions}
 
-\ncsim{} intentionally omits several features to maintain its lightweight,
-fast character while retaining the key phenomena---contention, hidden
-terminals, MCS adaptation---that affect scheduling decisions:
-
-\begin{itemize}[itemsep=1pt,leftmargin=*]
-\item \textbf{No packet-level simulation.}  There is no TCP/IP stack or
-  per-packet event processing; transfers are modeled as bulk flows with
-  analytically-derived rates.
-\item \textbf{No physical-layer channel dynamics.}  Fading, OFDM subcarrier
-  allocation, and time-varying channel states are not modeled; path loss is
-  static and deterministic (with optional log-normal shadow fading).
-\item \textbf{No mobility.}  The topology is static; node positions are fixed
-  for the duration of a simulation run.
-\item \textbf{Single-slot compute.}  Each node executes one task at a time
-  (FIFO queuing); GPU-like multi-slot parallelism is left to future work.
-\end{itemize}
-
-\noindent These choices keep simulation runtimes on the order of seconds for
-networks of up to 16 nodes and 20-task DAGs, enabling rapid parameter sweeps
-that would be infeasible with packet-level simulators.
-\Cref{tab:scope} further summarizes the phenomena modeled and the boundaries
-of validity.
+\ncsim{} targets macroscopic scheduling decisions rather than protocol
+engineering.  It intentionally omits packet-level simulation, physical-layer
+channel dynamics (fading, OFDM), mobility, and multi-slot compute
+parallelism, retaining the phenomena that most affect scheduling: CSMA/CA
+contention, hidden terminals, and MCS rate adaptation.
+\Cref{tab:scope} summarizes the modeling scope.
 
 \begin{table}[t]
 \centering
@@ -487,36 +323,18 @@ Multi-slot parallelism & Not modeled            & App-dependent \\
 \end{tabular}
 \end{table}
 
-\subsection{Modeling Scope and Validity}
-
-\ncsim{}'s flow-level approach (\Cref{tab:scope}) models data transfers
-as bulk flows with analytically-derived rates rather than simulating
-individual packets.  This abstraction is appropriate for the workloads
-studied here (10\,MB payloads per edge), where steady-state throughput
-dominates and TCP slow-start transients are negligible.  For workloads
-with many short transfers (e.g., sub-100\,KB control messages or
-request-response patterns), the slow-start phase represents a significant
-fraction of each transfer's duration, and packet-level simulation would
-be warranted.  The Bianchi model further assumes saturation conditions,
-meaning that every station always has a packet ready to transmit.
-Additionally, the hidden terminal model does not include capture effects:
-in real 802.11 radios, a sufficiently strong desired signal can be decoded
-even in the presence of weaker interferers, reducing hidden terminal
-impact.  Together, the saturation and no-capture assumptions make
-\ncsim{}'s interference-aware makespans conservative (i.e., pessimistic)
-upper bounds, particularly in the hidden terminal regime.
-
-The grid topologies used throughout this paper are regular and symmetric;
-real deployments may have irregular node placements that create asymmetric
-interference patterns.  Scaling to 50--100 node networks is
-computationally feasible with \ncsim{} but was not explored here.  Real
-wireless channels exhibit fading and mobility effects that could either
-smooth or amplify the interference effects; we use deterministic path loss
-throughout to isolate the effects of contention and hidden terminals.
+The flow-level abstraction is appropriate for the workloads studied here
+(10\,MB payloads per edge), where steady-state throughput dominates and
+TCP slow-start transients are negligible; for short transfers
+(sub-100\,KB), packet-level simulation would be warranted.
+The Bianchi model assumes saturation conditions, and the hidden terminal
+model uses a capture-threshold rather than full capture effects.
+Together, these assumptions make \ncsim{}'s interference-aware makespans
+conservative upper bounds, particularly in the hidden terminal regime.
+We use deterministic path loss throughout to isolate the effects of
+contention and hidden terminals from fading and mobility.
 
 \subsection{Key Abstractions}
-
-\Cref{tab:abstractions} summarizes the six pluggable abstractions in \ncsim{}.
 
 \begin{table}[t]
 \centering
@@ -539,44 +357,15 @@ DAGSource & Single, Multi \\
 \subsection{Visualization and Tooling}
 \label{sec:viz}
 
-To support debugging and pedagogical use, \ncsim{} includes a
-React/D3 web-based visualization frontend with three complementary views:
-\begin{enumerate}[itemsep=1pt,leftmargin=*]
-\item A \textbf{network topology view} that displays nodes with their compute
-  capacities, links with their current bandwidths, and active transfers
-  highlighted with color-coded flow indicators.
-\item A \textbf{Gantt chart} showing task execution and data transfer timelines
-  per node, making it possible to visually identify scheduling bottlenecks,
-  idle periods, and contention-induced delays.
-\item An \textbf{animated replay} with playback controls (play, pause, step,
-  speed adjustment) that allows researchers to observe the dynamic evolution
-  of the simulation, including the bandwidth recalculation cascades described
-  in \Cref{sec:engine}.
-\end{enumerate}
-The Gantt view is particularly useful for diagnosing the contention-induced
-idle periods and cascading delays revealed in \Cref{sec:eval}.
-
-\noindent Simulation output is written in JSONL trace format, with one JSON object
-per event, enabling integration with external analysis tools such as
-pandas, matplotlib, and custom post-processing scripts.  The command-line
-interface supports batch execution with configurable scheduling, routing,
-and interference parameters, facilitating the automated parameter sweeps
-used throughout \Cref{sec:eval}.
-
-
-\subsection{Research Questions Enabled}
-\label{sec:research_questions}
-
-The architecture described above enables several classes of research
-questions that existing tools cannot address jointly:
-(1)~How does wireless contention change which DAG scheduler is best
-(\Cref{sec:scheduler_eval})?
-(2)~When does single-flow optimal routing become counterproductive under
-multi-flow interference (\Cref{sec:routing_eval})?
-(3)~What are the parameter regimes where interference can safely be
-ignored versus where it is essential (\Cref{sec:sensitivity})?
-(4)~How does multi-tenant DAG injection scale under shared-medium
-contention (\Cref{sec:sensitivity})?
+\ncsim{} includes a React/D3 web-based visualization frontend with three
+views: a \textbf{network topology view} showing nodes, links, and active
+transfers; a \textbf{Gantt chart} of task execution and transfer timelines
+per node; and an \textbf{animated replay} with playback controls for
+observing bandwidth recalculation cascades.  Simulation output is written
+in JSONL trace format (one JSON object per event) for integration with
+external analysis tools.  The command-line interface supports batch
+execution, facilitating the automated parameter sweeps used throughout
+\Cref{sec:eval}.
 
 
 %% ============================================================
@@ -616,8 +405,8 @@ instantaneous (zero cost).  DAGs are injected at specified simulation times.
 
 \subsection{Scheduling Framework}
 
-The scheduler receives a \texttt{NetworkSnapshot}---an immutable view of
-node capacities, link bandwidths, queue depths, and active transfers---and
+The scheduler receives a \texttt{NetworkSnapshot},an immutable view of
+node capacities, link bandwidths, queue depths, and active transfers, and
 returns a \texttt{PlacementPlan} mapping each task to a node.  \ncsim{}
 includes four schedulers:
 
@@ -656,8 +445,12 @@ affected transfers are recalculated and their completion events rescheduled.
 
 The WiFi model replaces static link bandwidths with rates derived from RF
 parameters, and models contention and hidden terminal interference using
-physically-grounded analytical models.  The following subsections formalize
-these mechanisms.
+physically-grounded analytical models.  The physical-layer and MAC models
+draw on standard 802.11 analysis: path loss and MCS selection are standard;
+carrier-sensing range and conflict graph construction are adapted from the
+literature; the Bianchi contention model and capture-threshold hidden
+terminal factor are our specific contributions to this simulation framework.
+The following subsections formalize these mechanisms.
 
 \subsubsection{Physical Layer}
 
@@ -679,7 +472,7 @@ R_\ell = \max\{r_k : \text{SNR}_\ell \geq \text{SNR}_{\min,k}\}
 \label{eq:mcs}
 \end{equation}
 This selects the highest-rate MCS whose minimum SNR requirement is met,
-producing a discrete rate staircase---a key feature that continuous-rate
+producing a discrete rate staircase, a key feature that continuous-rate
 models fail to capture.
 
 \subsubsection{Carrier Sensing and Conflict Graph}
@@ -735,7 +528,7 @@ interference at the receiver.  The SINR is:
 \label{eq:sinr}
 \end{equation}
 In 802.11, each frame is transmitted at a pre-selected MCS and either
-decoded successfully or lost entirely---there is no fallback to a lower
+decoded successfully or lost entirely; there is no fallback to a lower
 MCS during reception~\cite{daneshgaran2008,zorzi1994}.  The MCS
 rate-selection thresholds include operating margins (implementation loss,
 fading margin, AGC settling) that are not required for frame decoding.
@@ -784,12 +577,12 @@ event-driven architecture.
 types are processed in priority order at each simulation time:
 
 \begin{enumerate}[itemsep=1pt,leftmargin=*]
-\item \textsc{DagInject} --- Invokes scheduler, initializes task states
-\item \textsc{TaskComplete} --- Frees node, triggers output transfers
-\item \textsc{TransferComplete} --- Delivers data, checks readiness
-\item \textsc{TaskReady} --- Starts task or enqueues if node busy
-\item \textsc{TaskStart} --- Begins execution, schedules completion
-\item \textsc{TransferStart} --- Acquires link bandwidth, schedules completion
+\item \textsc{DagInject}: Invokes scheduler, initializes task states
+\item \textsc{TaskComplete}: Frees node, triggers output transfers
+\item \textsc{TransferComplete}: Delivers data, checks readiness
+\item \textsc{TaskReady}: Starts task or enqueues if node busy
+\item \textsc{TaskStart}: Begins execution, schedules completion
+\item \textsc{TransferStart}: Acquires link bandwidth, schedules completion
 \end{enumerate}
 
 The priority ordering among event types at the same simulation time is
@@ -865,22 +658,18 @@ Together, these validations establish that \ncsim{}'s interference model is
 self-consistent, faithful to the published analytical framework, and
 agrees with packet-level ground truth.
 
-\subsection{Internal Analytical Validation}
+\subsection{Internal Verification}
 \label{sec:internal_val}
 
-We designed nine experiments, each isolating a specific aspect of the
-WiFi model, to verify that \ncsim{}'s simulation output matches
-analytical predictions computed directly from the RF and MAC equations.
-We use a 1\% match tolerance, but in practice all nine experiments
-achieve \emph{exact} match (zero error to the precision reported).
-We present three representative experiments in detail below; a fourth
-experiment (N-way Bianchi contention scaling) is presented alongside
-the external validation in \Cref{sec:external_val}.  The remaining
-five experiments validate two-transmitter shared-receiver topologies,
-staggered transfer starts with dynamic bandwidth recalculation,
-per-link bandwidth sharing with multiple concurrent flows, five-link
-hidden terminal cascades with varying data sizes, and combined
-interference scenarios.  All pass with zero error.
+Nine controlled experiments, each isolating a specific WiFi model
+component, verify that \ncsim{}'s output matches analytical predictions
+exactly (zero error to the precision reported).  These cover MCS rate
+selection across distances, parallel-link contention and hidden terminal
+regimes, shared-receiver topologies, staggered transfers with dynamic
+recalculation, multi-flow bandwidth sharing, five-link hidden terminal
+cascades, and combined interference scenarios.  We present three
+representative experiments in detail; the N-way contention scaling test
+appears in \Cref{sec:external_val}.
 
 \subsubsection{Experiment 1: Link Length vs.\ Data Rate}
 
@@ -929,8 +718,8 @@ each gets $\eta(2)/2 \approx 0.44$ of the base rate 8.6\,MB/s $= 3.79$\,MB/s.
 At separation $\geq 75$\,m, the links become hidden terminals, and SINR
 degradation determines the effective rate.
 
-Notably, the effective rate \emph{drops} at the CS range boundary---from
-3.79\,MB/s (contention) to 3.23\,MB/s (hidden terminal at 75\,m)---before
+Notably, the effective rate \emph{drops} at the CS range boundary: from
+3.79\,MB/s (contention) to 3.23\,MB/s (hidden terminal at 75\,m), before
 recovering at larger separations.  This non-monotonic behavior is the
 classic \emph{hidden terminal effect}: within sensing range, links coordinate
 via CSMA/CA and time-share the channel fairly (each receiving 44\% of the
@@ -1106,76 +895,32 @@ We use $\epsilon = 10^{-12}$, requiring at most 40 bisection steps.
 
 \subsubsection{Figure 6 Reproduction}
 
-We also reproduce Bianchi's Figure~6 throughput curves for two
-configurations: $W{=}32$, $m{=}5$ (CW$_{\max}{=}1024$) and $W{=}128$,
-$m{=}3$ (CW$_{\max}{=}1024$).  \Cref{fig:bianchi_fig6} plots the
-computed normalized throughput $S$ across the full range of station
-counts from $n{=}5$ to $n{=}50$.  \Cref{tab:bianchi_fig6} presents
-the numerical values underlying these curves.
-
-Several features of these curves merit discussion.  First, both
-configurations exhibit the expected monotonic decrease in throughput with
-increasing $n$: as more stations contend, collision overhead grows and
-the fraction of time spent on successful transmissions decreases.
-Second, the $W{=}128$ curve shows a slight non-monotonicity between
-$n{=}5$ ($S = 0.825$) and $n{=}10$ ($S = 0.826$).  This occurs because
-the larger initial contention window is oversized for a small number of
-stations, causing excessive idle time; as $n$ increases from 5 to 10,
-the window becomes better matched to the contention level before
-collision losses begin to dominate.  This non-monotonicity is consistent
-with Bianchi's published results and would not be captured by simpler
-throughput models.  Third, the gap between the two curves narrows at
-large $n$: at $n{=}50$, $W{=}128$ achieves $S = 0.725$ versus $S = 0.611$
-for $W{=}32$ (a 19\% advantage), whereas at $n{=}5$ the gap is only 2\%.
-This confirms the well-known principle that larger contention windows
-provide greater benefit in high-contention regimes.
-
-\begin{table}[t]
-\centering
-\caption{Numerical values for Bianchi Figure~6 reproduction:
-normalized saturation throughput $S$ for two $(W, m)$ configurations.}
-\label{tab:bianchi_fig6}
-\begin{tabular}{@{}rrr@{}}
-\toprule
-$n$ & $S$ ($W{=}32, m{=}5$) & $S$ ($W{=}128, m{=}3$) \\
-\midrule
-5  & 0.8102 & 0.8250 \\
-10 & 0.7579 & 0.8263 \\
-15 & 0.7231 & 0.8130 \\
-20 & 0.6975 & 0.7981 \\
-25 & 0.6772 & 0.7837 \\
-30 & 0.6603 & 0.7702 \\
-35 & 0.6457 & 0.7577 \\
-40 & 0.6329 & 0.7461 \\
-45 & 0.6214 & 0.7353 \\
-50 & 0.6109 & 0.7252 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\Cref{fig:bianchi_fig6} reproduces Bianchi's Figure~6 throughput curves
+for $W{=}32$, $m{=}5$ and $W{=}128$, $m{=}3$ across $n{=}5$ to $n{=}50$
+stations.  Both curves match the expected monotonic throughput decay;
+the $W{=}128$ curve reproduces the slight non-monotonicity between
+$n{=}5$ and $n{=}10$ consistent with Bianchi's published results.
+Data points digitized from Bianchi's original figure overlay our
+computed curves to within 0.34\% relative error.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/bianchi_fig6_overlay.png}
 \caption{Reproduction of Bianchi~\cite{bianchi2000} Figure~6:
   normalized saturation throughput vs.\ number of stations for two
-  $(W, m)$ configurations.  Computed using Bianchi's exact FHSS
-  parameters (1\,Mbps basic access, no RTS/CTS).  The $W{=}128$
-  curve's slight non-monotonicity between $n{=}5$ and $n{=}10$ is
-  consistent with Bianchi's published results.
-  Data points digitized from Bianchi's original Figure~6 overlay our
-  computed curves to within 0.34\% relative error, confirming faithful
-  reproduction of the analytical model.}
+  $(W, m)$ configurations.  The $W{=}128$ curve's non-monotonicity
+  between $n{=}5$ and $n{=}10$ is consistent with Bianchi's published
+  results.  Digitized data points overlay our curves to within 0.34\%
+  relative error, confirming faithful reproduction.}
 \label{fig:bianchi_fig6}
 \end{figure}
 
 \subsubsection{N-Way Contention Scaling}
 
-As a further check that the Bianchi contention model scales correctly
-within the full \ncsim{} simulation loop, we place $n \in \{2, \ldots, 8\}$
-parallel 30\,m links at 5\,m vertical separation---all within carrier-sensing
-range, creating a complete conflict graph of size~$n$.  Each link carries a
-10\,MB transfer.  The predicted per-link rate is
-$R = R_{\text{base}} \cdot \eta(n)/n = 8.6 \cdot \eta(n)/n$.
+To confirm that the Bianchi model scales correctly within the full
+simulation loop, we place $n \in \{2, \ldots, 8\}$ parallel 30\,m links
+at 5\,m separation (all within carrier-sensing range), each carrying a
+10\,MB transfer.
 
 \begin{table}[t]
 \centering
@@ -1197,13 +942,10 @@ $n$ & $\eta(n)$ & $\eta(n)/n$ & \textbf{Pred(MB/s)} & \textbf{Sim(MB/s)} \\
 \end{tabular}
 \end{table}
 
-\Cref{tab:exp7} shows all seven data points match exactly.  The MAC
-efficiency $\eta(n)$ degrades gracefully from 0.881 at $n{=}2$ to 0.726 at
-$n{=}8$, while the per-link share $\eta(n)/n$ falls much faster due to the
-$1/n$ division.  This confirms that the Bianchi solver, validated
-numerically against Table~III and Figure~6 above, also produces correct
-throughput predictions when embedded in the full simulation engine with
-real RF parameters and dynamic recalculation.
+\Cref{tab:exp7} shows all seven data points match exactly, confirming
+that the Bianchi solver produces correct throughput predictions when
+embedded in the full simulation engine with real RF parameters and
+dynamic recalculation.
 
 
 \subsection{Cross-Validation Against ns-3}
@@ -1211,7 +953,7 @@ real RF parameters and dynamic recalculation.
 
 The preceding validation establishes internal self-consistency and faithful
 reproduction of Bianchi's analytical results, but all comparisons are between
-analytical formulas---ncsim implements the same equations it validates against.
+analytical formulas; \ncsim{} implements the same equations it validates against.
 To test whether the \emph{combined} model behavior (path loss + MCS selection +
 CSMA/CA contention + hidden terminal capture effects) produces realistic
 throughput predictions, we cross-validate against ns-3~\cite{ns3}, a
@@ -1222,7 +964,7 @@ Both experiments use 802.11ax at 5\,GHz on a 20\,MHz channel with
 \texttt{ConstantRateWifiManager} at HE-MCS\,5 (64-QAM, coding rate 2/3),
 TX power 20\,dBm, CCA threshold $-82$\,dBm, noise figure 6\,dB (effective
 floor $-95$\,dBm), CW$_{\min}{=}16$, CW$_{\max}{=}1024$, guard interval
-3200\,ns, 1 spatial stream, RTS/CTS off, and---critically---A-MPDU disabled to
+3200\,ns, 1 spatial stream, RTS/CTS off, and, critically, A-MPDU disabled to
 match Bianchi's single-frame assumption.  The propagation model is
 log-distance with exponent 3.0 and Friis reference loss 46.4\,dB at 1\,m,
 identical to \ncsim{}'s \texttt{RFConfig} defaults.  Each ns-3 point
@@ -1232,14 +974,14 @@ represents the mean over 20 independent seeds with 30\,s simulation time
 \subsubsection{Experiment 1: Contention Scaling}
 
 We place $n \in \{1, \ldots, 8\}$ co-located STA-AP link pairs at 30\,m
-link length and 5\,m vertical separation---all well within the 71.2\,m
+link length and 5\,m vertical separation, all well within the 71.2\,m
 carrier-sensing range, creating a complete conflict graph.  Each STA sends
 saturated UDP traffic to its AP.  \Cref{fig:ns3_validation}(a) overlays
 \ncsim{}'s Bianchi prediction $R_{\text{base}} \cdot \eta(n)/n$ against the
 ns-3 per-station goodput.
 
-\ncsim{}'s Bianchi model---which accounts for PHY overhead (preamble, SIFS,
-ACK) in the efficiency computation---tracks ns-3 closely across all station
+\ncsim{}'s Bianchi model, which accounts for PHY overhead (preamble, SIFS,
+ACK) in the efficiency computation, tracks ns-3 closely across all station
 counts.  At $n{=}1$, the solo goodput predictions differ by only 0.3\%
 (3.78 vs.\ 3.77\,MB/s).  The maximum error of 7.6\% occurs at $n{=}7$,
 where the Bianchi fixed-point approximation slightly overestimates MAC
@@ -1256,7 +998,7 @@ carrier-sensing boundary, the links transition from Bianchi contention
 (symmetric time-sharing at $\eta(2)/2$) to the hidden terminal regime,
 where simultaneous transmissions may corrupt frames at the receiver.
 \ncsim{}'s capture-threshold model (\Cref{eq:capture}) predicts a
-\emph{throughput dip} at the CS boundary---per-link rate drops from
+\emph{throughput dip} at the CS boundary: per-link rate drops from
 1.94\,MB/s (contention) to 1.50\,MB/s (hidden terminal frame loss) before
 recovering sharply at $s = 120$\,m when the interferer's power falls below
 the capture threshold and frames are decoded successfully at the full solo
@@ -1265,7 +1007,7 @@ rate (3.78\,MB/s).  \Cref{fig:ns3_validation}(b) overlays ns-3 results.
 ns-3 confirms the qualitative behavior across all regimes.
 In the contention zone ($s \leq 70$\,m), ns-3 goodput is stable at
 1.92--2.06\,MB/s (1--6\% from \ncsim{}).  At the CS boundary
-($s = 72$\,m), ns-3 exhibits a throughput dip to 1.34\,MB/s---confirming
+($s = 72$\,m), ns-3 exhibits a throughput dip to 1.34\,MB/s, confirming
 \ncsim{}'s predicted dip direction and location (11\% error).  In the
 hidden terminal zone ($s = 72$--$100$\,m), \ncsim{}'s capture-threshold
 model predicts 1.50\,MB/s and ns-3 measures 1.34--1.50\,MB/s (0.5--11\%
@@ -1320,37 +1062,46 @@ raw results are included in the paper's supplementary repository under
 \section{Experimental Evaluation}
 \label{sec:eval}
 
-Having validated the correctness of \ncsim{}'s WiFi model, we now turn to
-the central question that motivates this work: does ignoring wireless
-interference merely produce inaccurate makespan estimates, or does it lead
-to fundamentally wrong conclusions about which scheduling and routing
-policies are superior?  We evaluate \ncsim{} through four sets of
-experiments that progressively build the case.  First, we compare routing
-strategies to demonstrate that the choice of routing algorithm interacts
-non-trivially with interference.  Second, we quantify the magnitude of
-interference impact on makespan predictions.  Third, we execute a full
-108-run factorial comparison revealing that interference changes \emph{which
-scheduler wins} in over a quarter of scenarios.  Finally, sensitivity
-analyses identify the parameter regimes where interference is most
-consequential.
+The central finding of this paper is that interference-free evaluation
+produces wrong scheduler rankings in over a quarter of scenarios tested.
+The four subsections that follow build the evidence progressively:
+routing interactions with interference (\Cref{sec:routing_eval}),
+magnitude of interference impact (\Cref{sec:interference_eval}),
+rank inversions in a 108-run factorial (\Cref{sec:scheduler_eval}),
+and sensitivity analyses delineating an \emph{interference danger zone}
+, the parameter regimes where interference is most consequential
+(\Cref{sec:sensitivity}).
 
 All experiments use 802.11ax at 5\,GHz with a path loss exponent of
 $n = 3$ (except where explicitly varied), heterogeneous compute capacities
 (80--300 units/s), 10\,MB data payloads per DAG edge, and deterministic
 seed~42.
 
+Three DAG structures of increasing complexity are used across all
+experiments:
+\begin{itemize}[itemsep=1pt,leftmargin=*]
+\item \textbf{Small (5 tasks):} Fork-join,$T_0 \to \{T_1, T_2, T_3\}
+  \to T_4$.
+\item \textbf{Medium (10 tasks):} Diamond,$T_0 \to \{T_1\text{--}T_4\}
+  \to \{T_5\text{--}T_8\} \to T_9$ with selective cross-links between
+  layers.
+\item \textbf{Large (20 tasks):} Multi-level pipeline,$T_0 \to 4 \to 6
+  \to 6 \to 3$ tasks per layer with sparse inter-layer connections.
+\end{itemize}
+\noindent All tasks have \texttt{compute\_cost}${}= 500$ and all edges have
+\texttt{data\_size}${}= 10$\,MB (except where varied in
+\Cref{sec:sensitivity}).
+
 \subsection{Scheduler Information and Fairness}
 \label{sec:scheduler_info}
 
-A fair comparison between interference models requires that the schedulers
-receive identical inputs in both cases.  \Cref{tab:scheduler_info}
-summarizes what each scheduler knows at planning time.  Crucially, no
-scheduler sees the conflict graph, contention factors, or hidden terminal
-structure---these are runtime phenomena computed by the interference model
-\emph{after} the schedule has been committed.  HEFT and CPOP receive
-WiFi-derived PHY rates (the same MCS-selected bandwidths under both
-\texttt{none} and \texttt{csma\_bianchi}), but they cannot anticipate the
-dynamic bandwidth degradation that contention will impose during execution.
+Both the interference-free and interference-aware modes present an
+identical \texttt{NetworkSnapshot} to the scheduler, containing the same
+WiFi-derived link bandwidths (\Cref{tab:scheduler_info}).  No scheduler
+sees the conflict graph or contention factors; these are runtime phenomena
+computed \emph{after} the schedule has been committed.  Any difference
+in makespan is therefore attributable solely to interference that the
+scheduler could not anticipate.
 
 \begin{table}[t]
 \centering
@@ -1372,32 +1123,16 @@ CPOP       & DAG, $C_v$, $B_\ell$ & Full virtual net$^\dagger$ & No \\
 \end{tabular}
 \end{table}
 
-The comparison between \texttt{none} and \texttt{csma\_bianchi} is
-therefore fair: both present an identical \texttt{NetworkSnapshot} to the
-scheduler, containing the same WiFi-derived link bandwidths.  The only
-difference is whether the simulation engine applies contention and hidden
-terminal degradation at runtime.  Any difference in makespan is thus
-attributable solely to wireless interference effects that the scheduler
-did not---and could not---anticipate.
-
 \subsection{Routing Strategy Comparison}
 \label{sec:routing_eval}
 
-We compare widest-path and shortest-path routing under HEFT scheduling with
-the \texttt{csma\_bianchi} interference model across grid mesh networks of
-three sizes (2$\times$2, 3$\times$3, 4$\times$4) and three DAG complexities
-(5, 10, and 20 tasks).  All links are wireless with 40\,m grid spacing.
-Nodes have heterogeneous compute capacities (80--300 units/s).
-\Cref{tab:routing} shows the results.
-
-We evaluate these two strategies on a 4$\times$4 grid wireless mesh network
-(16 nodes, 68 bidirectional links) running a 20-task DAG with 5-stage pipeline
-structure.  Nodes are spaced 40\,m apart with heterogeneous compute capacities
-(80--300 compute units/s).  All tasks have compute cost 500 and all edges carry
-10\,MB data transfers.  The HEFT scheduler assigns tasks to nodes; the routing
-strategy determines the multi-hop path for each inter-node data transfer.  WiFi
-link rates follow the 802.11ax MCS table based on SNR at each link distance,
-and all links contend for airtime under the CSMA/Bianchi MAC model.
+Because multi-hop routing determines contention domains, we first
+establish how routing strategies interact with interference before
+evaluating schedulers.  We compare widest-path and shortest-path routing
+under HEFT scheduling with the interference-aware model across grid mesh
+networks of three sizes (2$\times$2, 3$\times$3, 4$\times$4) and three
+DAG complexities (5, 10, and 20 tasks).  All links use 40\,m grid
+spacing with heterogeneous compute capacities (80--300 units/s).
 
 \Cref{fig:routing-topo} shows the resulting link utilization for each strategy.
 Link color and thickness indicate the number of bidirectional data flows
@@ -1457,26 +1192,18 @@ routing selects longer paths with higher bottleneck bandwidth but incurs
 substantially more wireless interference due to multi-hop transmissions
 traversing more contention domains.  In the 4$\times$4 grid with 5 tasks,
 widest-path achieves a makespan of 315.2\,s compared to 12.9\,s for
-shortest-path---a $24\times$ difference---because the widest paths route
+shortest-path, a $24\times$ difference, because the widest paths route
 transfers through 3--4 hops across the full grid diameter, creating
 overlapping contention domains that reduce effective bandwidth to a
 fraction of the solo rate.
-
-In the 2$\times$2 grid, the small topology limits contention: both
-routing strategies produce essentially identical makespans for 5 tasks
-(tie) and 10 tasks (0.3\% difference), while shortest-path wins
-convincingly for 20 tasks ($64.5$\,s vs.\ $88.1$\,s).
-Such topology-dependent scaling underscore the value of simulating the
-full compute-network interaction rather than selecting routing strategies
-based on bandwidth alone.
 
 
 \subsection{Interference Impact Analysis}
 \label{sec:interference_eval}
 
 We measure the impact of CSMA/CA interference by running each of the nine
-grid-network scenarios with the \texttt{csma\_bianchi} model versus no
-interference (\texttt{none}), both using shortest-path routing and HEFT.
+grid-network scenarios with the interference-aware model versus the
+interference-free model, both using shortest-path routing and HEFT.
 As detailed in \Cref{sec:scheduler_info}, both modes present identical
 \texttt{NetworkSnapshot} inputs to the scheduler; the only difference is the
 presence or absence of runtime contention and hidden terminal effects.
@@ -1485,26 +1212,32 @@ presence or absence of runtime contention and hidden terminal effects.
 \begin{table}[t]
 \centering
 \caption{Interference impact: makespan (seconds) without interference vs.\
-with \texttt{csma\_bianchi}, using shortest-path routing and HEFT scheduling.}
+with \texttt{csma\_bianchi}, using shortest-path routing.  HEFT and CPOP
+produce identical placements on the 5-task DAG but diverge as DAG
+complexity grows.}
 \label{tab:interference}
-\begin{tabular}{@{}llrrr@{}}
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{@{}ll|rrr|rrr@{}}
 \toprule
-\textbf{Network} & \textbf{DAG} & \textbf{None (s)} & \textbf{Bianchi (s)} & \textbf{Slowdown} \\
+& & \multicolumn{3}{c|}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{CPOP}} \\
+\textbf{Net.} & \textbf{DAG} &
+  \textbf{None} & \textbf{Bian.} & \textbf{Slow.} &
+  \textbf{None} & \textbf{Bian.} & \textbf{Slow.} \\
 \midrule
-\multirow{3}{*}{2$\times$2 (4n, 12 links)}
-  & 5 tasks   & 11.43  & 15.38  & +35\%   \\
-  & 10 tasks  & 18.76  & 32.50  & +73\%   \\
-  & 20 tasks  & 27.50  & 64.51  & +135\%  \\
+\multirow{3}{*}{2$\times$2}
+  & 5T  & 11.43 & 15.38 & +35\%   & 11.43 & 15.38 & +35\%   \\
+  & 10T & 18.76 & 32.50 & +73\%   & 18.76 & 41.32 & +120\%  \\
+  & 20T & 27.50 & 64.51 & +135\%  & 29.53 & 70.96 & +140\%  \\
 \midrule
-\multirow{3}{*}{3$\times$3 (9n, 32 links)}
-  & 5 tasks   & 8.43   & 19.06  & +126\%  \\
-  & 10 tasks  & 12.76  & 35.16  & +176\%  \\
-  & 20 tasks  & 17.11  & 96.70  & +465\%  \\
+\multirow{3}{*}{3$\times$3}
+  & 5T  & 8.43  & 19.06 & +126\%  & 8.43  & 19.06 & +126\%  \\
+  & 10T & 12.76 & 35.16 & +176\%  & 13.65 & 52.01 & +281\%  \\
+  & 20T & 17.11 & 96.70 & +465\%  & 19.98 & 104.24 & +422\% \\
 \midrule
-\multirow{3}{*}{4$\times$4 (16n, 68 links)}
-  & 5 tasks   & 8.93   & 12.88  & +44\%   \\
-  & 10 tasks  & 15.02  & 827.23 & +5406\% \\
-  & 20 tasks  & 21.75  & 794.39 & +3553\% \\
+\multirow{3}{*}{4$\times$4}
+  & 5T  & 8.93  & 12.88 & +44\%    & 8.93  & 12.88 & +44\%    \\
+  & 10T & 15.02 & 827.23 & +5406\% & 15.02 & 827.23 & +5406\% \\
+  & 20T & 21.75 & 794.39 & +3553\% & 20.65 & 873.26 & +4129\% \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1526,6 +1259,13 @@ configurations.  Several patterns emerge:
   uncontested bandwidth.  During execution, many simultaneous transfers
   contend, reducing effective rates and causing HEFT's schedule to
   become severely suboptimal.
+\item \textbf{CPOP shows equal or worse slowdowns.}  CPOP matches HEFT
+  on the 5-task DAG (identical placements), but exhibits higher slowdowns
+  on larger DAGs in the 2$\times$2 and 3$\times$3 grids (e.g., 281\%
+  vs.\ 176\% for 10 tasks on 3$\times$3).  CPOP's critical-path-based
+  allocation concentrates communication along fewer paths, making those
+  paths more vulnerable to contention.  In the 4$\times$4 grid, both
+  schedulers suffer extreme slowdowns.
 \end{itemize}
 
 \noindent These results demonstrate that ignoring wireless interference in
@@ -1551,58 +1291,64 @@ interference-aware models.  The \emph{scheduling regret} is the relative
 performance penalty from deploying the interference-free-optimal scheduler
 in the presence of interference.
 
-\Cref{tab:winner_matrix} presents the results.  The key statistics are:
+\Cref{tab:winner_matrix} presents makespan ratios for each scheduler
+relative to the best under the interference-aware model; a ratio of 1.00 denotes the
+optimal choice.  The key statistics are:
 \begin{itemize}[itemsep=1pt,leftmargin=*]
 \item \textbf{Rank inversion rate: 27.8\%} (5 of 18 triples).
 \item \textbf{Mean relative regret: 20.2\%} across all 18 triples.
 \item \textbf{Maximum relative regret: 168.3\%} ($4\times4$ grid,
-  10-task DAG, widest\_path: HEFT chosen under ``none'' gives
-  1396.9\,s, but round\_robin achieves 520.6\,s under csma\_bianchi).
+  10-task DAG, widest-path: HEFT chosen under the interference-free
+  model gives 1396.9\,s, but round-robin achieves 520.6\,s under the
+  interference-aware model).
 \end{itemize}
 
 \begin{table*}[t]
 \centering
-\caption{Winning scheduler per (network, DAG, routing) triple under
-  interference-free (``None'') and csma\_bianchi (``Bian.'') models.
-  Bold entries indicate rank inversions.  Makespan in seconds shown
-  in parentheses.}
+\caption{Makespan ratios under \texttt{csma\_bianchi} relative to the best
+  scheduler for each (network, DAG, routing) triple.  A ratio of 1.00
+  denotes the optimal choice; higher values show how much worse that
+  scheduler performs.  ``None$\downarrow$'' indicates which scheduler an
+  interference-free evaluation would select.  Bold entries mark rank
+  inversions where the interference-free choice is suboptimal.}
 \label{tab:winner_matrix}
-\begin{tabular}{@{}ll|ll|ll@{}}
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}ll|rrrl|rrrl@{}}
 \toprule
-& & \multicolumn{2}{c|}{\textbf{Widest-path}} &
-  \multicolumn{2}{c}{\textbf{Shortest-path}} \\
-\textbf{Network} & \textbf{DAG} &
-  \textbf{None} & \textbf{Bian.} &
-  \textbf{None} & \textbf{Bian.} \\
+& & \multicolumn{4}{c|}{\textbf{Widest-path}} &
+  \multicolumn{4}{c}{\textbf{Shortest-path}} \\
+\textbf{Net.} & \textbf{DAG} &
+  \textbf{H} & \textbf{C} & \textbf{RR} & \textbf{None$\downarrow$} &
+  \textbf{H} & \textbf{C} & \textbf{RR} & \textbf{None$\downarrow$} \\
 \midrule
 \multirow{3}{*}{$2\times2$}
-  & 5 tasks  & HEFT (11.4)  & HEFT (15.4)   & HEFT (11.4) & HEFT (15.4) \\
-  & 10 tasks & HEFT (18.1)  & HEFT (32.6)   & HEFT (18.8) & HEFT (32.5) \\
-  & 20 tasks & CPOP (26.2)  & CPOP (78.1)   & HEFT (27.5) & HEFT (64.5) \\
+  & 5T  & 1.00 & 1.00 & 2.71 & HEFT & 1.00 & 1.00 & 2.01 & HEFT \\
+  & 10T & 1.00 & 1.52 & 2.38 & HEFT & 1.00 & 1.27 & 1.74 & HEFT \\
+  & 20T & 1.13 & 1.00 & 1.63 & CPOP & 1.00 & 1.10 & 1.69 & HEFT \\
 \midrule
 \multirow{3}{*}{$3\times3$}
-  & 5 tasks  & HEFT (8.4)   & HEFT (19.1)   & HEFT (8.4) & HEFT (19.1) \\
-  & 10 tasks & CPOP (13.7)  & CPOP (67.1)   & HEFT (12.8) & HEFT (35.2) \\
-  & 20 tasks & HEFT (15.7)  & HEFT (142.9)  & HEFT (17.1) & HEFT (96.7) \\
+  & 5T  & 1.00 & 1.00 & 2.00 & HEFT & 1.00 & 1.00 & 2.00 & HEFT \\
+  & 10T & 1.19 & 1.00 & 8.32 & CPOP & 1.00 & 1.48 & 13.05 & HEFT \\
+  & 20T & 1.00 & 1.79 & 6.49 & HEFT & 1.00 & 1.08 & 8.31 & HEFT \\
 \midrule
 \multirow{3}{*}{$4\times4$}
-  & 5 tasks  & HEFT (8.2)   & \textbf{RR (196.8)} & HEFT (8.9) & HEFT (12.9) \\
-  & 10 tasks & HEFT (14.9)  & \textbf{RR (520.6)} & HEFT (15.0) & \textbf{RR (417.1)} \\
-  & 20 tasks & CPOP (22.3)  & \textbf{RR (1694.7)} & CPOP (20.7) & \textbf{HEFT (794.4)} \\
+  & 5T  & 1.60 & 1.60 & 1.00 & \textbf{HEFT} & 1.00 & 1.00 & 6.56 & HEFT \\
+  & 10T & 2.68 & 2.68 & 1.00 & \textbf{HEFT} & 1.98 & 1.98 & 1.00 & \textbf{HEFT} \\
+  & 20T & 1.01 & 1.28 & 1.00 & \textbf{CPOP} & 1.00 & 1.10 & 1.97 & \textbf{CPOP} \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
 \textbf{HEFT dominates under interference-free models.}  Under the
-``none'' interference model, HEFT or CPOP wins in all 18 triples.  This
+interference-free model, HEFT or CPOP wins in all 18 triples.  This
 is expected: both algorithms optimize the critical path by distributing
 tasks across nodes to maximize parallelism, assuming uncontested bandwidth.
 The sophisticated scheduling logic of HEFT and CPOP provides clear
 advantages when the network behaves as these algorithms assume it will.
 
 \textbf{Round-robin wins in large networks under interference.}
-In the $4\times4$ grid with csma\_bianchi and widest-path routing,
-round-robin wins for all three DAG sizes---a striking reversal.  The
+In the $4\times4$ grid with the interference-aware model and widest-path routing,
+round-robin wins for all three DAG sizes, a striking reversal.  The
 mechanism is clear: HEFT spreads tasks across many of the 16 available
 nodes to exploit parallelism, but this creates many concurrent multi-hop
 transfers that contend on shared wireless channels.  Round-robin's simpler
@@ -1614,18 +1360,18 @@ inversion: the $4\times4$ grid with 10 tasks and widest-path routing.
 Under the interference-free model, HEFT achieves a makespan of 14.9\,s by
 distributing tasks across many of the 16 nodes, creating multiple concurrent
 inter-node transfers that exploit the assumed link bandwidths.  However,
-under csma\_bianchi, these concurrent transfers contend on overlapping
+under the interference-aware model, these concurrent transfers contend on overlapping
 conflict graph neighborhoods: each transfer's effective bandwidth drops to
 a fraction of its solo rate as the Bianchi model allocates channel time
-among contenders.  The resulting makespan \emph{explodes} to
-1,396.9\,s---a $94\times$ blowup.  In contrast, round-robin achieves
+among contenders.  The resulting makespan increases to
+1,396.9\,s, a $94\times$ blowup.  In contrast, round-robin achieves
 520.6\,s under the same interference model.  Although round-robin makes no
 attempt to optimize the critical path, its placement pattern generates fewer
 concurrent transfers, resulting in less severe contention.  The scheduling
-regret---the penalty for choosing HEFT based on the interference-free
-evaluation---is 168\%.  A researcher evaluating these schedulers without
+regret, the penalty for choosing HEFT based on the interference-free
+evaluation, is 168\%.  A researcher evaluating these schedulers without
 interference modeling would confidently select HEFT, unaware that it
-produces $2.7\times$ worse performance than the ``naive'' round-robin
+produces $2.7\times$ worse performance than a round-robin
 baseline.
 
 \textbf{Routing modulates the effect.}  Shortest-path routing mitigates
@@ -1638,27 +1384,27 @@ scenario, the inversion persists even with shortest-path routing (98\%
 regret), because the DAG is large enough to generate concurrent transfers
 even along short paths.
 
-\Cref{fig:regret_scatter} visualizes the regret: for each triple, an arrow
-connects the oracle makespan (best scheduler under csma\_bianchi) to the
-naive makespan (scheduler chosen under ``none,'' run under csma\_bianchi).
-The most dramatic cases occur in the $4\times4$ grid where HEFT's
-parallelism-maximizing placement creates dense contention.
+\Cref{fig:regret_scatter} visualizes the regret ratio (naive makespan
+divided by oracle makespan) for all 18 triples.  The 13 triples at 1.0
+show zero regret; the 5 bars above 1.0 are rank inversions, with the
+$4\times4$ / 10-task / widest-path case reaching $2.68\times$.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/regret_scatter.png}
-\caption{Makespan regret scatter plot.  Each arrow connects the oracle
-  makespan (best scheduler under csma\_bianchi) to the naive makespan
-  (scheduler chosen under interference-free model, run under
-  csma\_bianchi).  Red arrows indicate rank inversions; orange arrows
-  indicate moderate regret.  5 of 18 triples exhibit rank inversions.}
+\caption{Scheduling regret ratios.  Each bar shows the ratio of the
+  interference-free-optimal makespan (scheduler chosen under the
+  interference-free model, run under the interference-aware model) to
+  the oracle makespan (best scheduler under interference).  A ratio
+  of 1.0 indicates zero regret; red bars mark rank inversions where
+  the interference-free choice is suboptimal.}
 \label{fig:regret_scatter}
 \end{figure}
 
 These results demonstrate a key capability of \ncsim{}: by jointly modeling
 scheduling and wireless interference, it reveals that interference-free
-evaluations can lead not merely to inaccurate estimates but to
-systematically wrong policy choices---a finding that would be invisible to
+evaluations can lead to
+systematically wrong policy choices, a finding that would be invisible to
 tools that abstract away wireless contention.
 
 
@@ -1680,7 +1426,7 @@ importance of network transfer time versus compute time.  We sweep data
 size per edge across $\{1, 2, 5, 10, 20, 50, 100\}$\,MB on the 3$\times$3
 grid with HEFT and shortest-path routing, testing all three DAG types
 (5, 10, and 20 tasks).  \Cref{fig:ccr} shows the interference slowdown
-as a function of data size.
+as a function of CCR.
 
 The results reveal a non-monotonic pattern: slowdown peaks at intermediate
 CCR values (${\approx}0.3$--$1.1$) and decreases at both extremes.  The
@@ -1689,7 +1435,7 @@ so quickly that the probability of temporal overlap between concurrent
 flows is small, and contention has little opportunity to develop.  At very
 high CCR (50--100\,MB), HEFT's scheduling logic recognizes the enormous
 transfer costs and collapses tasks onto fewer nodes to avoid inter-node
-communication entirely---a scheduling adaptation that eliminates contention
+communication entirely, a scheduling adaptation that eliminates contention
 by eliminating transfers.  The interference ``danger zone'' lies in
 between, where transfers are long enough to overlap but the scheduler
 still distributes tasks across multiple nodes.  For the 20-task DAG, the
@@ -1700,17 +1446,18 @@ comparable).
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/sensitivity_ccr.png}
-\caption{Interference slowdown vs.\ data size per edge (3$\times$3 grid,
+\caption{Interference slowdown vs.\ CCR (3$\times$3 grid,
   HEFT, shortest-path).  Slowdown peaks at intermediate CCR values
   where transfers are long enough to contend but not so large that the
-  scheduler collapses tasks onto one node.}
+  scheduler collapses tasks onto one node.  The 20-task DAG reaches
+  $7.3\times$ at CCR$\approx 0.53$.}
 \label{fig:ccr}
 \end{figure}
 
 \subsubsection{Multi-DAG Contention}
 
 In practice, edge computing platforms rarely service a single workflow in
-isolation---multiple applications submit DAGs concurrently, and their
+isolation; multiple applications submit DAGs concurrently, and their
 transfers share the same wireless medium.  To evaluate how \ncsim{}
 captures this multi-tenant scenario, we inject $k \in \{1, 2, 3, 4, 5\}$
 identical 5-task fork-join DAGs with 0.5\,s stagger on the 3$\times$3 grid
@@ -1747,10 +1494,10 @@ substantially underestimate the makespan of multi-tenant edge deployments.
 
 \Cref{tab:sensitivity_summary} consolidates the findings across both
 sensitivity dimensions.  Taken together, these results delineate an
-\emph{interference danger zone}---the conjunction of parameter settings
+\emph{interference danger zone}, the conjunction of parameter settings
 under which interference effects are most severe and most likely to change
 scheduling conclusions.  Wireless interference has the greatest
-impact---and is most likely to produce rank inversions---at moderate
+impact, and is most likely to produce rank inversions, at moderate
 communication-to-computation ratios (5--20\,MB payloads per edge) with
 multiple concurrent workflows ($k \geq 2$).
 
@@ -1760,7 +1507,7 @@ between processing stages) and sensor fusion applications (aggregating data
 from multiple modalities).  Multiple concurrent workflows are the norm on
 shared edge platforms.  In other words, the interference danger zone
 corresponds precisely to the deployment scenarios that motivate edge
-computing research---which means that tools ignoring interference are most
+computing research, which means that tools ignoring interference are most
 unreliable in exactly the settings where they are most needed.
 
 \begin{table}[t]
@@ -1782,85 +1529,97 @@ Multi-DAG   & DAG count $k$   & $k \geq 2$        & $4.1\times$ gap at $k{=}5$ \
 \subsection{Scalability}
 \label{sec:scalability}
 
-Our experiments validate \ncsim{} at scales up to 4$\times$4 grids (16
-nodes, 68 links) with 20-task DAGs.  At these sizes, individual runs
-complete in under 2~seconds on commodity hardware (single-threaded Python
-3.11); the full 108-run factorial comparison completes in under 4~minutes.  The main
-computational bottlenecks are: (1)~conflict graph construction, which uses
-the Bron-Kerbosch algorithm (exact for $\leq 50$ links, with a greedy
-approximation fallback for larger graphs); and (2)~event queue size, which
-grows with concurrent transfers.  Scaling to larger networks (e.g.,
-8$\times$8 grids or 100+ node topologies) may require the greedy clique
-approximation and would benefit from a compiled-language event queue, but
-remains tractable for the scheduling studies \ncsim{} targets.
+To demonstrate that \ncsim{}'s findings generalize beyond regular grid
+topologies, we run a scalability experiment on a 100-node random geometric
+graph (RGG): 100 nodes placed uniformly in a 500\,m $\times$ 500\,m area
+with links between all pairs within 80\,m WiFi range, yielding 312
+undirected links (average degree 6.2).  We test 30-, 40-, and 50-task
+multi-level pipeline DAGs across all three schedulers and both routing
+strategies (36 runs total).
+
+\begin{table}[t]
+\centering
+\caption{Scalability: makespan ratios on a 100-node random geometric
+  graph (312 links, avg.\ degree 6.2) with 30-, 40-, and 50-task DAGs.
+  Format follows \Cref{tab:winner_matrix}.  Interference slowdowns
+  range from $48\times$ to $136\times$.}
+\label{tab:scalability_rgg}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}l|rrrl|rrrl@{}}
+\toprule
+& \multicolumn{4}{c|}{\textbf{Widest-path}} &
+  \multicolumn{4}{c}{\textbf{Shortest-path}} \\
+\textbf{DAG} &
+  \textbf{H} & \textbf{C} & \textbf{RR} & \textbf{None$\downarrow$} &
+  \textbf{H} & \textbf{C} & \textbf{RR} & \textbf{None$\downarrow$} \\
+\midrule
+30T & 1.24 & 1.00 & 2.40 & \textbf{HEFT} & 1.16 & 1.00 & 1.89 & \textbf{HEFT} \\
+40T & 1.00 & 1.01 & 2.04 & \textbf{CPOP} & 1.00 & 1.09 & 2.29 & HEFT \\
+50T & 1.00 & 1.59 & 2.31 & HEFT          & 1.18 & 1.00 & 1.46 & CPOP \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\Cref{tab:scalability_rgg} presents the makespan ratios.
+Three of six triples (50\%) exhibit rank inversions, an even higher
+rate than the 27.8\% observed on grid topologies.  Interference
+slowdowns are dramatically larger: $48\times$ to $136\times$, compared
+to the $1.4\times$--$54\times$ range on grids.  The denser conflict
+neighborhoods in a 100-node RGG create far more contention than a
+$4\times4$ grid.
+
+Two patterns differ from the grid results.  First, CPOP wins under
+interference for both 30-task triples (ratios 1.00 vs.\ HEFT at
+1.16--1.24), whereas HEFT dominated the smaller grids.  CPOP's
+critical-path focus yields placements that create fewer concurrent
+transfers in the dense RGG.  Second, round-robin is consistently
+worst (ratios 1.46--2.40), unlike the $4\times4$ grid where round-robin
+sometimes won; with 100 nodes, round-robin's cyclic placement
+scatters tasks across distant nodes, maximizing multi-hop contention.
+
+The full 36-run experiment completes in under 10 minutes on commodity
+hardware (single-threaded Python 3.11), confirming that the greedy
+clique approximation (used automatically for the 312-link conflict
+graph) keeps \ncsim{} tractable at 100+ node scales.  The main
+computational bottlenecks are conflict graph construction (Bron-Kerbosch
+with greedy fallback for $>50$ links) and event queue size (grows with
+concurrent transfers).
 
 
 %% ============================================================
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-We presented \ncsim{}, a lightweight, flow-level, static-topology
-discrete-event simulator that bridges the gap between heavyweight network
-simulators and task-centric scheduling tools by combining DAG workflow
-scheduling with physically-grounded 802.11 WiFi models in a single,
-easy-to-use Python package.  The simulator's
-modular architecture, built on six pluggable abstract base classes, enables
-rapid experimentation with different scheduling algorithms, routing
-strategies, and interference models.  We validated the WiFi model through
-nine internal experiments (all matching analytical predictions exactly),
-external reproduction of Bianchi's published results (matching within
-0.003\%), and cross-validation against ns-3 packet-level simulations,
-establishing self-consistency, fidelity to the canonical analytical
-framework, and agreement with packet-level ground truth.
+\ncsim{} is a lightweight discrete-event simulator that combines DAG
+workflow scheduling with physically-grounded 802.11 WiFi models,
+validated against analytical predictions, Bianchi's published results,
+and ns-3 packet-level simulations.  It targets macroscopic scheduling
+decisions rather than protocol engineering, keeping simulation times
+tractable for large parameter sweeps.
 
-The key finding enabled by \ncsim{} is that wireless interference causes
-not merely inaccurate performance predictions but \emph{systematically wrong
-scheduler choices}.  In a 108-run factorial comparison across three
-schedulers, three network sizes, and three DAG complexities, the scheduler
-that appeared optimal under an interference-free model was dominated under
-realistic CSMA/CA conditions in 27.8\% of scenarios, with performance
-regret reaching 168\%.  The sophisticated HEFT scheduler, which dominates
-under interference-free evaluation, was outperformed by a simple round-robin
-baseline in 4 of 6 large-network scenarios.  Sensitivity analyses further
-revealed that interference impact peaks at moderate
+The key finding is that wireless interference causes \emph{systematically
+wrong scheduler rankings}: the interference-free-optimal scheduler is
+outperformed under realistic conditions in 27.8\% of grid scenarios and
+50\% of scenarios on a 100-node random geometric graph.  Sensitivity
+analyses show that interference impact peaks at moderate
 communication-to-computation ratios and amplifies super-linearly with
-concurrent workflows---conditions that characterize the wireless edge
-deployments that motivate this research.
+concurrent workflows, precisely the conditions that characterize
+wireless edge deployments.
 
-The rank inversion finding suggests that the next generation of DAG
-schedulers for wireless edge computing should be \emph{interference-aware}:
-the scheduler should account for wireless contention when making placement
-decisions, not merely optimize the critical path assuming uncontested
-bandwidth.  Concrete design directions include querying the conflict graph
-during placement to penalize dense contention neighborhoods, two-phase
-scheduling that first places tasks then iteratively reassigns those
-contributing most to contention, and interference ``budgets'' that limit
-concurrent cross-node transfers.  More broadly, DAG scheduling evaluations
-that assume uncontested links risk systematically wrong conclusions about
-which algorithms are superior.  \ncsim{} enables researchers to
-incorporate realistic wireless modeling at low cost---a single 108-run
-comparison completes in under 4 minutes---avoiding these systematic blind
-spots.
+These results suggest that interference-aware scheduling, where
+the scheduler accounts for contention when making placement decisions,
+is a promising direction.  More broadly, evaluations that ignore
+wireless interference risk systematically wrong conclusions about which
+scheduling algorithms are superior.
 
-These findings underscore the value of tools like \ncsim{} that make
-realistic wireless modeling accessible without the computational overhead
-of packet-level simulation.  We identify several specific directions for
-future work: (1)~developing interference-aware scheduling heuristics that
-query the conflict graph during task placement to avoid generating dense
-contention neighborhoods; (2)~dynamic rescheduling that adjusts task
-placements in response to observed network congestion during execution;
-(3)~incorporating node mobility with time-varying topology to model
-scenarios such as robotic edge computing; (4)~multi-slot node execution
-to support GPU-like parallelism in heterogeneous edge deployments;
-(5)~energy consumption models that account for the increased energy cost
-of contention-induced retransmissions; and (6)~extending the ns-3
-cross-validation (\Cref{sec:ns3_validation}) to a wider range of traffic
-patterns and multi-hop topologies to further characterize the fidelity
-boundaries of the flow-level approximation.
+Future work includes: (1)~interference-aware scheduling heuristics that
+query the conflict graph during task placement; (2)~dynamic rescheduling
+that adjusts placements in response to observed congestion; and
+(3)~extending the ns-3 cross-validation to a wider range of traffic
+patterns and multi-hop topologies.
 
-The \ncsim{} simulator and all experimental configurations used in this
-paper are available as open-source software to support reproducibility
-and further investigation.
+The \ncsim{} simulator and all experimental configurations are available
+at \url{https://github.com/ANRGUSC/ncsim}.
 
 
 \section*{Acknowledgment}
