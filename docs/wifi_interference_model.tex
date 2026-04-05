@@ -88,8 +88,8 @@ effective throughput of each link depends on:
   via carrier sensing; nearby links cannot transmit simultaneously, reducing
   per-link throughput.
 \item \textbf{Hidden terminal interference}: Links outside each other's
-  carrier sensing range may transmit simultaneously, causing SINR degradation
-  at the receiver.
+  carrier sensing range may transmit simultaneously, causing frame loss
+  at the receiver (capture-threshold model).
 \end{enumerate}
 
 Prior to this model, \ncsim{} used a simple proximity-based interference model
@@ -621,7 +621,8 @@ The dynamic model correctly separates two distinct interference mechanisms:
 \item \textbf{Contention domain} (conflict graph neighbors): CSMA prevents
   simultaneous transmission.  These links share airtime via Bianchi's model.
 \item \textbf{Hidden terminals} (active links \emph{not} in the conflict graph):
-  These may transmit simultaneously, causing SINR degradation at the receiver.
+  These may transmit simultaneously, causing frame loss at the receiver
+  if SINR falls below the capture threshold.
 \end{enumerate}
 
 \subsubsection{Setup}
@@ -646,20 +647,28 @@ define:
 
 where $\mathcal{N}(\ell)$ is the set of conflict graph neighbors of $\ell$.
 
-\paragraph{SINR factor (hidden terminals).}
+\paragraph{Hidden terminal factor (capture threshold).}
 If $\mathcal{H}_\ell \neq \emptyset$, the SINR at the receiver of $\ell$ is
 computed per \Cref{eq:sinr}, with interference from hidden terminal
-transmitters only.  The degraded rate is looked up from the MCS table:
+transmitters only.  In 802.11, each frame is transmitted at a pre-selected
+MCS and either decoded successfully or lost entirely---there is no fallback
+to a lower MCS during reception.  The decode threshold for a given MCS is
+lower than the rate-selection threshold by a capture margin $\Delta = 5$\,dB:
 
 \begin{equation}
-\label{eq:sinr_factor}
-f_\text{SINR}(\ell) = \frac{R_\text{SINR}(\ell)}{R_\ell}
+\theta_\text{decode} = \theta_\text{select} - \Delta
 \end{equation}
 
-where $R_\text{SINR}(\ell) = \text{MCS\_lookup}(\text{SINR}_\ell)$ and
-$R_\ell$ is the base SNR-only rate.  If no hidden terminals are active,
-$f_\text{SINR} = 1.0$.  If the SINR drops below the minimum MCS threshold,
-$f_\text{SINR} = 0.01$ (link effectively destroyed).
+The hidden terminal factor is then:
+\begin{equation}
+\label{eq:sinr_factor}
+f_\text{HT}(\ell) = \begin{cases}
+1.0 & \text{if } \text{SINR}_\ell \geq \theta_\text{decode} \\
+0.01 & \text{otherwise (frame failure)}
+\end{cases}
+\end{equation}
+
+If no hidden terminals are active, $f_\text{HT} = 1.0$.
 
 \paragraph{Contention factor (Bianchi).}
 The number of contending stations is $n = 1 + |\mathcal{C}_\ell|$ (the link
@@ -675,19 +684,20 @@ f_\text{contention}(\ell) = \frac{\eta(n)}{n}
 
 \begin{equation}
 \label{eq:combined_factor}
-\boxed{f_\text{bianchi}(\ell) = f_\text{SINR}(\ell) \cdot f_\text{contention}(\ell)
-= \frac{R_\text{SINR}(\ell)}{R_\ell} \cdot \frac{\eta(n)}{n}}
+\boxed{f_\text{bianchi}(\ell) = f_\text{HT}(\ell) \cdot f_\text{contention}(\ell)
+= f_\text{HT}(\ell) \cdot \frac{\eta(n)}{n}}
 \end{equation}
 
 clamped to $[0.01, 1.0]$.
 
 \subsubsection{Dynamic Recalculation}
 
-When a transfer starts or completes on a link, all active conflict graph
-neighbors are recalculated:
+When a transfer starts or completes on a link, all other active links are
+recalculated (both conflict graph neighbors for contention and hidden
+terminals for SINR):
 
 \begin{equation}
-\texttt{get\_affected\_links}(\ell) = \mathcal{N}(\ell) \cap \mathcal{A}
+\texttt{get\_affected\_links}(\ell) = \mathcal{A} \setminus \{\ell\}
 \end{equation}
 
 This triggers re-evaluation of the interference factor and rescheduling of
@@ -704,9 +714,9 @@ completion events for affected transfers.
 \textbf{Property} & \textbf{\texttt{csma\_clique}} & \textbf{\texttt{csma\_bianchi}} \\
 \midrule
 Link bandwidth setup & $R_\ell / \omega(\ell)$ & $R_\ell$ \\
-Interference factor  & $1.0$ (static) & $\frac{R_\text{SINR}}{R_\ell} \cdot \frac{\eta(n)}{n}$ (dynamic) \\
+Interference factor  & $1.0$ (static) & $f_\text{HT} \cdot \frac{\eta(n)}{n}$ (dynamic) \\
 Contention model     & Worst-case clique bound & Bianchi MAC + active count \\
-Hidden terminals     & Not modeled & SINR degradation \\
+Hidden terminals     & Not modeled & Capture-threshold model \\
 Recalculation trigger & None & Active neighbor changes \\
 Runtime cost         & $O(1)$ per event & $O(|\mathcal{N}(\ell)|)$ per event \\
 \bottomrule
@@ -802,7 +812,7 @@ t_\text{transfer} &= 50 / 4.3 = 11.63\text{s} \\
 B_{\ell_{01}} &= 8.6\MBps \text{ (base rate)} \\
 n &= 2 \text{ contending stations} \\
 \eta(2) &\approx 0.88, \quad f_\text{contention} = 0.88 / 2 = 0.44 \\
-f_\text{SINR} &= 1.0 \text{ (no hidden terminals---both links are in conflict graph)} \\
+f_\text{HT} &= 1.0 \text{ (no hidden terminals---both links are in conflict graph)} \\
 f &= 1.0 \times 0.44 = 0.44 \\
 B_\text{eff} &= 8.6 \times 0.44 = 3.78\MBps \\
 t_\text{transfer} &= 50 / 3.78 = 13.21\text{s} \\
@@ -859,7 +869,7 @@ for simple heuristic interference models.  The key contributions are:
   optional RTS/CTS for receiver protection.
 \item \textbf{Two complementary interference variants}: a fast static clique
   bound and a dynamic Bianchi-based model that captures both CSMA contention
-  and hidden terminal SINR degradation.
+  and hidden terminal capture-threshold effects.
 \item \textbf{Zero engine modifications}: the model composes cleanly with
   \ncsim{}'s existing \texttt{link.bandwidth} and \texttt{InterferenceModel}
   abstractions.

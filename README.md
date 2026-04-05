@@ -13,10 +13,10 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 - **HEFT/CPOP/Manual scheduling**: Integrated with [anrg-saga](https://github.com/ANRGUSC/saga) schedulers, plus manual assignment via `pinned_to`
 - **Multi-hop routing**: Direct, widest-path (max-min bandwidth), and shortest-path (min-latency)
 - **802.11 WiFi PHY/MAC**: Log-distance path loss, SNR-based MCS rate adaptation (802.11n/ac/ax)
-- **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (dynamic SINR)
+- **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (capture-aware)
 - **Fair bandwidth sharing** when multiple transfers share a link
 - **Experiment scripts** for interference verification and routing comparison
-- **Comprehensive documentation**: [User guide](https://anrgusc.github.io/ncsim/) with tutorials, architecture reference, and scenario gallery
+- **Documentation**: [installation guide](docs/installation.html), [user guide](docs/userguide.html), [architecture overview](docs/architecture.html), and [WiFi interference model](docs/wifi_interference_model.pdf)
 
 ## Installation
 
@@ -121,13 +121,9 @@ python -m pytest tests/ -v
 
 178 tests covering event queue, execution engine, scheduling, routing, WiFi physics, and acceptance criteria.
 
-## Documentation
-
-Full documentation is available at **[anrgusc.github.io/ncsim](https://anrgusc.github.io/ncsim/)** -- covering installation, core concepts, scenario writing, CLI usage, web visualization, experiment scripts, and step-by-step tutorials.
-
-A **[printable/PDF version](https://anrgusc.github.io/ncsim/print_page/)** of the complete user guide is also available (open in browser and use Print > Save as PDF).
-
 ## Architecture
+
+For a detailed interactive overview, see [docs/architecture.html](https://htmlpreview.github.io/?https://github.com/ANRGUSC/ncsim/blob/main/docs/architecture.html).
 
 ```
 ncsim/                  # Python package
@@ -152,15 +148,11 @@ ncsim/                  # Python package
 
 scenarios/              # Example scenario YAML files (10 examples)
 tests/                  # Unit and integration tests (8 test modules)
-docs/                   # Documentation (MkDocs Material site)
-├── getting-started/    # Installation and quick start
-├── concepts/           # Architecture, simulation model, scheduling, routing, WiFi
-├── scenarios/          # YAML reference, scenario gallery, writing guide
-├── cli/                # CLI reference, output files, batch experiments
-├── viz/                # Web visualization setup and usage
-├── experiments/        # Interference verification, routing comparison
-├── tutorials/          # 5 step-by-step tutorials
-└── reference/          # FAQ, troubleshooting, glossary
+docs/                   # Documentation
+├── architecture.html   # Interactive architecture overview
+├── installation.html   # Installation guide
+├── userguide.html      # User guide with screenshots
+└── wifi_interference_model.pdf  # WiFi model writeup
 ```
 
 ---
