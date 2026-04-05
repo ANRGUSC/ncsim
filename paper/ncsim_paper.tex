@@ -119,8 +119,8 @@ than a simple round-robin baseline, yet an interference-free evaluation
 would confidently select HEFT.  Realistic wireless modeling is essential
 for meaningful evaluation of edge computing scheduling algorithms.
 
-We present \ncsim{},\footnote{Open-source: \url{https://github.com/ANRGUSC/ncsim}}
-a lightweight, flow-level discrete-event simulator that bridges this gap
+We present \ncsim{},\footnote{\url{https://github.com/ANRGUSC/ncsim}}
+an open-source lightweight, flow-level discrete-event simulator that bridges this gap
 by combining DAG workflow scheduling with physically-grounded 802.11
 WiFi models in a single Python package.  The contributions are:
 
@@ -283,8 +283,7 @@ not require changes to the network model, and vice versa.
 
 \textbf{Simplicity.}  Scenarios are specified in declarative YAML files.
 The entire simulator is approximately 5,500 lines of Python with minimal
-dependencies.  Example scenario files are available in the project
-repository.\footnote{\url{https://github.com/ANRGUSC/ncsim}}
+dependencies.  
 
 \textbf{Physical grounding.}  Wireless link bandwidths are derived from RF
 parameters (transmit power, frequency, path loss exponent) rather than
@@ -418,6 +417,8 @@ includes four schedulers:
   bandwidths for connected pairs and near-zero bandwidth for unreachable
   pairs, causing the scheduler to naturally avoid infeasible placements.
 \end{itemize}
+\noindent The SAGA adapter can be easily extended to include any scheduler
+from the SAGA library~\cite{SAGARepo}.
 
 \subsection{Routing and Bandwidth Sharing}
 
