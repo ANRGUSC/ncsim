@@ -500,19 +500,10 @@ class ExecutionEngine:
             self._complete_local_transfer(dag_id, from_task, to_task)
             return
 
-        # Build network state for dynamic routing models
-        network_state = {
-            "active_link_ids": self._get_active_link_ids(),
-            "link_transfer_counts": {
-                lid: ls.num_transfers
-                for lid, ls in self.link_states.items()
-                if ls.num_transfers > 0
-            },
-        }
-
-        # Get path for transfer
+        # Get path for transfer (without network_state at schedule time;
+        # dynamic routing models recompute in _handle_transfer_start)
         path = self.routing_model.get_path(
-            src_node, dst_node, self.network, network_state
+            src_node, dst_node, self.network
         )
 
         if path is None or len(path) == 0:
@@ -546,7 +537,9 @@ class ExecutionEngine:
                 "data_size": edge.data_size,
                 "path": path,
                 "bottleneck_bandwidth": bottleneck_bw,
-                "total_latency": total_latency
+                "total_latency": total_latency,
+                "src_node": src_node,
+                "dst_node": dst_node,
             }
         )
 
@@ -581,6 +574,37 @@ class ExecutionEngine:
         path = event.data.get("path", [link_id])
         bottleneck_bw = event.data.get("bottleneck_bandwidth", 0.0)
         total_latency = event.data.get("total_latency", 0.0)
+
+        # For dynamic routing: recompute path with current network state
+        # so sibling transfers that started earlier are visible
+        if getattr(self.routing_model, 'is_dynamic', False):
+            src_node = event.data.get("src_node")
+            dst_node = event.data.get("dst_node")
+            if src_node and dst_node:
+                network_state = {
+                    "active_link_ids": self._get_active_link_ids(),
+                    "link_transfer_counts": {
+                        lid: ls.num_transfers
+                        for lid, ls in self.link_states.items()
+                        if ls.num_transfers > 0
+                    },
+                }
+                new_path = self.routing_model.get_path(
+                    src_node, dst_node, self.network, network_state
+                )
+                if new_path is not None and len(new_path) > 0:
+                    path = new_path
+                    link_id = path[0]
+                    if len(path) == 1:
+                        bottleneck_bw = self.network.links[link_id].bandwidth
+                        total_latency = self.network.links[link_id].latency
+                    else:
+                        bottleneck_bw = min(
+                            self.network.links[lid].bandwidth for lid in path
+                        )
+                        total_latency = sum(
+                            self.network.links[lid].latency for lid in path
+                        )
 
         # Validate all links in path exist
         for lid in path:

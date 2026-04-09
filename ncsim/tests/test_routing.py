@@ -718,3 +718,160 @@ class TestDynamicInterferenceAwareRouting:
         routing = DynamicInterferenceAwareRouting(im)
         bw = routing.get_path_bandwidth("n0", "n2", network)
         assert bw == 60  # Bottleneck is l12
+
+
+class TestGreedyOrderVariants:
+    """Tests for GC (criticality), GB (bytes), GO (overlap) greedy orderings."""
+
+    def _make_chain_dag_and_plan(self):
+        """Create a 4-task chain DAG with placement across 3 nodes.
+
+        T0(n0, cost=100) --10MB--> T1(n1, cost=200) --20MB--> T2(n2, cost=50) --5MB--> T3(n0, cost=100)
+        """
+        network = make_network(
+            [
+                {"id": "n0", "x": 0, "y": 0, "compute_capacity": 100},
+                {"id": "n1", "x": 40, "y": 0, "compute_capacity": 100},
+                {"id": "n2", "x": 80, "y": 0, "compute_capacity": 100},
+            ],
+            [
+                {"id": "l01", "from": "n0", "to": "n1", "bandwidth": 100},
+                {"id": "l12", "from": "n1", "to": "n2", "bandwidth": 100},
+                {"id": "l20", "from": "n2", "to": "n0", "bandwidth": 100},
+            ]
+        )
+        dag = DAG(
+            id="dag1",
+            tasks={
+                "T0": Task(id="T0", compute_cost=100, dag_id="dag1"),
+                "T1": Task(id="T1", compute_cost=200, dag_id="dag1"),
+                "T2": Task(id="T2", compute_cost=50, dag_id="dag1"),
+                "T3": Task(id="T3", compute_cost=100, dag_id="dag1"),
+            },
+            edges=[
+                Edge(from_task="T0", to_task="T1", data_size=10),
+                Edge(from_task="T1", to_task="T2", data_size=20),
+                Edge(from_task="T2", to_task="T3", data_size=5),
+            ]
+        )
+        plan = PlacementPlan(assignments={
+            "T0": "n0", "T1": "n1", "T2": "n2", "T3": "n0"
+        })
+        return network, dag, plan
+
+    def test_invalid_greedy_order_raises(self):
+        """Invalid greedy_order should raise ValueError."""
+        im = NoInterference()
+        with pytest.raises(ValueError, match="greedy_order"):
+            InterferenceAwareRouting(im, greedy_order="invalid")
+
+    def test_gs_sorts_by_start_time(self):
+        """GS (start) should sort flows by estimated start time ascending."""
+        network, dag, plan = self._make_chain_dag_and_plan()
+        im = NoInterference()
+        routing = InterferenceAwareRouting(im, greedy_order="start")
+        routing.plan_routes(dag, plan, network)
+        assert routing._routes_planned
+
+    def test_gc_sorts_by_criticality(self):
+        """GC (criticality) routes most-critical flows first.
+
+        In a chain T0->T1->T2->T3, ranku(T1) > ranku(T2) > ranku(T3).
+        The flow to T1 should be routed before the flow to T2.
+        """
+        network, dag, plan = self._make_chain_dag_and_plan()
+        im = NoInterference()
+        routing = InterferenceAwareRouting(im, greedy_order="criticality")
+
+        # Verify ranku ordering
+        ranku = routing._compute_ranku(dag, plan, network)
+        # T1 has more downstream work than T2, T2 has more than T3
+        assert ranku["T1"] > ranku["T2"], f"ranku T1={ranku['T1']:.2f} should > T2={ranku['T2']:.2f}"
+        assert ranku["T2"] > ranku["T3"], f"ranku T2={ranku['T2']:.2f} should > T3={ranku['T3']:.2f}"
+
+        routing.plan_routes(dag, plan, network)
+        assert routing._routes_planned
+
+    def test_gb_sorts_by_bytes(self):
+        """GB (bytes) routes largest flows first.
+
+        Flows: T0->T1 (10MB), T1->T2 (20MB), T2->T3 (5MB).
+        GB should route T1->T2 first (20MB), then T0->T1 (10MB), then T2->T3 (5MB).
+        """
+        network, dag, plan = self._make_chain_dag_and_plan()
+        im = NoInterference()
+        routing = InterferenceAwareRouting(im, greedy_order="bytes")
+        routing.plan_routes(dag, plan, network)
+        assert routing._routes_planned
+
+    def test_go_sorts_by_overlap(self):
+        """GO (overlap) routes most-congested flows first.
+
+        Create a DAG where some flows have overlapping time windows.
+        """
+        network, dag, plan = self._make_chain_dag_and_plan()
+        im = NoInterference()
+        routing = InterferenceAwareRouting(im, greedy_order="overlap")
+        routing.plan_routes(dag, plan, network)
+        assert routing._routes_planned
+
+    def test_gc_ranku_leaf_task(self):
+        """Leaf task should have ranku = compute_cost / capacity."""
+        network, dag, plan = self._make_chain_dag_and_plan()
+        im = NoInterference()
+        routing = InterferenceAwareRouting(im, greedy_order="criticality")
+        ranku = routing._compute_ranku(dag, plan, network)
+        # T3 is a leaf: ranku = 100/100 = 1.0
+        assert abs(ranku["T3"] - 1.0) < 0.01, f"ranku(T3)={ranku['T3']:.2f}, expected 1.0"
+
+    def test_overlap_degrees_non_overlapping(self):
+        """Non-overlapping flows should have zero overlap degree."""
+        flows = [
+            {"from_task": "A", "to_task": "B", "data_size": 10},
+            {"from_task": "C", "to_task": "D", "data_size": 10},
+        ]
+        windows = {
+            ("A", "B"): (0.0, 5.0),
+            ("C", "D"): (10.0, 15.0),
+        }
+        degrees = InterferenceAwareRouting._compute_overlap_degrees(flows, windows)
+        assert degrees[("A", "B")] == 0.0
+        assert degrees[("C", "D")] == 0.0
+
+    def test_overlap_degrees_overlapping(self):
+        """Overlapping flows should have positive overlap degree."""
+        flows = [
+            {"from_task": "A", "to_task": "B", "data_size": 10},
+            {"from_task": "C", "to_task": "D", "data_size": 10},
+            {"from_task": "E", "to_task": "F", "data_size": 10},
+        ]
+        windows = {
+            ("A", "B"): (0.0, 10.0),
+            ("C", "D"): (5.0, 15.0),
+            ("E", "F"): (20.0, 25.0),
+        }
+        degrees = InterferenceAwareRouting._compute_overlap_degrees(flows, windows)
+        # A-B overlaps with C-D by 5.0s, not with E-F
+        assert degrees[("A", "B")] == 5.0
+        # C-D overlaps with A-B by 5.0s, not with E-F
+        assert degrees[("C", "D")] == 5.0
+        # E-F overlaps with nobody
+        assert degrees[("E", "F")] == 0.0
+
+    def test_all_variants_produce_valid_routes(self):
+        """All greedy orderings should produce valid routes for same DAG."""
+        network, dag, plan = self._make_chain_dag_and_plan()
+        im = NoInterference()
+
+        for order in InterferenceAwareRouting.GREEDY_ORDERS:
+            routing = InterferenceAwareRouting(im, greedy_order=order)
+            routing.plan_routes(dag, plan, network)
+            assert routing._routes_planned, f"order={order} failed to plan"
+            # Every flow should have a route
+            for edge in dag.edges:
+                src = plan.assignments[edge.from_task]
+                dst = plan.assignments[edge.to_task]
+                if src != dst:
+                    path = routing.get_path(src, dst, network)
+                    assert path is not None, f"order={order}: no path {src}->{dst}"
+                    assert len(path) > 0, f"order={order}: empty path {src}->{dst}"

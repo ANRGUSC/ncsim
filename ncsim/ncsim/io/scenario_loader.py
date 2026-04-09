@@ -35,6 +35,7 @@ class ScenarioConfig:
     interference: str = "proximity"
     interference_radius: float = 15.0
     routing_hop_cutoff: Optional[int] = None
+    greedy_order: Optional[str] = None
     rf_config: Optional[Dict[str, Any]] = None
 
 
@@ -184,6 +185,7 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
         return ScenarioConfig()
 
     routing_hop_cutoff = config_data.get("routing_hop_cutoff")
+    greedy_order = config_data.get("greedy_order")
     return ScenarioConfig(
         scheduler=str(config_data.get("scheduler", "heft")),
         seed=int(config_data.get("seed", 42)),
@@ -191,6 +193,7 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
         interference=str(config_data.get("interference", "proximity")),
         interference_radius=float(config_data.get("interference_radius", 15.0)),
         routing_hop_cutoff=int(routing_hop_cutoff) if routing_hop_cutoff is not None else None,
+        greedy_order=str(greedy_order) if greedy_order is not None else None,
         rf_config=config_data.get("rf"),
     )
 

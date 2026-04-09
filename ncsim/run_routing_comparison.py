@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Routing comparison: W / S / GS / GSD under HEFT with csma_bianchi.
+"""Routing comparison: W / S / GS / GC / GB / GO / GSD under HEFT with csma_bianchi.
 
 Each (network, DAG, routing) combo is run 30 times with different seeds
 to average out HEFT non-determinism from Python hash randomization.
@@ -321,7 +321,7 @@ def generate_scenario_yaml(net_size_label, dag_size, dag_generators=None,
 # ─── Subprocess Runner ───────────────────────────────────────────
 
 
-def run_scenario(yaml_str, run_label, routing, seed=42):
+def run_scenario(yaml_str, run_label, routing, seed=42, greedy_order=None):
     """Write YAML to temp file, invoke ncsim via subprocess, return output dir."""
     outdir = os.path.join(OUTDIR, run_label)
     os.makedirs(outdir, exist_ok=True)
@@ -341,6 +341,8 @@ def run_scenario(yaml_str, run_label, routing, seed=42):
         "--routing", routing,
         "--seed", str(seed),
     ]
+    if greedy_order is not None:
+        cmd.extend(["--greedy-order", greedy_order])
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         return None
@@ -360,12 +362,14 @@ def get_makespan(outdir):
         return None
 
 
-def run_averaged(yaml_str, base_label, routing, num_seeds=NUM_SEEDS):
+def run_averaged(yaml_str, base_label, routing, num_seeds=NUM_SEEDS,
+                  greedy_order=None):
     """Run a scenario num_seeds times and return the mean makespan."""
     makespans = []
     for seed in range(1, num_seeds + 1):
         label = f"{base_label}_s{seed}"
-        outdir = run_scenario(yaml_str, label, routing, seed=seed)
+        outdir = run_scenario(yaml_str, label, routing, seed=seed,
+                              greedy_order=greedy_order)
         if outdir is not None:
             ms = get_makespan(outdir)
             if ms is not None:
@@ -382,24 +386,28 @@ def main():
     os.makedirs(OUTDIR, exist_ok=True)
 
     print()
-    print("=" * 80)
-    print("  Routing Comparison: W / S / GS / GSD  (averaged over 30 seeds)")
+    print("=" * 100)
+    print("  Routing Comparison: W / S / GS / GC / GB / GO / GSD  (averaged over 30 seeds)")
     print("  Scheduler: HEFT | Interference: csma_bianchi")
     print(f"  Task config: compute_cost={COMPUTE_COST}, data_size={DATA_SIZE}MB")
     print(f"  Grid spacing: {GRID_SPACING}m")
-    print("=" * 80)
+    print("=" * 100)
     print()
 
     net_sizes = ["small", "medium", "large"]
     dag_sizes = ["small", "medium", "large"]
-    routings = ["widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic"]
 
-    _LABEL = {
-        "widest_path": "W",
-        "shortest_path": "S",
-        "interference_aware": "GS",
-        "interference_aware_dynamic": "GSD",
-    }
+    # Each strategy: (display_label, routing_cli_value, greedy_order_or_None)
+    STRATEGIES = [
+        ("W",   "widest_path",              None),
+        ("S",   "shortest_path",            None),
+        ("GS",  "interference_aware",       "start"),
+        ("GC",  "interference_aware",       "criticality"),
+        ("GB",  "interference_aware",       "bytes"),
+        ("GO",  "interference_aware",       "overlap"),
+        ("GSD", "interference_aware_dynamic", None),
+    ]
+    LABELS = [s[0] for s in STRATEGIES]
 
     # Print network info
     for ns in net_sizes:
@@ -408,24 +416,26 @@ def main():
         print(f"  {ns} network: {desc}, {len(links)} links")
     print()
 
-    total_combos = len(net_sizes) * len(dag_sizes) * len(routings)
+    total_combos = len(net_sizes) * len(dag_sizes) * len(STRATEGIES)
     total_runs = total_combos * NUM_SEEDS
     print(f"  Running {total_combos} combos x {NUM_SEEDS} seeds = {total_runs} simulations...")
     print()
 
-    results = {}  # (net_size, dag_size, routing) -> mean makespan
+    results = {}  # (net_size, dag_size, label) -> mean makespan
     combo = 0
 
     for net_size in net_sizes:
         for dag_size in dag_sizes:
             yaml_str = generate_scenario_yaml(net_size, dag_size)
-            for routing in routings:
+            for label, routing, greedy_order in STRATEGIES:
                 combo += 1
-                base_label = f"{net_size}net_{dag_size}dag_{routing}"
-                print(f"  [{combo:>2d}/{total_combos}] {base_label} (x{NUM_SEEDS})...",
+                go_suffix = f"_{greedy_order}" if greedy_order else ""
+                base_label = f"{net_size}net_{dag_size}dag_{routing}{go_suffix}"
+                print(f"  [{combo:>2d}/{total_combos}] {label} {net_size}/{dag_size} (x{NUM_SEEDS})...",
                       end=" ", flush=True)
-                mean_ms = run_averaged(yaml_str, base_label, routing)
-                results[(net_size, dag_size, routing)] = mean_ms
+                mean_ms = run_averaged(yaml_str, base_label, routing,
+                                       greedy_order=greedy_order)
+                results[(net_size, dag_size, label)] = mean_ms
                 if mean_ms is not None:
                     print(f"{mean_ms:.4f}s")
                 else:
@@ -435,59 +445,35 @@ def main():
 
     # ─── Per-Network Tables ──────────────────────────────────────
 
+    col_w = 10  # column width
+    hdr = "  ".join(f"{lb + '(s)':>{col_w}s}" for lb in LABELS)
+
     for net_size in net_sizes:
         _, net_desc = NETWORK_SIZES[net_size]
         print(f"  Network: {net_desc}")
-        print(f"  {'─' * 90}")
-        print(f"  {'DAG Size':<12s}  {'W(s)':>10s}  {'S(s)':>10s}  {'GS(s)':>10s}  {'GSD(s)':>10s}  {'Best':>8s}")
+        print(f"  {'─' * (14 + (col_w + 2) * len(LABELS) + 10)}")
+        print(f"  {'DAG Size':<12s}  {hdr}  {'Best':>8s}")
 
         for dag_size in dag_sizes:
             vals = {}
             strs = {}
-            for r in routings:
-                v = results.get((net_size, dag_size, r))
-                lbl = _LABEL[r]
-                strs[lbl] = f"{v:.4f}" if v is not None else "ERROR"
+            for lb in LABELS:
+                v = results.get((net_size, dag_size, lb))
+                strs[lb] = f"{v:.4f}" if v is not None else "ERROR"
                 if v is not None:
-                    vals[lbl] = v
+                    vals[lb] = v
             best = min(vals, key=vals.get) if vals else "n/a"
-            print(f"  {dag_size:<12s}  {strs['W']:>10s}  {strs['S']:>10s}  "
-                  f"{strs['GS']:>10s}  {strs['GSD']:>10s}  {best:>8s}")
+            row_vals = "  ".join(f"{strs[lb]:>{col_w}s}" for lb in LABELS)
+            print(f"  {dag_size:<12s}  {row_vals}  {best:>8s}")
         print()
-
-    # ─── Summary Table ───────────────────────────────────────────
-
-    print(f"  Summary Table (mean makespan in seconds, W / S / GS / GSD):")
-    print(f"  {'─' * 82}")
-    header = f"  {'':>12s}"
-    for net_size in net_sizes:
-        _, net_desc = NETWORK_SIZES[net_size]
-        header += f"  {net_desc:>24s}"
-    print(header)
-
-    for dag_size in dag_sizes:
-        row = f"  {dag_size + ' DAG':<12s}"
-        for net_size in net_sizes:
-            w = results.get((net_size, dag_size, "widest_path"))
-            s = results.get((net_size, dag_size, "shortest_path"))
-            gs = results.get((net_size, dag_size, "interference_aware"))
-            gsd = results.get((net_size, dag_size, "interference_aware_dynamic"))
-            if all(v is not None for v in [w, s, gs, gsd]):
-                cell = f"{w:.1f}/{s:.1f}/{gs:.1f}/{gsd:.1f}"
-            else:
-                cell = "err"
-            row += f"  {cell:>24s}"
-        print(row)
-
-    print()
 
     # ─── Winner Summary ──────────────────────────────────────────
 
-    wins = {r: 0 for r in routings}
-    wins["tie"] = 0
+    wins = {lb: 0 for lb in LABELS}
+    wins["TIE"] = 0
 
     print(f"  Winner per cell (lowest mean makespan):")
-    print(f"  {'─' * 82}")
+    print(f"  {'─' * (14 + 26 * len(net_sizes))}")
     header = f"  {'':>12s}"
     for net_size in net_sizes:
         _, net_desc = NETWORK_SIZES[net_size]
@@ -498,19 +484,19 @@ def main():
         row = f"  {dag_size + ' DAG':<12s}"
         for net_size in net_sizes:
             vals = {}
-            for r in routings:
-                v = results.get((net_size, dag_size, r))
+            for lb in LABELS:
+                v = results.get((net_size, dag_size, lb))
                 if v is not None:
-                    vals[r] = v
+                    vals[lb] = v
             if len(vals) >= 2:
                 best_val = min(vals.values())
                 winners = [k for k, v in vals.items()
                            if abs(v - best_val) / max(best_val, 1e-9) < 0.01]
                 if len(winners) > 1:
                     cell = "TIE"
-                    wins["tie"] += 1
+                    wins["TIE"] += 1
                 else:
-                    cell = _LABEL[winners[0]]
+                    cell = winners[0]
                     wins[winners[0]] += 1
             else:
                 cell = "n/a"
@@ -518,23 +504,22 @@ def main():
         print(row)
 
     print()
-    print(f"  Wins: W={wins['widest_path']}, S={wins['shortest_path']}, "
-          f"GS={wins['interference_aware']}, GSD={wins['interference_aware_dynamic']}, "
-          f"ties={wins['tie']}")
+    win_parts = [f"{lb}={wins[lb]}" for lb in LABELS]
+    print(f"  Wins: {', '.join(win_parts)}, ties={wins['TIE']}")
     print()
 
     # ─── Bottleneck Network Scenarios ────────────────────────────
 
     print()
-    print("=" * 70)
+    print("=" * 100)
     print("  Bottleneck Network  (averaged over 30 seeds)")
     print("  5 nodes in a line (30m spacing), direct n0-n4 at 120m")
     print("  Tasks pinned to force cross-network transfers")
-    print("=" * 70)
+    print("=" * 100)
     print()
 
     bn_dag_sizes = ["small", "medium", "large"]
-    bn_combos = len(bn_dag_sizes) * len(routings)
+    bn_combos = len(bn_dag_sizes) * len(STRATEGIES)
     print(f"  Running {bn_combos} combos x {NUM_SEEDS} seeds = {bn_combos * NUM_SEEDS} simulations...")
     print()
 
@@ -547,36 +532,37 @@ def main():
             dag_generators=BOTTLENECK_DAG_GENERATORS,
             network_fn=generate_bottleneck_network,
         )
-        for routing in routings:
+        for label, routing, greedy_order in STRATEGIES:
             bn_combo += 1
-            base_label = f"bottleneck_{dag_size}dag_{routing}"
-            print(f"  [{bn_combo:>2d}/{bn_combos}] {base_label} (x{NUM_SEEDS})...",
+            go_suffix = f"_{greedy_order}" if greedy_order else ""
+            base_label = f"bottleneck_{dag_size}dag_{routing}{go_suffix}"
+            print(f"  [{bn_combo:>2d}/{bn_combos}] {label} bottleneck/{dag_size} (x{NUM_SEEDS})...",
                   end=" ", flush=True)
-            mean_ms = run_averaged(yaml_str, base_label, routing)
-            bn_results[(dag_size, routing)] = mean_ms
+            mean_ms = run_averaged(yaml_str, base_label, routing,
+                                   greedy_order=greedy_order)
+            bn_results[(dag_size, label)] = mean_ms
             if mean_ms is not None:
                 print(f"{mean_ms:.4f}s")
             else:
                 print("FAILED")
 
     print()
-    print(f"  {'DAG':<12s}  {'W(s)':>10s}  {'S(s)':>10s}  "
-          f"{'GS(s)':>10s}  {'GSD(s)':>10s}  {'Best':>8s}")
-    print(f"  {'─' * 64}")
+    bn_hdr = "  ".join(f"{lb + '(s)':>{col_w}s}" for lb in LABELS)
+    print(f"  {'DAG':<12s}  {bn_hdr}  {'Best':>8s}")
+    print(f"  {'─' * (14 + (col_w + 2) * len(LABELS) + 10)}")
 
     for dag_size in bn_dag_sizes:
         desc, _ = BOTTLENECK_DAG_GENERATORS[dag_size]
         vals = {}
         strs = {}
-        for r in routings:
-            v = bn_results.get((dag_size, r))
-            lbl = _LABEL[r]
-            strs[lbl] = f"{v:.4f}" if v is not None else "ERROR"
+        for lb in LABELS:
+            v = bn_results.get((dag_size, lb))
+            strs[lb] = f"{v:.4f}" if v is not None else "ERROR"
             if v is not None:
-                vals[lbl] = v
+                vals[lb] = v
         best = min(vals, key=vals.get) if vals else "n/a"
-        print(f"  {desc:<12s}  {strs['W']:>10s}  {strs['S']:>10s}  "
-              f"{strs['GS']:>10s}  {strs['GSD']:>10s}  {best:>8s}")
+        row_vals = "  ".join(f"{strs[lb]:>{col_w}s}" for lb in LABELS)
+        print(f"  {desc:<12s}  {row_vals}  {best:>8s}")
 
     print()
     print(f"  Trace files saved to: {OUTDIR}")

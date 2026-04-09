@@ -189,6 +189,13 @@ def main(args: list = None) -> int:
         help="Max hops for interference_aware routing path enumeration (default: 4)"
     )
     parser.add_argument(
+        "--greedy-order",
+        choices=["start", "criticality", "bytes", "overlap"],
+        default=None,
+        help="Greedy flow ordering for interference_aware routing: "
+             "start=GS, criticality=GC, bytes=GB, overlap=GO (default: start)"
+    )
+    parser.add_argument(
         "--interference",
         choices=["none", "proximity", "csma_clique", "csma_bianchi"],
         default=None,
@@ -289,10 +296,15 @@ def main(args: list = None) -> int:
             hop_cutoff = parsed.routing_hop_cutoff if parsed.routing_hop_cutoff is not None else (
                 scenario.config.routing_hop_cutoff if scenario.config.routing_hop_cutoff is not None else 4
             )
+            greedy_order = parsed.greedy_order if parsed.greedy_order is not None else (
+                scenario.config.greedy_order if scenario.config.greedy_order is not None else "start"
+            )
             # Use existing interference model, or NoInterference as fallback
             im = interference_model if interference_model is not None else NoInterference()
-            routing_model = InterferenceAwareRouting(im, hop_cutoff=hop_cutoff)
-            logger.info(f"  hop_cutoff={hop_cutoff}")
+            routing_model = InterferenceAwareRouting(
+                im, hop_cutoff=hop_cutoff, greedy_order=greedy_order
+            )
+            logger.info(f"  hop_cutoff={hop_cutoff}, greedy_order={greedy_order}")
         elif routing_type == "interference_aware_dynamic":
             from ncsim.models.routing import DynamicInterferenceAwareRouting
             from ncsim.models.interference import NoInterference

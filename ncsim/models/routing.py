@@ -30,6 +30,11 @@ class RoutingModel(ABC):
     Future: ShortestPathRouting, MultiPathRouting, etc.
     """
 
+    @property
+    def is_dynamic(self) -> bool:
+        """Whether routes should be computed at transfer start (not schedule) time."""
+        return False
+
     @abstractmethod
     def get_path(
         self,
@@ -494,15 +499,30 @@ class InterferenceAwareRouting(RoutingModel):
     pre-computed routes.
     """
 
+    # Valid greedy orderings for flow sorting
+    GREEDY_ORDERS = ("start", "criticality", "bytes", "overlap")
+    _ORDER_LABELS = {
+        "start": "GS",
+        "criticality": "GC",
+        "bytes": "GB",
+        "overlap": "GO",
+    }
+
     def __init__(
         self,
         interference_model: "InterferenceModel",
         hop_cutoff: int = 4,
-        max_candidates: int = 20
+        max_candidates: int = 20,
+        greedy_order: str = "start",
     ):
+        if greedy_order not in self.GREEDY_ORDERS:
+            raise ValueError(
+                f"greedy_order must be one of {self.GREEDY_ORDERS}, got '{greedy_order}'"
+            )
         self.interference_model = interference_model
         self.hop_cutoff = hop_cutoff
         self.max_candidates = max_candidates
+        self.greedy_order = greedy_order
         self._planned_routes: Dict[Tuple[str, str], List[str]] = {}
         self._delegate = WidestPathRouting()
         self._routes_planned = False
@@ -567,10 +587,43 @@ class InterferenceAwareRouting(RoutingModel):
         # Build adjacency for path enumeration
         adj = _build_adjacency(network)
 
-        # Sort flows by estimated start time (greedy order)
-        flows.sort(key=lambda f: windows.get(
-            (f["from_task"], f["to_task"]), (0.0, 0.0)
-        )[0])
+        # Step 3: Sort flows by variant-specific key
+        label = self._ORDER_LABELS.get(self.greedy_order, "GS")
+        if self.greedy_order == "criticality":
+            ranku = self._compute_ranku(dag, placement_plan, network)
+            flows.sort(key=lambda f: -ranku.get(f["to_task"], 0.0))
+            for f in flows:
+                fkey = (f["from_task"], f["to_task"])
+                logger.debug(
+                    f"  {label} flow {fkey}: "
+                    f"ranku(to_task={f['to_task']})={ranku.get(f['to_task'], 0.0):.2f}"
+                )
+        elif self.greedy_order == "bytes":
+            flows.sort(key=lambda f: -f["data_size"])
+            for f in flows:
+                fkey = (f["from_task"], f["to_task"])
+                logger.debug(f"  {label} flow {fkey}: bytes={f['data_size']:.2f}")
+        elif self.greedy_order == "overlap":
+            overlap_degrees = self._compute_overlap_degrees(flows, windows)
+            flows.sort(
+                key=lambda f: -overlap_degrees.get(
+                    (f["from_task"], f["to_task"]), 0.0
+                )
+            )
+            for f in flows:
+                fkey = (f["from_task"], f["to_task"])
+                logger.debug(
+                    f"  {label} flow {fkey}: "
+                    f"overlap_degree={overlap_degrees.get(fkey, 0.0):.2f}"
+                )
+        else:  # "start" (default, GS)
+            flows.sort(key=lambda f: windows.get(
+                (f["from_task"], f["to_task"]), (0.0, 0.0)
+            )[0])
+            for f in flows:
+                fkey = (f["from_task"], f["to_task"])
+                window = windows.get(fkey, (0.0, 0.0))
+                logger.debug(f"  {label} flow {fkey}: est_start={window[0]:.4f}")
 
         routed: List[_RoutedFlow] = []
 
@@ -605,7 +658,7 @@ class InterferenceAwareRouting(RoutingModel):
                     candidates = [fallback]
                 else:
                     logger.warning(
-                        f"InterferenceAwareRouting: no path from {src} to {dst}"
+                        f"{label}: no path from {src} to {dst}"
                     )
                     continue
 
@@ -635,13 +688,14 @@ class InterferenceAwareRouting(RoutingModel):
             ))
 
             logger.debug(
-                f"InterferenceAwareRouting: {src}->{dst} via {best_path} "
+                f"{label}: {src}->{dst} via {best_path} "
                 f"(score={best_score:.2f})"
             )
 
         self._routes_planned = True
         logger.info(
-            f"InterferenceAwareRouting: planned {len(self._planned_routes)} routes"
+            f"{label}: planned {len(self._planned_routes)} routes "
+            f"(order={self.greedy_order})"
         )
 
     def _extract_flows(
@@ -776,6 +830,83 @@ class InterferenceAwareRouting(RoutingModel):
 
         return total_throughput
 
+    def _compute_ranku(
+        self,
+        dag: "DAG",
+        plan: "PlacementPlan",
+        network: "Network",
+    ) -> Dict[str, float]:
+        """Compute HEFT upward rank (ranku) for each task.
+
+        ranku(exit) = w_i
+        ranku(task) = w_i + max_succ(c_ij + ranku(succ))
+
+        Uses actual placement for compute/comm costs.
+        """
+        ranku: Dict[str, float] = {}
+
+        for task_id in reversed(dag.topological_order()):
+            task = dag.get_task(task_id)
+            node_id = plan.get_node_for_task(task_id)
+            node = network.get_node(node_id) if node_id else None
+            w_i = (
+                task.compute_cost / node.compute_capacity
+                if node
+                else task.compute_cost / 100.0
+            )
+
+            max_succ_cost = 0.0
+            for edge in dag.get_outgoing_edges(task_id):
+                dst_node = plan.get_node_for_task(edge.to_task)
+                if node_id and dst_node and node_id == dst_node:
+                    comm_cost = 0.0
+                elif node_id and dst_node:
+                    bw = self._delegate.get_path_bandwidth(
+                        node_id, dst_node, network
+                    )
+                    comm_cost = edge.data_size / max(bw, 0.001)
+                else:
+                    comm_cost = edge.data_size / 1.0
+                succ_cost = comm_cost + ranku.get(edge.to_task, 0.0)
+                max_succ_cost = max(max_succ_cost, succ_cost)
+
+            ranku[task_id] = w_i + max_succ_cost
+
+        return ranku
+
+    @staticmethod
+    def _compute_overlap_degrees(
+        flows: List[Dict],
+        windows: Dict[Tuple[str, str], Tuple[float, float]],
+    ) -> Dict[Tuple[str, str], float]:
+        """Compute weighted overlap degree for each flow.
+
+        Overlap degree = sum of overlap durations with all other flows.
+        Higher means more contention for this flow's time window.
+        """
+        degrees: Dict[Tuple[str, str], float] = {}
+
+        for i, flow_i in enumerate(flows):
+            key_i = (flow_i["from_task"], flow_i["to_task"])
+            window_i = windows.get(key_i, (0.0, float("inf")))
+            total_overlap = 0.0
+
+            for j, flow_j in enumerate(flows):
+                if i == j:
+                    continue
+                key_j = (flow_j["from_task"], flow_j["to_task"])
+                window_j = windows.get(key_j, (0.0, float("inf")))
+                overlap = max(
+                    0.0,
+                    min(window_i[1], window_j[1])
+                    - max(window_i[0], window_j[0]),
+                )
+                total_overlap += overlap
+
+            degrees[key_i] = total_overlap
+
+        return degrees
+
 
 class DynamicInterferenceAwareRouting(RoutingModel):
     """Dynamic interference-aware multi-hop routing (GSD).
@@ -789,6 +920,10 @@ class DynamicInterferenceAwareRouting(RoutingModel):
     Without network_state (e.g. during HEFT scheduling), delegates to
     WidestPathRouting for bandwidth estimation.
     """
+
+    @property
+    def is_dynamic(self) -> bool:
+        return True
 
     def __init__(
         self,
