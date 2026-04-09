@@ -1,0 +1,307 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{tabularx}
+
+\hypersetup{colorlinks=true, linkcolor=blue!60!black, urlcolor=blue!60!black}
+\lstset{basicstyle=\ttfamily\small, breaklines=true, frame=single,
+        backgroundcolor=\color{gray!8}}
+
+\title{Interference-Aware Routing Schemes}
+\author{Autonomous Networks Research Group (ANRG)\\University of Southern California}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+When tasks in a DAG are placed on different nodes, data transfers traverse
+multi-hop wireless paths where concurrent transmissions interfere with each
+other.  The \textbf{routing scheme} decides \emph{which path} each transfer
+takes and---in future work---\emph{when} it begins.  All schemes listed here
+operate on top of HEFT task placement and the \texttt{csma\_bianchi} 802.11
+interference model.
+
+The schemes fall into three families:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llp{5.5cm}}
+\toprule
+\textbf{Family} & \textbf{Schemes} & \textbf{When routes are decided} \\
+\midrule
+Baseline        & W, S         & Once, at topology load time (cached) \\
+Static greedy   & GS, GC, GB, GO & Once, at DAG injection (after HEFT) \\
+Dynamic greedy  & GSD            & At each \texttt{transfer\_start} event \\
+Deferral \emph{(planned)} & GSD-D, GS-D, \ldots & At \texttt{transfer\_start}, may postpone \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%----------------------------------------------------------------------
+\section{Baseline Schemes}
+
+\subsection{W --- Widest-Path}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Class        & \texttt{WidestPathRouting} \\
+Objective    & Maximize bottleneck (min-link) bandwidth \\
+Algorithm    & Modified Dijkstra with max-min semantics \\
+Interference awareness & None---ignores concurrent traffic \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Finds the path whose weakest link has the highest bandwidth.  Good when link
+capacities vary widely (e.g., short vs.\ long hops have different PHY rates)
+but oblivious to runtime contention.
+
+\subsection{S --- Shortest-Path}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Class        & \texttt{ShortestPathRouting} \\
+Objective    & Minimize total path latency (sum of link latencies) \\
+Algorithm    & Standard Dijkstra on link latencies \\
+Interference awareness & None \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Minimizes propagation delay.  In grids where all links have equal latency
+this degenerates to minimum hop count.  Tends to concentrate traffic on short
+paths, which can increase contention.
+
+%----------------------------------------------------------------------
+\section{Static Greedy Schemes (GS, GC, GB, GO)}
+
+All four variants share the same two-stage architecture:
+
+\begin{enumerate}\item \textbf{HEFT} decides task-to-node placement and produces timing estimates.
+\item \textbf{Greedy route planner}
+      (\texttt{InterferenceAwareRouting.plan\_routes()}) iterates over
+      inter-node flows in a variant-specific order and, for each flow, picks
+      the candidate path that maximizes \emph{total system throughput} across
+      all concurrently-active flows (including previously routed ones).
+\end{enumerate}
+
+Routes are computed once at DAG injection and are fixed for the entire
+execution.  The variants differ only in the order flows are considered.
+
+\subsection{GS --- Greedy by Start Time}
+
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+Flow ordering & Ascending estimated transfer start time \\
+Rationale     & Route earlier flows first; later flows adapt around them \\
+CLI           & \texttt{-{}-routing interference\_aware -{}-greedy-order start} \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Earliest-first is the default and most natural ordering: it mirrors the
+temporal sequence in which flows will actually appear during execution.
+
+\subsection{GC --- Greedy by Criticality}
+
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+Flow ordering & Descending HEFT upward-rank of the \emph{destination} task \\
+Rationale     & Critical-path flows get first pick of low-interference routes \\
+CLI           & \texttt{-{}-routing interference\_aware -{}-greedy-order criticality} \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Upward rank (\texttt{ranku}) measures how much downstream work depends on a
+task.  Routing the most critical transfers first gives them the best paths,
+at the expense of less critical flows.
+
+\subsection{GB --- Greedy by Bytes}
+
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+Flow ordering & Descending data size \\
+Rationale     & Large transfers dominate makespan; give them the best routes \\
+CLI           & \texttt{-{}-routing interference\_aware -{}-greedy-order bytes} \\
+\bottomrule
+\end{tabular}
+
+\medskip
+When transfer sizes vary, the largest flows contribute most to makespan.
+GB prioritizes them.  Less effective when all transfers are the same size
+(as in many synthetic benchmarks).
+
+\subsection{GO --- Greedy by Overlap}
+
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+Flow ordering & Descending overlap degree (total temporal overlap with other flows) \\
+Rationale     & Flows with the most contention should be routed first \\
+CLI           & \texttt{-{}-routing interference\_aware -{}-greedy-order overlap} \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Overlap degree is the sum of time-window overlaps between a flow and all
+other flows (using HEFT timing estimates).  Flows competing for airtime with
+many others get priority.
+
+\subsection{Scoring Function (All Four Variants)}
+
+For each candidate path, the planner computes:
+\[
+  \text{score} = \sum_{\text{concurrent flows}} \text{effective\_bottleneck\_bandwidth}
+\]
+where effective bandwidth accounts for:
+\begin{itemize}\item \textbf{Interference factor} from \texttt{csma\_bianchi} (SINR
+      degradation from hidden terminals + Bianchi MAC contention from
+      conflict-graph neighbors)
+\item \textbf{Per-link fair sharing} ($N$ flows on a link each get $1/N$ of
+      the base bandwidth)
+\end{itemize}
+The candidate with the highest total-throughput score wins.
+
+%----------------------------------------------------------------------
+\section{Dynamic Greedy Scheme}
+
+\subsection{GSD --- Greedy by Start Time, Dynamic}
+
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+Class          & \texttt{DynamicInterferenceAwareRouting} \\
+Objective      & Maximize \emph{this flow's} bottleneck bandwidth given actual state \\
+When computed  & At each \texttt{transfer\_start} event \\
+State used     & Actual set of active links and per-link transfer counts \\
+CLI            & \texttt{-{}-routing interference\_aware\_dynamic} \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Unlike the static variants (which estimate concurrency from HEFT timing),
+GSD sees the \emph{real} network state at the moment a transfer begins.
+This lets it:
+
+\begin{itemize}\item React to transfers that finished early or late relative to HEFT estimates
+\item See sibling transfers that started moments earlier at the same sim-time
+\item Avoid paths that are congested \emph{right now}, not just predicted to be
+\end{itemize}
+
+\textbf{Trade-off:} GSD optimizes for \emph{this individual flow's}
+bottleneck bandwidth rather than total system throughput.  It cannot
+coordinate across flows the way the static planner can.
+
+\textbf{Delegation:} During HEFT scheduling (before execution), GSD
+delegates to \texttt{WidestPathRouting} for bandwidth estimates, since no
+runtime state is available yet.
+
+%----------------------------------------------------------------------
+\section{Deferral (Planned---Not Yet Implemented)}
+
+\subsection{Concept}
+
+All current schemes start a transfer as soon as its source task completes.
+\textbf{Deferral} adds an option: if starting a transfer \emph{now} would
+severely degrade an already-active flow (or the new flow itself) due to
+interference, the engine can \textbf{postpone} the new transfer until
+conditions improve.
+
+\subsection{Potential Variants}
+
+\begin{description}\item[GSD-D (Dynamic + Deferral):] At \texttt{transfer\_start}, if the best
+      available path scores below a threshold (e.g., ${<}\,50\%$ of the
+      no-contention bandwidth), defer the transfer and re-evaluate after the
+      next \texttt{transfer\_complete} event.
+\item[GS-D (Static + Deferral):] Use GS route planning but allow the
+      execution engine to hold back flows whose planned route is currently
+      congested.
+\end{description}
+
+\subsection{Key Design Questions}
+
+\begin{enumerate}\item \textbf{Deferral trigger:} Score threshold?  Comparison to
+      no-contention baseline?  Always defer if any link on the path is above
+      $N$ concurrent flows?
+\item \textbf{Re-evaluation:} On every \texttt{transfer\_complete}?  After a
+      fixed timeout?
+\item \textbf{Starvation:} How to guarantee deferred transfers eventually
+      execute (maximum deferral budget, priority escalation)?
+\item \textbf{Impact on HEFT:} Deferral changes actual timing relative to
+      HEFT estimates.  Does this cascade and hurt downstream tasks?
+\end{enumerate}
+
+\subsection{Expected Benefit}
+
+Deferral is most useful when:
+\begin{itemize}\item A few high-bandwidth transfers dominate makespan and would complete
+      faster if not forced to share with small concurrent transfers
+\item The DAG has enough parallelism that deferring one transfer doesn't
+      immediately stall a critical-path task
+\end{itemize}
+
+%----------------------------------------------------------------------
+\section{Configuration Reference}
+
+\subsection{CLI}
+
+\begin{lstlisting}
+--routing {direct,widest_path,shortest_path,
+           interference_aware,interference_aware_dynamic}
+--greedy-order {start,criticality,bytes,overlap}
+--routing-hop-cutoff N
+--interference {none,proximity,csma_clique,csma_bianchi}
+\end{lstlisting}
+
+\subsection{YAML}
+
+\begin{lstlisting}
+config:
+  routing: interference_aware
+  greedy_order: start
+  routing_hop_cutoff: 4
+  interference: csma_bianchi
+\end{lstlisting}
+
+\subsection{Shared Parameters}
+
+\begin{tabular}{@{}lcp{7cm}@{}}
+\toprule
+\textbf{Parameter} & \textbf{Default} & \textbf{Effect} \\
+\midrule
+\texttt{hop\_cutoff}     & 4  & Maximum hops in candidate path enumeration \\
+\texttt{max\_candidates} & 20 & Maximum candidate paths evaluated per flow \\
+\bottomrule
+\end{tabular}
+
+%----------------------------------------------------------------------
+\section{Summary}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lllll}
+\toprule
+\textbf{Scheme} & \textbf{Route timing} & \textbf{Objective} & \textbf{Flow ordering} & \textbf{Interference input} \\
+\midrule
+W    & Load time       & Max bottleneck BW       & ---              & None \\
+S    & Load time       & Min total latency        & ---              & None \\
+GS   & DAG inject      & Max system throughput     & Est.\ start time & HEFT estimates \\
+GC   & DAG inject      & Max system throughput     & HEFT upward rank & HEFT estimates \\
+GB   & DAG inject      & Max system throughput     & Data size (desc) & HEFT estimates \\
+GO   & DAG inject      & Max system throughput     & Overlap degree   & HEFT estimates \\
+GSD  & Transfer start  & Max flow bottleneck BW    & ---              & Actual active links \\
+GSD-D & Transfer start & Max flow bottleneck BW    & ---              & Actual + deferral \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
