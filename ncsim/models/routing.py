@@ -1020,3 +1020,96 @@ class DynamicInterferenceAwareRouting(RoutingModel):
             link_bw = network.links[lid].bandwidth * factor / (existing + 1)
             eff_bw = min(eff_bw, link_bw)
         return eff_bw
+
+
+class DeferralDynamicRouting(DynamicInterferenceAwareRouting):
+    """Dynamic interference-aware routing with deferral (GSD-D).
+
+    Extends GSD with deferral: at transfer_start, if the best available
+    path's effective bandwidth is below deferral_threshold * no-contention
+    bandwidth, signals the execution engine to defer the transfer until
+    conditions improve (i.e., after the next transfer_complete event).
+
+    Starvation prevention: each transfer can be deferred at most
+    max_deferrals times before being forced to start.
+    """
+
+    @property
+    def supports_deferral(self) -> bool:
+        return True
+
+    @property
+    def should_defer(self) -> bool:
+        """Whether the last get_path() call recommends deferral."""
+        return self._should_defer
+
+    def __init__(
+        self,
+        interference_model: "InterferenceModel",
+        hop_cutoff: int = 4,
+        max_candidates: int = 20,
+        deferral_threshold: float = 0.3,
+        max_deferrals: int = 3,
+    ):
+        super().__init__(interference_model, hop_cutoff, max_candidates)
+        self.deferral_threshold = deferral_threshold
+        self.max_deferrals = max_deferrals
+        self._should_defer = False
+
+    def get_path(
+        self,
+        src_node: str,
+        dst_node: str,
+        network: "Network",
+        network_state: Optional[Dict] = None,
+    ) -> Optional[List[str]]:
+        """Find best path and evaluate deferral.
+
+        After this call, check self.should_defer to see if the transfer
+        should be postponed due to high congestion.
+        """
+        self._should_defer = False
+
+        if src_node == dst_node:
+            return []
+
+        if network_state is None:
+            return self._delegate.get_path(src_node, dst_node, network)
+
+        # Build adjacency lazily
+        if self._adjacency is None:
+            self._adjacency = _build_adjacency(network)
+
+        candidates = _enumerate_candidate_paths(
+            src_node, dst_node, self._adjacency, network,
+            self.hop_cutoff, self.max_candidates,
+        )
+        if not candidates:
+            return self._delegate.get_path(src_node, dst_node, network)
+
+        active_link_ids = network_state.get("active_link_ids", set())
+        link_transfer_counts = network_state.get("link_transfer_counts", {})
+
+        best_path: Optional[List[str]] = None
+        best_score = -1.0
+
+        for path in candidates:
+            score = self._score_path(
+                path, active_link_ids, link_transfer_counts, network
+            )
+            if score > best_score:
+                best_score = score
+                best_path = path
+
+        if best_path is None:
+            return self._delegate.get_path(src_node, dst_node, network)
+
+        # Evaluate deferral: compare effective BW to no-contention BW
+        no_contention_bw = min(
+            network.links[lid].bandwidth for lid in best_path
+        )
+        if (no_contention_bw > 0
+                and best_score / no_contention_bw < self.deferral_threshold):
+            self._should_defer = True
+
+        return best_path

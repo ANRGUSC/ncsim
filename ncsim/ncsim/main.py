@@ -178,7 +178,7 @@ def main(args: list = None) -> int:
     )
     parser.add_argument(
         "--routing",
-        choices=["direct", "widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic"],
+        choices=["direct", "widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic", "interference_aware_dynamic_deferral"],
         default=None,
         help="Routing algorithm (overrides scenario config)"
     )
@@ -194,6 +194,19 @@ def main(args: list = None) -> int:
         default=None,
         help="Greedy flow ordering for interference_aware routing: "
              "start=GS, criticality=GC, bytes=GB, overlap=GO (default: start)"
+    )
+    parser.add_argument(
+        "--deferral-threshold",
+        type=float,
+        default=None,
+        help="Deferral threshold for interference_aware_dynamic_deferral routing: "
+             "defer if effective BW < threshold * no-contention BW (default: 0.3)"
+    )
+    parser.add_argument(
+        "--max-deferrals",
+        type=int,
+        default=None,
+        help="Max times a transfer can be deferred before forced start (default: 3)"
     )
     parser.add_argument(
         "--interference",
@@ -314,6 +327,21 @@ def main(args: list = None) -> int:
             im = interference_model if interference_model is not None else NoInterference()
             routing_model = DynamicInterferenceAwareRouting(im, hop_cutoff=hop_cutoff)
             logger.info(f"  hop_cutoff={hop_cutoff}")
+        elif routing_type == "interference_aware_dynamic_deferral":
+            from ncsim.models.routing import DeferralDynamicRouting
+            from ncsim.models.interference import NoInterference
+            hop_cutoff = parsed.routing_hop_cutoff if parsed.routing_hop_cutoff is not None else (
+                scenario.config.routing_hop_cutoff if scenario.config.routing_hop_cutoff is not None else 4
+            )
+            deferral_threshold = parsed.deferral_threshold if parsed.deferral_threshold is not None else 0.3
+            max_deferrals = parsed.max_deferrals if parsed.max_deferrals is not None else 3
+            im = interference_model if interference_model is not None else NoInterference()
+            routing_model = DeferralDynamicRouting(
+                im, hop_cutoff=hop_cutoff,
+                deferral_threshold=deferral_threshold,
+                max_deferrals=max_deferrals,
+            )
+            logger.info(f"  hop_cutoff={hop_cutoff}, deferral_threshold={deferral_threshold}, max_deferrals={max_deferrals}")
         elif routing_type == "widest_path":
             from ncsim.models.routing import WidestPathRouting
             routing_model = WidestPathRouting()
@@ -326,7 +354,7 @@ def main(args: list = None) -> int:
 
         # Create scheduler (pass routing model for SAGA bandwidth awareness)
         logger.info(f"Creating scheduler: {scheduler_algo}")
-        if routing_type in ("widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic"):
+        if routing_type in ("widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic", "interference_aware_dynamic_deferral"):
             scheduler = create_scheduler(scheduler_algo, routing=routing_model)
         else:
             scheduler = create_scheduler(scheduler_algo)

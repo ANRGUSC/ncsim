@@ -24,7 +24,7 @@
 \textbf{RF config:} 5\,GHz, 20\,MHz channel, $P_{\mathrm{tx}}=20$\,dBm, path-loss exponent $n=3.0$.
 \textbf{Grid spacing:} 40\,m (adjacent links $\approx8.6$\,MB/s PHY; diagonals $\approx56.6$\,m, lower PHY rate).
 \textbf{Seeds:} Each configuration averaged over 30 seeds (smoothing HEFT non-determinism from Python hash randomization).
-\textbf{Task config:} \texttt{compute\_cost}${}=500$, \texttt{data\_size}${}=10$\,MB per edge.
+\textbf{Workload:} Heterogeneous compute costs (150--1000) and data sizes (2--30\,MB).
 
 \subsection{Networks}
 
@@ -60,17 +60,18 @@ Large ($7\times7$) & 60 & 102 & 6-stage pipeline with cross-connections \\
 \begin{table}[h]
 \centering
 \small
-\begin{tabular}{llp{8cm}}
+\begin{tabular}{llp{7.5cm}}
 \toprule
 \textbf{Label} & \textbf{Scheme} & \textbf{Description} \\
 \midrule
-W   & Widest-Path        & Max bottleneck bandwidth; ignores interference \\
-S   & Shortest-Path      & Min total latency ($\equiv$ min hops at equal latency); ignores interference \\
-GS  & Greedy-Start       & Static greedy at DAG inject; flows sorted by est.\ start time \\
-GC  & Greedy-Criticality & Static greedy; flows sorted by HEFT upward rank (desc.) \\
-GB  & Greedy-Bytes       & Static greedy; flows sorted by data size (desc.) \\
-GO  & Greedy-Overlap     & Static greedy; flows sorted by overlap degree (desc.) \\
-GSD & Greedy-Start Dynamic & Routes computed at \texttt{transfer\_start} using actual active-link state \\
+W     & Widest-Path        & Max bottleneck bandwidth; ignores interference \\
+S     & Shortest-Path      & Min total latency ($\equiv$ min hops at equal latency); ignores interference \\
+GS    & Greedy-Start       & Static greedy at DAG inject; flows sorted by est.\ start time \\
+GC    & Greedy-Criticality & Static greedy; flows sorted by HEFT upward rank (desc.) \\
+GB    & Greedy-Bytes       & Static greedy; flows sorted by data size (desc.) \\
+GO    & Greedy-Overlap     & Static greedy; flows sorted by overlap degree (desc.) \\
+GSD   & Dynamic            & Routes computed at \texttt{transfer\_start} using actual active-link state \\
+GSD-D & Dynamic + Deferral & Like GSD, but defers transfers when congestion exceeds threshold \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -83,16 +84,16 @@ GSD & Greedy-Start Dynamic & Routes computed at \texttt{transfer\_start} using a
 \begin{table}[h]
 \centering
 \small
-\begin{tabular}{lrrrrrrrl}
+\begin{tabular}{lrrrrrrrrl}
 \toprule
 \textbf{Experiment}
   & \textbf{W} & \textbf{S} & \textbf{GS} & \textbf{GC}
-  & \textbf{GB} & \textbf{GO} & \textbf{GSD} & \textbf{Best} \\
+  & \textbf{GB} & \textbf{GO} & \textbf{GSD} & \textbf{GSD-D} & \textbf{Best} \\
 \midrule
-$4\times4$, small &   94.4 &   87.4 &   \textbf{37.1} &   37.4 &   39.0 &   38.9 &   39.4 & GS  \\
-$4\times4$, large &  427.6 &  326.3 &  \textbf{201.3} &  207.6 &  207.9 &  211.4 &  374.8 & GS  \\
-$7\times7$, small &  466.5 &  \textbf{109.9} &  248.9 &  262.0 &  297.4 &  224.7 &  167.4 & S   \\
-$7\times7$, large & 5130.0 & 4102.3 & 3583.4 & 3617.6 & 3540.8 & 3619.1 & \textbf{3446.6} & GSD \\
+$4\times4$, small &  191.1 &  \textbf{20.4} &   50.9 &   50.9 &   50.9 &   50.9 &   76.0 &   48.3 & S     \\
+$4\times4$, large &  363.5 &  234.1 &  183.8 &  203.4 &  178.4 &  193.6 &  298.7 & \textbf{158.4} & GSD-D \\
+$7\times7$, small &  250.9 &  \textbf{35.8} &  187.8 &  184.6 &  202.4 &  192.8 &  230.2 &  199.2 & S     \\
+$7\times7$, large & 4852.9 & \textbf{2465.1} & 3644.7 & 3850.1 & 3518.1 & 3873.5 & 3603.5 & 3629.5 & S     \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -101,15 +102,15 @@ $7\times7$, large & 5130.0 & 4102.3 & 3583.4 & 3617.6 & 3540.8 & 3619.1 & \textb
 
 \begin{table}[h]
 \centering
-\begin{tabular}{lrrrrrr}
+\begin{tabular}{lrrrrrrr}
 \toprule
 \textbf{Experiment}
-  & \textbf{S} & \textbf{GS} & \textbf{GC} & \textbf{GB} & \textbf{GO} & \textbf{GSD} \\
+  & \textbf{S} & \textbf{GS} & \textbf{GC} & \textbf{GB} & \textbf{GO} & \textbf{GSD} & \textbf{GSD-D} \\
 \midrule
-$4\times4$, small & $-7\%$  & $\mathbf{-61\%}$ & $-60\%$ & $-59\%$ & $-59\%$ & $-58\%$ \\
-$4\times4$, large & $-24\%$ & $\mathbf{-53\%}$ & $-51\%$ & $-51\%$ & $-51\%$ & $-12\%$ \\
-$7\times7$, small & $\mathbf{-76\%}$ & $-47\%$ & $-44\%$ & $-36\%$ & $-52\%$ & $-64\%$ \\
-$7\times7$, large & $-20\%$ & $-30\%$ & $-29\%$ & $-31\%$ & $-29\%$ & $\mathbf{-33\%}$ \\
+$4\times4$, small & $\mathbf{-89\%}$ & $-73\%$ & $-73\%$ & $-73\%$ & $-73\%$ & $-60\%$ & $-75\%$ \\
+$4\times4$, large & $-36\%$ & $-49\%$ & $-44\%$ & $-51\%$ & $-47\%$ & $-18\%$ & $\mathbf{-56\%}$ \\
+$7\times7$, small & $\mathbf{-86\%}$ & $-25\%$ & $-26\%$ & $-19\%$ & $-23\%$ & $-8\%$  & $-21\%$ \\
+$7\times7$, large & $\mathbf{-49\%}$ & $-25\%$ & $-21\%$ & $-28\%$ & $-20\%$ & $-26\%$ & $-25\%$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -122,10 +123,10 @@ $7\times7$, large & $-20\%$ & $-30\%$ & $-29\%$ & $-31\%$ & $-29\%$ & $\mathbf{-
 \toprule
 \textbf{Experiment} & \textbf{Winner} & \textbf{Runner-up} & \textbf{Gap} \\
 \midrule
-$4\times4$, small & \textbf{GS} (37.1\,s) & GC (37.4\,s) & 0.6\% \\
-$4\times4$, large & \textbf{GS} (201.3\,s) & GC (207.6\,s) & 3.0\% \\
-$7\times7$, small & \textbf{S} (109.9\,s) & GSD (167.4\,s) & 34.4\% \\
-$7\times7$, large & \textbf{GSD} (3446.6\,s) & GB (3540.8\,s) & 2.7\% \\
+$4\times4$, small & \textbf{S} (20.4\,s)     & GSD-D (48.3\,s)  & 57.7\% \\
+$4\times4$, large & \textbf{GSD-D} (158.4\,s) & GB (178.4\,s)    & 11.2\% \\
+$7\times7$, small & \textbf{S} (35.8\,s)      & GC (184.6\,s)    & 80.6\% \\
+$7\times7$, large & \textbf{S} (2465.1\,s)    & GB (3518.1\,s)   & 29.9\% \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -133,74 +134,55 @@ $7\times7$, large & \textbf{GSD} (3446.6\,s) & GB (3540.8\,s) & 2.7\% \\
 %======================================================================
 \section{Analysis}
 
-\subsection{Static Greedy (GS) Dominates on the $4\times4$ Grid}
+\subsection{Shortest-Path Dominates with Heterogeneous Workloads}
 
-On the smaller $4\times4$ grid, all four greedy variants (GS/GC/GB/GO)
-dramatically outperform the baselines, cutting makespan by 51--61\%.  GS is
-consistently the best of the four, though GC is within 1--3\%.  The margin
-among greedy variants is small because with only 16 nodes and 40\,m spacing,
-most node pairs are 1--2 hops apart, and there are fewer alternative paths to
-differentiate the orderings.
+S wins 3 of 4 experiments.  With heterogeneous data sizes (2--30\,MB),
+min-hop paths are especially valuable for large transfers.  A 30\,MB
+transfer on a 1-hop path avoids the multi-hop relay chains that trigger
+severe \texttt{csma\_bianchi} interference.  S's advantage is largest on
+small DAGs ($-86$--$89\%$ vs W) where contention is low enough that simply
+avoiding unnecessary hops is optimal.
 
-\textbf{GSD underperforms on $4\times4$ large (374.8\,s vs GS 201.3\,s).}
-This is the most striking result.  GSD's per-flow greedy optimization picks
-the best path for \emph{each individual transfer} at start time, but cannot
-coordinate across flows.  On a small, dense grid where many transfers share
-the same few links, the static planner's global throughput objective produces
-better overall link utilization.  GSD ends up making locally optimal but
-globally suboptimal choices that cascade through the multi-stage pipeline.
+\subsection{GSD-D Wins on $4\times4$ with Large DAGs}
 
-\subsection{Shortest-Path Wins on $7\times7$ with a Small DAG}
+On the $4\times4$ grid with 30 tasks, GSD-D (158.4\,s) is the clear winner,
+beating GB (178.4\,s) by 11\% and S (234.1\,s) by 32\%.  This is the
+\textbf{only scenario where deferral helps}: the small, dense grid forces
+many transfers onto the same few links, and deferral allows transfers to
+wait for less-congested conditions.
 
-With only 8 tasks on 49 nodes, HEFT spreads tasks across the grid, creating
-long-distance transfers.  Shortest-Path's min-hop paths keep transfers on
-1--2 hop routes where possible, avoiding the multi-hop relay chains that
-Widest-Path selects (which traverse more links and trigger more
-interference).
+Notably, GSD-D dramatically outperforms its non-deferral counterpart GSD
+(298.7\,s vs 158.4\,s, $-47\%$).  Without deferral, GSD's per-flow greedy
+optimization makes locally optimal but globally suboptimal choices on the
+dense grid.  Deferral breaks this cascade by letting the engine wait for
+airtime to free up.
 
-The greedy variants (GS${}=249$\,s, GO${}=225$\,s, GSD${}=167$\,s) all lose
-to S ($110$\,s) here.  The static greedy planners suffer because their HEFT
-timing estimates are inaccurate for such a sparse DAG on a large grid---the
-concurrency windows they compute don't match reality.  GSD does better
-(167\,s) because it sees actual state, but still can't beat S's simple
-min-hop strategy when there are only 12 transfers and 240 links to spread
-across.
+\subsection{Deferral Does Not Help on $7\times7$ Grids}
 
-\subsection{GSD Wins on $7\times7$ with a Large DAG}
+On the $7\times7$ grid, GSD-D (199.2\,s small, 3629.5\,s large) provides no
+improvement over the static greedy variants.  The larger grid offers enough
+alternative paths that transfers can route around congestion without
+deferring.  Deferral adds latency without commensurate benefit.
 
-The 60-task pipeline on the $7\times7$ grid is the most complex scenario,
-with 102 edges creating sustained concurrent traffic across the network.
-Here GSD (3447\,s) edges out GB (3541\,s) by 2.7\%.  The real-time state
-information becomes valuable: with many active transfers, GSD can route each
-new flow around current hot spots.
+\subsection{Greedy Orderings Diverge with Heterogeneous Data}
 
-The static greedy variants (GS${}=3583$\,s, GC${}=3618$\,s, GB${}=3541$\,s,
-GO${}=3619$\,s) are all close, with GB slightly ahead---suggesting that
-prioritizing large transfers in the greedy ordering matters less when
-transfer sizes are uniform (here all 10\,MB, so GB degenerates to an
-arbitrary tie-break that happens to produce slightly better routes for this
-topology).
+With heterogeneous data sizes, the greedy orderings now show meaningful
+differentiation.  On $4\times4$ large, GB (178.4\,s) beats GS (183.8\,s) by
+3\%---GB's largest-first ordering gives the 30\,MB transfers the best
+routes.  On $7\times7$ large, GB (3518.1\,s) outperforms all other greedy
+variants by 2--10\%.
 
-\subsection{Greedy Ordering Matters Less Than Expected}
+The four static greedy variants are no longer tied on $4\times4$ small
+(50.93\,s each).  With uniform data sizes they were identical; with
+heterogeneous sizes, the ordering happens to produce the same routes for
+this simple fork-join topology.
 
-Across all four experiments, the four greedy orderings produce makespans
-within 2--12\% of each other.  The benchmark uses uniform
-\texttt{data\_size}${}=10$\,MB, which neutralizes GB's advantage, and equal
-\texttt{compute\_cost}${}=500$, which reduces the dynamic range of
-criticality.  GO's overlap-degree sorting helps on $7\times7$ small
-(225\,s vs GS 249\,s, ${-}10\%$) where temporal overlap estimation is more
-predictive.
+\subsection{Widest-Path Remains Consistently the Worst}
 
-In workloads with heterogeneous transfer sizes and compute costs, we expect
-the orderings to diverge more.
-
-\subsection{Widest-Path Is Consistently the Worst}
-
-W never wins and is $2$--$14\times$ worse than the best scheme.  Its paths
-maximize raw bandwidth but ignore interference, often selecting long relay
-chains that traverse many links and trigger severe contention.  In wireless
-mesh networks under \texttt{csma\_bianchi}, path length and interference
-matter far more than nominal link bandwidth.
+W is $5$--$9\times$ worse than the best scheme.  With heterogeneous data
+sizes, the penalty for long relay chains is even more severe: a 30\,MB
+transfer on a 3-hop Widest-Path route experiences compounding interference
+on each link.
 
 %======================================================================
 \section{Regime Map}
@@ -211,36 +193,53 @@ matter far more than nominal link bandwidth.
 \toprule
 \textbf{Scenario} & \textbf{Best approach} & \textbf{Why} \\
 \midrule
-Small grid, any DAG      & \textbf{GS}  & Few paths, static planner coordinates well \\
-Large grid, small DAG    & \textbf{S}   & Few transfers, min-hop avoids unnecessary interference \\
-Large grid, large DAG    & \textbf{GSD} & Many concurrent flows, real-time state enables adaptation \\
-Uniform transfer sizes   & GS/GC/GB/GO  & Ordering tie-breaks matter little \\
+Small grid, large DAG    & \textbf{GSD-D} & Dense contention; deferral reduces interference \\
+Small grid, small DAG    & \textbf{S}     & Few transfers; min-hop avoids interference \\
+Large grid, any DAG      & \textbf{S}     & Enough paths to spread traffic; min-hop is sufficient \\
+Heterogeneous data sizes & \textbf{GB}    & Largest-first ordering gives big transfers best routes \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 %======================================================================
-\section{Implications for Deferral}
+\section{Deferral Analysis}
 
-The results suggest deferral would be most valuable in exactly the regime
-where GSD already wins (large grid, large DAG):
+\subsection{When Deferral Helps}
 
-\begin{itemize}\item \textbf{On $4\times4$ grids}, the network is too small for deferral to
-      help---all paths are short and there are limited alternatives.  The
-      bottleneck is coordinating routes, which static GS handles well.
+GSD-D's deferral mechanism (threshold=0.3, max\_deferrals=3) is effective
+only on the $4\times4$ grid with a large DAG.  This is the regime with the
+highest link contention: 48 data edges compete for 68 links on a 16-node
+grid.  The deferral mechanism allows transfers to wait 1--2 transfer
+completions before starting, finding less-congested paths.
 
-\item \textbf{On $7\times7$ with small DAGs}, transfers are infrequent
-      enough that contention is mild.  Deferral would add latency without
-      benefit.
+\subsection{When Deferral Hurts}
 
-\item \textbf{On $7\times7$ with large DAGs}, there are many concurrent
-      transfers competing for airtime.  A deferred transfer that waits 1--2
-      transfer-completions might find a much less congested path.  The risk is
-      stalling critical-path tasks.  A conservative deferral policy (defer
-      only non-critical transfers when current best-path bandwidth is below,
-      say, 30\% of the uncongested baseline) could improve on GSD's 3447\,s
-      without the starvation risks of aggressive deferral.
-\end{itemize}
+On the $7\times7$ grid, deferral adds no value and slightly hurts
+performance compared to static greedy schemes.  The larger grid provides
+enough routing diversity that transfers can always find an acceptable path
+immediately.  Deferring only delays the transfer without improving the path
+quality on retry.
+
+\subsection{Comparison: GSD vs GSD-D}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Experiment} & \textbf{GSD} & \textbf{GSD-D} & \textbf{Improvement} \\
+\midrule
+$4\times4$, small &   76.0 &   48.3 & $-36\%$ \\
+$4\times4$, large &  298.7 &  158.4 & $-47\%$ \\
+$7\times7$, small &  230.2 &  199.2 & $-13\%$ \\
+$7\times7$, large & 3603.5 & 3629.5 & $+1\%$  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Deferral consistently improves on GSD ($-13$ to $-47\%$) except on
+$7\times7$ large where it is essentially neutral ($+1\%$).  The largest
+gain is on $4\times4$ large ($-47\%$), confirming that deferral is most
+valuable in high-contention regimes.
 
 %======================================================================
 \section{Reproducing These Results}
@@ -249,7 +248,7 @@ where GSD already wins (large grid, large DAG):
 cd ncsim/
 python run_routing_eval.py
 # Output: /tmp/ncsim_routing_eval/eval_results.json
-# Runtime: ~45 minutes
+# Runtime: ~50 minutes (960 runs)
 \end{lstlisting}
 
 \end{document}

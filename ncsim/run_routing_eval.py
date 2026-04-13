@@ -12,6 +12,9 @@ DAG sizes per network:
   small:  8 tasks  (fork-join)
   large: 30 tasks  (multi-level pipeline)  — for 4x4
   large: 60 tasks  (multi-level pipeline)  — for 7x7
+
+Workload:
+  Heterogeneous compute costs (150-1000) and data sizes (2-30 MB).
 """
 
 import json
@@ -22,22 +25,29 @@ import time
 from pathlib import Path
 
 OUTDIR = "/tmp/ncsim_routing_eval"
-COMPUTE_COST = 500
-DATA_SIZE = 10.0
 NUM_SEEDS = 30
 GRID_SPACING = 40
+
+# Heterogeneous compute costs: range from 200 to 1000 (5x variation)
+_COMPUTE_COSTS = [500, 200, 800, 350, 1000, 150, 600, 450, 750, 300,
+                  900, 250, 550, 700, 400, 850]
+
+# Heterogeneous data sizes in MB: range from 2 to 30 (15x variation)
+_DATA_SIZES = [10.0, 2.0, 25.0, 5.0, 30.0, 8.0, 15.0, 3.0,
+               20.0, 6.0, 12.0, 28.0, 4.0, 18.0, 7.0, 22.0]
 
 _CAPACITIES = [200, 100, 150, 80, 300, 120, 250, 180, 160, 90,
                220, 140, 280, 110, 190, 170]
 
 STRATEGIES = [
-    ("W",   "widest_path",                None),
-    ("S",   "shortest_path",              None),
-    ("GS",  "interference_aware",         "start"),
-    ("GC",  "interference_aware",         "criticality"),
-    ("GB",  "interference_aware",         "bytes"),
-    ("GO",  "interference_aware",         "overlap"),
-    ("GSD", "interference_aware_dynamic", None),
+    ("W",     "widest_path",                          None),
+    ("S",     "shortest_path",                        None),
+    ("GS",    "interference_aware",                   "start"),
+    ("GC",    "interference_aware",                   "criticality"),
+    ("GB",    "interference_aware",                   "bytes"),
+    ("GO",    "interference_aware",                   "overlap"),
+    ("GSD",   "interference_aware_dynamic",           None),
+    ("GSD-D", "interference_aware_dynamic_deferral",  None),
 ]
 LABELS = [s[0] for s in STRATEGIES]
 
@@ -87,18 +97,22 @@ def make_dag_small():
 
     Produces 12 inter-node edges (6 fan-out + 6 fan-in), enough concurrency
     to stress routing on a 4x4 grid without overwhelming a 7x7.
+    Heterogeneous compute costs and data sizes.
     """
     n_parallel = 6
-    tasks = [{"id": "T0", "compute_cost": COMPUTE_COST}]
+    tasks = [{"id": "T0", "compute_cost": _COMPUTE_COSTS[0]}]
     for i in range(1, n_parallel + 1):
-        tasks.append({"id": f"T{i}", "compute_cost": COMPUTE_COST})
-    tasks.append({"id": f"T{n_parallel + 1}", "compute_cost": COMPUTE_COST})
+        tasks.append({"id": f"T{i}", "compute_cost": _COMPUTE_COSTS[i % len(_COMPUTE_COSTS)]})
+    tasks.append({"id": f"T{n_parallel + 1}", "compute_cost": _COMPUTE_COSTS[(n_parallel + 1) % len(_COMPUTE_COSTS)]})
 
     sink = f"T{n_parallel + 1}"
     edges = []
+    edge_idx = 0
     for i in range(1, n_parallel + 1):
-        edges.append({"from": "T0", "to": f"T{i}", "data_size": DATA_SIZE})
-        edges.append({"from": f"T{i}", "to": sink, "data_size": DATA_SIZE})
+        edges.append({"from": "T0", "to": f"T{i}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+        edge_idx += 1
+        edges.append({"from": f"T{i}", "to": sink, "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+        edge_idx += 1
     return tasks, edges
 
 
@@ -113,13 +127,16 @@ def make_dag_large_4x4():
     Stage 5: T29 (sink)
 
     Cross-connected between stages for rich routing diversity.
+    Heterogeneous compute costs and data sizes.
     """
-    tasks = [{"id": f"T{i}", "compute_cost": COMPUTE_COST} for i in range(30)]
+    tasks = [{"id": f"T{i}", "compute_cost": _COMPUTE_COSTS[i % len(_COMPUTE_COSTS)]} for i in range(30)]
     edges = []
+    edge_idx = 0
 
     # Stage 0 -> Stage 1
     for i in range(1, 7):
-        edges.append({"from": "T0", "to": f"T{i}", "data_size": DATA_SIZE})
+        edges.append({"from": "T0", "to": f"T{i}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+        edge_idx += 1
 
     # Stage 1 -> Stage 2 (selective connections)
     s1 = list(range(1, 7))
@@ -127,24 +144,28 @@ def make_dag_large_4x4():
     for i, src in enumerate(s1):
         for j in range(2):  # each stage-1 task feeds ~2 stage-2 tasks
             dst = s2[(i * 2 + j) % len(s2)]
-            edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": DATA_SIZE})
+            edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+            edge_idx += 1
 
     # Stage 2 -> Stage 3
     s3 = list(range(15, 23))
     for i, src in enumerate(s2):
         for j in range(2):
             dst = s3[(i * 2 + j) % len(s3)]
-            edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": DATA_SIZE})
+            edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+            edge_idx += 1
 
     # Stage 3 -> Stage 4
     s4 = list(range(23, 29))
     for i, src in enumerate(s3):
         dst = s4[i % len(s4)]
-        edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": DATA_SIZE})
+        edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+        edge_idx += 1
 
     # Stage 4 -> Sink
     for i in s4:
-        edges.append({"from": f"T{i}", "to": "T29", "data_size": DATA_SIZE})
+        edges.append({"from": f"T{i}", "to": "T29", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+        edge_idx += 1
 
     return tasks, edges
 
@@ -159,9 +180,12 @@ def make_dag_large_7x7():
     Stage 4: T39-T48 (10 tasks)
     Stage 5: T49-T58 (10 tasks)
     Stage 6: T59 (sink)
+
+    Heterogeneous compute costs and data sizes.
     """
-    tasks = [{"id": f"T{i}", "compute_cost": COMPUTE_COST} for i in range(60)]
+    tasks = [{"id": f"T{i}", "compute_cost": _COMPUTE_COSTS[i % len(_COMPUTE_COSTS)]} for i in range(60)]
     edges = []
+    edge_idx = 0
 
     s1 = list(range(1, 11))
     s2 = list(range(11, 25))
@@ -171,33 +195,39 @@ def make_dag_large_7x7():
 
     # Source -> Stage 1
     for i in s1:
-        edges.append({"from": "T0", "to": f"T{i}", "data_size": DATA_SIZE})
+        edges.append({"from": "T0", "to": f"T{i}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+        edge_idx += 1
 
     # Stage 1 -> Stage 2 (each feeds ~3)
     for i, src in enumerate(s1):
         for j in range(3):
             dst = s2[(i * 3 + j) % len(s2)]
-            edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": DATA_SIZE})
+            edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+            edge_idx += 1
 
     # Stage 2 -> Stage 3
     for i, src in enumerate(s2):
         for j in range(2):
             dst = s3[(i * 2 + j) % len(s3)]
-            edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": DATA_SIZE})
+            edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+            edge_idx += 1
 
     # Stage 3 -> Stage 4
     for i, src in enumerate(s3):
         dst = s4[i % len(s4)]
-        edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": DATA_SIZE})
+        edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+        edge_idx += 1
 
     # Stage 4 -> Stage 5
     for i, src in enumerate(s4):
         dst = s5[i % len(s5)]
-        edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": DATA_SIZE})
+        edges.append({"from": f"T{src}", "to": f"T{dst}", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+        edge_idx += 1
 
     # Stage 5 -> Sink
     for i in s5:
-        edges.append({"from": f"T{i}", "to": "T59", "data_size": DATA_SIZE})
+        edges.append({"from": f"T{i}", "to": "T59", "data_size": _DATA_SIZES[edge_idx % len(_DATA_SIZES)]})
+        edge_idx += 1
 
     return tasks, edges
 
@@ -310,7 +340,8 @@ def main():
     print("=" * 100)
     print("  Routing Scheme Evaluation: W / S / GS / GC / GB / GO / GSD")
     print("  Scheduler: HEFT | Interference: csma_bianchi | Seeds: 30")
-    print(f"  Task config: compute_cost={COMPUTE_COST}, data_size={DATA_SIZE}MB")
+    print(f"  Compute costs: {min(_COMPUTE_COSTS)}-{max(_COMPUTE_COSTS)} (heterogeneous)")
+    print(f"  Data sizes: {min(_DATA_SIZES)}-{max(_DATA_SIZES)} MB (heterogeneous)")
     print(f"  Grid spacing: {GRID_SPACING}m")
     print("=" * 100)
     print()

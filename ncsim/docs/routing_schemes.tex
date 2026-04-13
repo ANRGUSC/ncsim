@@ -37,7 +37,7 @@ The schemes fall into three families:
 Baseline        & W, S         & Once, at topology load time (cached) \\
 Static greedy   & GS, GC, GB, GO & Once, at DAG injection (after HEFT) \\
 Dynamic greedy  & GSD            & At each \texttt{transfer\_start} event \\
-Deferral \emph{(planned)} & GSD-D, GS-D, \ldots & At \texttt{transfer\_start}, may postpone \\
+Deferral            & GSD-D              & At \texttt{transfer\_start}, may postpone \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -205,48 +205,77 @@ delegates to \texttt{WidestPathRouting} for bandwidth estimates, since no
 runtime state is available yet.
 
 %----------------------------------------------------------------------
-\section{Deferral (Planned---Not Yet Implemented)}
+\section{Deferral Scheme}
 
-\subsection{Concept}
+\subsection{GSD-D --- Dynamic + Deferral}
 
-All current schemes start a transfer as soon as its source task completes.
-\textbf{Deferral} adds an option: if starting a transfer \emph{now} would
-severely degrade an already-active flow (or the new flow itself) due to
-interference, the engine can \textbf{postpone} the new transfer until
-conditions improve.
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+Class          & \texttt{DeferralDynamicRouting} \\
+Objective      & Maximize flow bottleneck BW; defer if congestion is severe \\
+When computed  & At each \texttt{transfer\_start} event \\
+State used     & Actual set of active links and per-link transfer counts \\
+CLI            & \texttt{-{}-routing interference\_aware\_dynamic\_deferral} \\
+\bottomrule
+\end{tabular}
 
-\subsection{Potential Variants}
+\medskip
+GSD-D extends GSD with a \textbf{deferral} mechanism.  At each
+\texttt{transfer\_start} event, the routing model computes the best path
+(identical to GSD) and then compares the effective bottleneck bandwidth to
+the no-contention baseline:
+\[
+  \text{ratio} = \frac{\text{effective\_bottleneck\_BW}}{\text{no\_contention\_BW}}
+\]
+If $\text{ratio} < \texttt{deferral\_threshold}$ (default 0.3), the engine
+\textbf{postpones} the transfer.  Deferred transfers are re-evaluated after
+every \texttt{transfer\_complete} event, when network conditions may have
+improved.
 
-\begin{description}\item[GSD-D (Dynamic + Deferral):] At \texttt{transfer\_start}, if the best
-      available path scores below a threshold (e.g., ${<}\,50\%$ of the
-      no-contention bandwidth), defer the transfer and re-evaluate after the
-      next \texttt{transfer\_complete} event.
-\item[GS-D (Static + Deferral):] Use GS route planning but allow the
-      execution engine to hold back flows whose planned route is currently
-      congested.
-\end{description}
+\subsection{Deferral Mechanism}
 
-\subsection{Key Design Questions}
-
-\begin{enumerate}\item \textbf{Deferral trigger:} Score threshold?  Comparison to
-      no-contention baseline?  Always defer if any link on the path is above
-      $N$ concurrent flows?
-\item \textbf{Re-evaluation:} On every \texttt{transfer\_complete}?  After a
-      fixed timeout?
-\item \textbf{Starvation:} How to guarantee deferred transfers eventually
-      execute (maximum deferral budget, priority escalation)?
-\item \textbf{Impact on HEFT:} Deferral changes actual timing relative to
-      HEFT estimates.  Does this cascade and hurt downstream tasks?
+\begin{enumerate}
+\item At \texttt{transfer\_start}: routing model sets \texttt{should\_defer}
+      flag if effective BW is below threshold fraction of uncongested BW.
+\item Engine checks the flag.  If deferral is indicated \emph{and} there are
+      active transfers in the network (to ensure eventual retry), the transfer
+      is stored in a deferred queue.  The \texttt{transfer\_start} trace event
+      is suppressed.
+\item At every \texttt{transfer\_complete}: the engine re-evaluates all
+      deferred transfers by rescheduling \texttt{transfer\_start} events.
+      Each re-evaluation computes a fresh path with updated state.
+\item Starvation prevention: each transfer may be deferred at most
+      \texttt{max\_deferrals} times (default 3), after which it starts
+      regardless of congestion.
+\item Deadlock prevention: if no transfers are currently active, deferral is
+      skipped (the transfer starts immediately).
 \end{enumerate}
 
-\subsection{Expected Benefit}
+\subsection{Parameters}
 
-Deferral is most useful when:
-\begin{itemize}\item A few high-bandwidth transfers dominate makespan and would complete
-      faster if not forced to share with small concurrent transfers
-\item The DAG has enough parallelism that deferring one transfer doesn't
-      immediately stall a critical-path task
+\begin{tabular}{@{}lcp{7cm}@{}}
+\toprule
+\textbf{Parameter} & \textbf{Default} & \textbf{Effect} \\
+\midrule
+\texttt{deferral\_threshold} & 0.3 & Defer if effective/no-contention BW ratio is below this \\
+\texttt{max\_deferrals}      & 3   & Maximum times a single transfer can be deferred \\
+\bottomrule
+\end{tabular}
+
+\subsection{When Deferral Helps}
+
+Deferral is most effective on \textbf{small, dense grids with large DAGs}
+(e.g., $4\times4$ with a 30-task pipeline), where:
+\begin{itemize}
+\item Many transfers compete for the same few links
+\item Waiting 1--2 transfer completions frees enough airtime for a much
+      faster path
+\item The DAG has enough parallelism that deferring one transfer does not
+      immediately stall the critical path
 \end{itemize}
+
+On sparse grids or small DAGs, contention is mild enough that deferral adds
+latency without benefit---Shortest-Path (S) is typically sufficient.
 
 %----------------------------------------------------------------------
 \section{Configuration Reference}
@@ -255,9 +284,12 @@ Deferral is most useful when:
 
 \begin{lstlisting}
 --routing {direct,widest_path,shortest_path,
-           interference_aware,interference_aware_dynamic}
+           interference_aware,interference_aware_dynamic,
+           interference_aware_dynamic_deferral}
 --greedy-order {start,criticality,bytes,overlap}
 --routing-hop-cutoff N
+--deferral-threshold F   # default 0.3
+--max-deferrals N        # default 3
 --interference {none,proximity,csma_clique,csma_bianchi}
 \end{lstlisting}
 

@@ -6,6 +6,7 @@ import pytest
 from ncsim.models.routing import (
     DirectLinkRouting, WidestPathRouting, ShortestPathRouting,
     InterferenceAwareRouting, DynamicInterferenceAwareRouting,
+    DeferralDynamicRouting,
 )
 from ncsim.models.network import Network, Node, Link, Position
 from ncsim.models.interference import ProximityInterference, NoInterference
@@ -875,3 +876,135 @@ class TestGreedyOrderVariants:
                     path = routing.get_path(src, dst, network)
                     assert path is not None, f"order={order}: no path {src}->{dst}"
                     assert len(path) > 0, f"order={order}: empty path {src}->{dst}"
+
+
+class TestDeferralDynamicRouting:
+    """Tests for DeferralDynamicRouting (GSD-D)."""
+
+    def test_same_node_returns_empty_path(self):
+        """Same node should return empty path (local transfer)."""
+        network = make_network(
+            [{"id": "n0"}, {"id": "n1"}],
+            [{"id": "l01", "from": "n0", "to": "n1", "bandwidth": 100}]
+        )
+        im = NoInterference()
+        routing = DeferralDynamicRouting(im)
+        path = routing.get_path("n0", "n0", network)
+        assert path == []
+        assert not routing.should_defer
+
+    def test_supports_deferral_property(self):
+        """DeferralDynamicRouting should report supports_deferral=True."""
+        im = NoInterference()
+        routing = DeferralDynamicRouting(im)
+        assert routing.supports_deferral is True
+        assert routing.is_dynamic is True
+
+    def test_delegates_without_network_state(self):
+        """Without network_state, should delegate to WidestPathRouting."""
+        network = make_network(
+            [{"id": "n0"}, {"id": "n1"}, {"id": "n2"}],
+            [
+                {"id": "l01", "from": "n0", "to": "n1", "bandwidth": 100},
+                {"id": "l12", "from": "n1", "to": "n2", "bandwidth": 100}
+            ]
+        )
+        im = NoInterference()
+        routing = DeferralDynamicRouting(im)
+        path = routing.get_path("n0", "n2", network)
+        assert path == ["l01", "l12"]
+        assert not routing.should_defer
+
+    def test_no_defer_when_uncongested(self):
+        """Should NOT defer when path has good bandwidth (no interference)."""
+        network = make_network(
+            [
+                {"id": "n0", "x": 0, "y": 0},
+                {"id": "n1", "x": 100, "y": 0},
+            ],
+            [
+                {"id": "l01", "from": "n0", "to": "n1", "bandwidth": 100},
+            ]
+        )
+        im = NoInterference()
+        routing = DeferralDynamicRouting(im, deferral_threshold=0.3)
+        # No active links → effective BW = 100 = no-contention BW → ratio=1.0 > 0.3
+        network_state = {
+            "active_link_ids": set(),
+            "link_transfer_counts": {},
+        }
+        path = routing.get_path("n0", "n1", network, network_state)
+        assert path == ["l01"]
+        assert not routing.should_defer
+
+    def test_defers_when_heavily_congested(self):
+        """Should defer when effective BW is far below no-contention BW."""
+        network = make_network(
+            [
+                {"id": "n0", "x": 0, "y": 0},
+                {"id": "n1", "x": 10, "y": 0},
+            ],
+            [
+                {"id": "l01", "from": "n0", "to": "n1", "bandwidth": 100},
+            ]
+        )
+        # Use proximity interference with small radius so l01 interferes with itself
+        # when other nearby links are active
+        im = ProximityInterference(interference_radius=50)
+        routing = DeferralDynamicRouting(im, deferral_threshold=0.3)
+
+        # 5 existing transfers on the link + heavy interference
+        # Effective BW: 100 * interference_factor / (5+1)
+        # With proximity interference from many active nearby links, factor < 1
+        network_state = {
+            "active_link_ids": {"l01"},
+            "link_transfer_counts": {"l01": 5},
+        }
+        path = routing.get_path("n0", "n1", network, network_state)
+        assert path == ["l01"]
+        # With 5 existing transfers: effective = 100 * factor / 6
+        # No-contention = 100
+        # ratio = factor/6 ≈ 0.5/6 ≈ 0.083 < 0.3 → should defer
+        assert routing.should_defer
+
+    def test_threshold_boundary(self):
+        """Test deferral with different thresholds."""
+        network = make_network(
+            [
+                {"id": "n0", "x": 0, "y": 0},
+                {"id": "n1", "x": 100, "y": 0},
+            ],
+            [
+                {"id": "l01", "from": "n0", "to": "n1", "bandwidth": 100},
+            ]
+        )
+        im = NoInterference()
+        # 2 existing transfers: effective = 100/(2+1) = 33.3
+        # No-contention = 100, ratio = 0.333
+        network_state = {
+            "active_link_ids": {"l01"},
+            "link_transfer_counts": {"l01": 2},
+        }
+        # Threshold 0.3 → ratio 0.333 > 0.3 → should NOT defer
+        routing_low = DeferralDynamicRouting(im, deferral_threshold=0.3)
+        routing_low.get_path("n0", "n1", network, network_state)
+        assert not routing_low.should_defer
+
+        # Threshold 0.5 → ratio 0.333 < 0.5 → should defer
+        routing_high = DeferralDynamicRouting(im, deferral_threshold=0.5)
+        routing_high.get_path("n0", "n1", network, network_state)
+        assert routing_high.should_defer
+
+    def test_get_path_bandwidth_delegates(self):
+        """get_path_bandwidth should delegate to WidestPathRouting."""
+        network = make_network(
+            [{"id": "n0"}, {"id": "n1"}, {"id": "n2"}],
+            [
+                {"id": "l01", "from": "n0", "to": "n1", "bandwidth": 100},
+                {"id": "l12", "from": "n1", "to": "n2", "bandwidth": 60}
+            ]
+        )
+        im = NoInterference()
+        routing = DeferralDynamicRouting(im)
+        bw = routing.get_path_bandwidth("n0", "n2", network)
+        assert bw == 60
