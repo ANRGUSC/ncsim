@@ -242,7 +242,7 @@ class CsmaBianchiInterference(InterferenceModel):
     ) -> float:
         from ncsim.models.wifi import (
             euclidean_distance, received_power_dBm, sinr_dB,
-            snr_to_rate_mbps, rate_mbps_to_MBps, bianchi_efficiency,
+            bianchi_efficiency, capture_sinr_threshold,
         )
 
         if link_id not in active_link_ids:
@@ -261,10 +261,22 @@ class CsmaBianchiInterference(InterferenceModel):
         contending_active = active_link_ids & conflict_neighbors
         hidden_active = (active_link_ids - conflict_neighbors) - {link_id}
 
-        # SINR degradation from hidden terminals ONLY
-        # (contending links don't transmit simultaneously under CSMA)
-        # Use expected-rate model: weight each hidden terminal's interference
-        # by its transmit probability p_h = eta(n_h)/n_h.
+        # Hidden terminal interference: capture-threshold model
+        #
+        # 802.11 frames succeed or fail at their selected MCS — there is no
+        # "partial success" at a lower rate.  When hidden terminals are active,
+        # we compute the SINR and compare it to the decode threshold for the
+        # link's operating MCS.  If SINR >= threshold, the frame is captured
+        # (decoded successfully despite interference).  If SINR < threshold,
+        # the frame fails entirely.
+        #
+        # The simulation's event-driven execution handles temporal dynamics:
+        # this factor is recomputed whenever the set of active links changes,
+        # so the fraction of time with/without interference is modeled by the
+        # simulation itself.
+        #
+        # Refs: Daneshgaran et al. (2008) DOI:10.1109/tcomm.2008.060397
+        #       Zorzi & Rao (1994)        DOI:10.1109/49.329345
         sinr_factor = 1.0
         if hidden_active:
             dist = euclidean_distance(tx_node.position, rx_node.position)
@@ -275,10 +287,8 @@ class CsmaBianchiInterference(InterferenceModel):
                 self.rf.tx_power_dBm, dist, self.rf, fading
             )
 
-            # Precompute each hidden terminal's interference power and
-            # transmit probability
-            hidden_list = []
-            for interferer_id in sorted(hidden_active):
+            interference_powers = []
+            for interferer_id in hidden_active:
                 interferer = network.links[interferer_id]
                 interferer_tx = network.nodes[interferer.from_node]
                 i_dist = euclidean_distance(
@@ -290,61 +300,24 @@ class CsmaBianchiInterference(InterferenceModel):
                 i_power = received_power_dBm(
                     self.rf.tx_power_dBm, i_dist, self.rf, i_fading
                 )
-                # Transmit probability: h's contention domain size
-                h_conflict_neighbors = self.conflict_graph.conflicts.get(
-                    interferer_id, set()
-                )
-                n_h = 1 + len(active_link_ids & h_conflict_neighbors)
-                p_h = bianchi_efficiency(n_h) / n_h
-                hidden_list.append((i_power, p_h))
+                interference_powers.append(i_power)
 
-            N = len(hidden_list)
-            if N <= 10:
-                # Enumerate all 2^N subsets for expected rate
-                expected_rate = 0.0
-                for mask in range(1 << N):
-                    prob = 1.0
-                    subset_powers = []
-                    for j in range(N):
-                        if mask & (1 << j):
-                            prob *= hidden_list[j][1]
-                            subset_powers.append(hidden_list[j][0])
-                        else:
-                            prob *= (1.0 - hidden_list[j][1])
-                    if subset_powers:
-                        sub_sinr = sinr_dB(
-                            desired_power, subset_powers,
-                            self.rf.noise_floor_dBm,
-                        )
-                        sub_rate_mbps = snr_to_rate_mbps(
-                            sub_sinr, self.rf.wifi_standard,
-                            self.rf.channel_width_mhz,
-                        )
-                        sub_rate = rate_mbps_to_MBps(sub_rate_mbps)
-                        if sub_rate <= 0:
-                            sub_rate = base_rate * 0.01
-                    else:
-                        # No interferers active in this subset
-                        sub_rate = base_rate
-                    expected_rate += prob * sub_rate
+            link_sinr = sinr_dB(
+                desired_power, interference_powers, self.rf.noise_floor_dBm
+            )
 
-                if expected_rate <= 0:
-                    return 0.01
-                sinr_factor = expected_rate / base_rate
+            # Capture threshold: minimum SINR for successful decode at the
+            # link's operating MCS (selection threshold - capture margin)
+            base_rate_mbps = base_rate * 8.0  # MBps -> Mbps
+            ct = capture_sinr_threshold(
+                base_rate_mbps, self.rf.wifi_standard,
+                self.rf.channel_width_mhz,
+            )
+
+            if link_sinr >= ct:
+                sinr_factor = 1.0   # Capture: frame decoded despite interference
             else:
-                # Fallback: assume all hidden terminals transmit (worst case)
-                all_powers = [h[0] for h in hidden_list]
-                link_sinr = sinr_dB(
-                    desired_power, all_powers, self.rf.noise_floor_dBm
-                )
-                sinr_rate_mbps = snr_to_rate_mbps(
-                    link_sinr, self.rf.wifi_standard,
-                    self.rf.channel_width_mhz,
-                )
-                sinr_rate_MBps = rate_mbps_to_MBps(sinr_rate_mbps)
-                if sinr_rate_MBps <= 0:
-                    return 0.01
-                sinr_factor = sinr_rate_MBps / base_rate
+                sinr_factor = 0.01  # Frame failure: link effectively blocked
 
         # Bianchi contention domain sharing
         # n contending stations share the channel: each gets eta(n)/n

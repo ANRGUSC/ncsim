@@ -170,6 +170,11 @@ class ExecutionEngine:
         # Event listeners for trace writing
         self._listeners: List[EventListener] = []
 
+        # Deferral state
+        self._deferred_transfers: List[tuple] = []  # [(dag_id, Edge)]
+        self._deferral_counts: Dict[tuple, int] = {}  # (dag_id, from_task, to_task) -> count
+        self._event_deferred = False
+
         # Simulation time
         self.sim_time = 0.0
 
@@ -236,6 +241,7 @@ class ExecutionEngine:
     def handle_event(self, event: Event) -> None:
         """Dispatch event to appropriate handler."""
         self.sim_time = round_time(event.sim_time)
+        self._event_deferred = False
 
         handlers = {
             EventType.DAG_INJECT: self._handle_dag_inject,
@@ -249,7 +255,8 @@ class ExecutionEngine:
         handler = handlers.get(event.event_type)
         if handler:
             handler(event)
-            self._notify_listeners(event)
+            if not self._event_deferred:
+                self._notify_listeners(event)
         else:
             logger.debug(f"No handler for event type: {event.event_type}")
 
@@ -274,6 +281,13 @@ class ExecutionEngine:
         snapshot = self.get_network_snapshot()
         plan = self.scheduler.on_dag_inject(dag, snapshot)
         self.placement_plans[dag_id] = plan
+
+        # If using interference-aware routing, plan routes before validation
+        from ncsim.models.routing import InterferenceAwareRouting
+        if isinstance(self.routing_model, InterferenceAwareRouting):
+            schedule_timing = plan.metadata.get("schedule_timing")
+            self.routing_model.plan_routes(dag, plan, self.network, schedule_timing)
+
         self._validate_placement(dag, plan)
 
         logger.info(f"DAG {dag_id} injected with {len(dag.tasks)} tasks")
@@ -493,8 +507,11 @@ class ExecutionEngine:
             self._complete_local_transfer(dag_id, from_task, to_task)
             return
 
-        # Get path for transfer
-        path = self.routing_model.get_path(src_node, dst_node, self.network)
+        # Get path for transfer (without network_state at schedule time;
+        # dynamic routing models recompute in _handle_transfer_start)
+        path = self.routing_model.get_path(
+            src_node, dst_node, self.network
+        )
 
         if path is None or len(path) == 0:
             raise SimulationError(
@@ -527,7 +544,9 @@ class ExecutionEngine:
                 "data_size": edge.data_size,
                 "path": path,
                 "bottleneck_bandwidth": bottleneck_bw,
-                "total_latency": total_latency
+                "total_latency": total_latency,
+                "src_node": src_node,
+                "dst_node": dst_node,
             }
         )
 
@@ -562,6 +581,65 @@ class ExecutionEngine:
         path = event.data.get("path", [link_id])
         bottleneck_bw = event.data.get("bottleneck_bandwidth", 0.0)
         total_latency = event.data.get("total_latency", 0.0)
+
+        # For dynamic routing: recompute path with current network state
+        # so sibling transfers that started earlier are visible
+        if getattr(self.routing_model, 'is_dynamic', False):
+            src_node = event.data.get("src_node")
+            dst_node = event.data.get("dst_node")
+            if src_node and dst_node:
+                network_state = {
+                    "active_link_ids": self._get_active_link_ids(),
+                    "link_transfer_counts": {
+                        lid: ls.num_transfers
+                        for lid, ls in self.link_states.items()
+                        if ls.num_transfers > 0
+                    },
+                }
+                new_path = self.routing_model.get_path(
+                    src_node, dst_node, self.network, network_state
+                )
+                if new_path is not None and len(new_path) > 0:
+                    path = new_path
+                    link_id = path[0]
+                    if len(path) == 1:
+                        bottleneck_bw = self.network.links[link_id].bandwidth
+                        total_latency = self.network.links[link_id].latency
+                    else:
+                        bottleneck_bw = min(
+                            self.network.links[lid].bandwidth for lid in path
+                        )
+                        total_latency = sum(
+                            self.network.links[lid].latency for lid in path
+                        )
+
+        # Check deferral: routing model may recommend postponing this transfer
+        if getattr(self.routing_model, 'supports_deferral', False):
+            should_defer = getattr(self.routing_model, 'should_defer', False)
+            transfer_key = (dag_id, from_task, to_task)
+            count = self._deferral_counts.get(transfer_key, 0)
+            max_deferrals = getattr(self.routing_model, 'max_deferrals', 3)
+
+            if should_defer and count < max_deferrals:
+                # Only defer if there are active transfers that will eventually
+                # complete and trigger a retry (prevent deadlock)
+                has_active = any(
+                    ls.num_transfers > 0 for ls in self.link_states.values()
+                )
+                if has_active:
+                    self._deferral_counts[transfer_key] = count + 1
+                    dag = self.dags.get(dag_id)
+                    if dag:
+                        for edge in dag.edges:
+                            if edge.from_task == from_task and edge.to_task == to_task:
+                                self._deferred_transfers.append((dag_id, edge))
+                                break
+                    self._event_deferred = True
+                    logger.debug(
+                        f"Deferred transfer {from_task}->{to_task} "
+                        f"(count={count + 1}/{max_deferrals})"
+                    )
+                    return
 
         # Validate all links in path exist
         for lid in path:
@@ -798,6 +876,10 @@ class ExecutionEngine:
                 )
                 logger.debug(f"Task {to_task} now ready (all predecessors complete)")
 
+        # Re-evaluate deferred transfers (conditions may have improved)
+        if self._deferred_transfers:
+            self._retry_deferred_transfers()
+
     def _recalculate_interfered_transfers(self, changed_link_ids: Set[str]) -> None:
         """Recalculate transfers on links affected by interference changes.
 
@@ -821,6 +903,21 @@ class ExecutionEngine:
             link_state = self.link_states.get(lid)
             if link_state and link_state.active_transfers:
                 self._recalculate_link_transfers(lid)
+
+    def _retry_deferred_transfers(self) -> None:
+        """Re-evaluate deferred transfers after a transfer completed.
+
+        Reschedules TRANSFER_START events for all deferred transfers.
+        They will be re-evaluated by the routing model with updated
+        network state and may start or be deferred again (up to max_deferrals).
+        """
+        to_retry = self._deferred_transfers[:]
+        self._deferred_transfers.clear()
+        for dag_id, edge in to_retry:
+            self._schedule_transfer_start(dag_id, edge)
+            logger.debug(
+                f"Retrying deferred transfer {edge.from_task}->{edge.to_task}"
+            )
 
     def get_makespan(self) -> float:
         """Calculate makespan (time of last task completion)."""

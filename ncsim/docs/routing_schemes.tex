@@ -5,6 +5,9 @@
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{tabularx}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, shapes}
 
 \hypersetup{colorlinks=true, linkcolor=blue!60!black, urlcolor=blue!60!black}
 \lstset{basicstyle=\ttfamily\small, breaklines=true, frame=single,
@@ -16,17 +19,18 @@
 
 \begin{document}
 \maketitle
+\tableofcontents
+\newpage
 
+%======================================================================
 \section{Overview}
 
 When tasks in a DAG are placed on different nodes, data transfers traverse
 multi-hop wireless paths where concurrent transmissions interfere with each
 other.  The \textbf{routing scheme} decides \emph{which path} each transfer
-takes and---in future work---\emph{when} it begins.  All schemes listed here
-operate on top of HEFT task placement and the \texttt{csma\_bianchi} 802.11
-interference model.
+takes and---for deferral schemes---\emph{when} it begins.
 
-The schemes fall into three families:
+The schemes fall into four families:
 
 \begin{table}[h]
 \centering
@@ -34,16 +38,535 @@ The schemes fall into three families:
 \toprule
 \textbf{Family} & \textbf{Schemes} & \textbf{When routes are decided} \\
 \midrule
-Baseline        & W, S         & Once, at topology load time (cached) \\
-Static greedy   & GS, GC, GB, GO & Once, at DAG injection (after HEFT) \\
-Dynamic greedy  & GSD            & At each \texttt{transfer\_start} event \\
-Deferral            & GSD-D              & At \texttt{transfer\_start}, may postpone \\
+Baseline        & D, W, S, SH      & Once, at topology load time (cached) \\
+Static greedy   & GS, GC, GB, GO   & Once, at DAG injection (after HEFT) \\
+Dynamic greedy  & GSD              & At each \texttt{transfer\_start} event \\
+Deferral        & GSD-D            & At \texttt{transfer\_start}, may postpone \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%======================================================================
+\section{Testing Environment}
+
+This section describes the network topologies, DAG structures, schedules,
+and simulation parameters used throughout the ncsim evaluation suite.
+Understanding the test environment is essential for interpreting when and
+why different routing schemes win.
+
+%----------------------------------------------------------------------
+\subsection{Network Topologies}
+
+\subsubsection{Grid Networks}
+
+The primary evaluation topologies are regular 2D grids with optional
+diagonal links.  Nodes are placed at uniform spacing (40\,m in the
+evaluation suite) with bidirectional links between neighbors.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrp{6cm}}
+\toprule
+\textbf{Topology} & \textbf{Nodes} & \textbf{Links} & \textbf{Notes} \\
+\midrule
+$4\times4$ grid & 16 & 68  & Grid + checkerboard diagonals, heterogeneous compute capacities \\
+$7\times7$ grid & 49 & 240 & Grid + checkerboard diagonals, heterogeneous compute capacities \\
+Parallel corridors & 4 & 8 & Two equal-length 2-hop paths (n\_src $\to$ n\_top/bot $\to$ n\_dst) \\
+Spine + bypass & 4 & 8 & Dense spine corridor plus separated bypass path \\
+Dense $3\times3$ & 9 & 24 & 15\,m spacing; adjacent links interfere at proximity radius=20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\medskip
+\textbf{RF parameters (csma\_bianchi mode):}
+5\,GHz band, 20\,MHz channel, $P_{\mathrm{tx}} = 20$\,dBm, path-loss exponent $n = 3.0$.
+At 40\,m spacing, adjacent-link PHY rate is $\approx 8.6$\,MB/s; diagonal
+links ($\approx 56.6$\,m) have lower PHY rates.
+
+\subsubsection{Benchmark Scenarios}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lp{10cm}}
+\toprule
+\textbf{Scenario} & \textbf{Description} \\
+\midrule
+\texttt{demo\_simple.yaml} & 2 nodes, 1 link; T0 (cc=100) $\to$ T1 (cc=200) via 50\,MB transfer. \\
+\texttt{bandwidth\_contention.yaml} & Two transfers on the same link; validates BW fair-sharing. \\
+\texttt{interference\_aware\_routing.yaml} & X-topology: two crossing flows, each with spine vs.\ corridor path choices. \\
+\texttt{parallel\_spread.yaml} & Fork DAG on a grid; multiple simultaneous transfers. \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 %----------------------------------------------------------------------
+\subsection{DAG Structures}
+
+The simulator executes DAGs (Directed Acyclic Graphs) where nodes are
+compute tasks and edges carry data between them.  Three DAG shapes are
+used across evaluations:
+
+\subsubsection{Fork-Join (Small DAG, 8 tasks)}
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=1.2cm and 1.4cm,
+  task/.style={draw, rounded corners, minimum width=1.4cm, minimum height=0.5cm,
+               font=\small, fill=blue!10},
+  >=Stealth
+]
+  \node[task] (src) {T\_src};
+  \node[task, right=of src, yshift=1.5cm] (t1) {T1};
+  \node[task, right=of src, yshift=0.8cm] (t2) {T2};
+  \node[task, right=of src, yshift=0.0cm] (t3) {T3};
+  \node[task, right=of src, yshift=-0.8cm] (t4) {T4};
+  \node[task, right=of src, yshift=-1.5cm] (t5) {T5};
+  \node[task, right=3.5cm of src] (sink) {T\_sink};
+  \draw[->] (src) -- (t1);
+  \draw[->] (src) -- (t2);
+  \draw[->] (src) -- (t3);
+  \draw[->] (src) -- (t4);
+  \draw[->] (src) -- (t5);
+  \draw[->] (t1) -- (sink);
+  \draw[->] (t2) -- (sink);
+  \draw[->] (t3) -- (sink);
+  \draw[->] (t4) -- (sink);
+  \draw[->] (t5) -- (sink);
+\end{tikzpicture}
+\end{center}
+
+\begin{itemize}
+  \item 1 source task fans out to 6 parallel workers, which all converge on 1 sink.
+  \item \textbf{12 edges} total (6 fan-out + 6 fan-in).
+  \item \textbf{Transfer sizes:} 2--30\,MB (heterogeneous), drawn from a fixed distribution per seed.
+  \item \textbf{Compute costs:} 150--1000 compute units (heterogeneous).
+  \item All 6 fan-out transfers fire \emph{simultaneously} when T\_src completes.
+  \item The 6 fan-in transfers fire in a scattered pattern as each worker finishes.
+\end{itemize}
+
+This DAG is designed to create \textbf{burst contention}: the fan-out phase
+generates 6 simultaneous transfers that compete for paths.
+
+\subsubsection{Multi-Stage Pipeline (Large DAG, 30 tasks on $4\times4$; 60 tasks on $7\times7$)}
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=1.4cm and 1.2cm,
+  task/.style={draw, rounded corners, minimum width=0.9cm, minimum height=0.5cm,
+               font=\tiny, fill=orange!15},
+  >=Stealth
+]
+  \foreach \i in {1,...,5} {
+    \node[task] (sA\i) at (0, -\i*0.8 + 2.4) {S1-\i};
+    \node[task] (sB\i) at (2, -\i*0.8 + 2.4) {S2-\i};
+    \node[task] (sC\i) at (4, -\i*0.8 + 2.4) {S3-\i};
+    \node[task] (sD\i) at (6, -\i*0.8 + 2.4) {S4-\i};
+    \node[task] (sE\i) at (8, -\i*0.8 + 2.4) {S5-\i};
+  }
+  \foreach \i in {1,...,5} {
+    \draw[->] (sA\i) -- (sB\i);
+    \draw[->] (sB\i) -- (sC\i);
+    \draw[->] (sC\i) -- (sD\i);
+    \draw[->] (sD\i) -- (sE\i);
+  }
+  % cross-connections (dashed)
+  \draw[->, dashed, gray] (sA1) -- (sB2);
+  \draw[->, dashed, gray] (sA2) -- (sB3);
+  \draw[->, dashed, gray] (sB1) -- (sC2);
+\end{tikzpicture}
+\end{center}
+
+\begin{itemize}
+  \item 5--6 stages, each with multiple tasks (6 tasks/stage on $4\times4$, 10 tasks/stage
+        on $7\times7$).
+  \item \textbf{48 edges} ($4\times4$), \textbf{102 edges} ($7\times7$).
+  \item Stage-to-stage edges run in parallel; cross-connections (dashed) add
+        inter-row dependencies that stagger transfer start times.
+  \item \textbf{Transfer sizes:} 2--30\,MB; \textbf{Compute costs:} 150--1000 units.
+  \item Each stage transition fires 5--10 simultaneous transfers, sustaining
+        high network utilization throughout execution.
+\end{itemize}
+
+\subsubsection{Win-Regime Test DAGs}
+
+These are hand-crafted DAGs used in \texttt{tests/test\_win\_regimes.py} to
+isolate specific advantages of interference-aware routing.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lp{4cm}p{5.5cm}}
+\toprule
+\textbf{Test DAG} & \textbf{Structure} & \textbf{Purpose} \\
+\midrule
+2-flow fork       & T0 (n\_src) $\to$ T1, T2 (n\_dst) & 2 simultaneous transfers on same (src, dst) pair \\
+4-flow fork       & T0 (n\_src) $\to$ T1--T4 (n\_dst) & 4 simultaneous transfers; larger contention \\
+Wide fork (mixed) & T\_src $\to$ 5 sinks at different nodes & Heterogeneous data sizes (5--200\,MB) \\
+Critical-path     & T\_src $\to$ \{T\_critical (cc=5000), T\_noncrit (cc=10)\} & One edge on critical path, one off \\
+Pipeline (3×3)    & 3 stages $\times$ 3 nodes + cross-edges & Dense concurrent transfers for deferral testing \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%----------------------------------------------------------------------
+\subsection{What a Schedule Looks Like}
+
+After the routing scheme and HEFT scheduler run, each execution produces a
+\emph{schedule}: an assignment of tasks to nodes with a timing trace.
+
+\subsubsection{HEFT Placement}
+
+HEFT (Heterogeneous Earliest Finish Time) assigns each task to the node
+where it finishes earliest, accounting for:
+\begin{itemize}
+  \item \textbf{Compute time:} $\text{task\_runtime} = \text{compute\_cost} /
+        \text{node.compute\_capacity}$
+  \item \textbf{Transfer time (estimated):} $\text{transfer\_time} =
+        \text{data\_size} / \text{path\_bandwidth} + \text{path\_latency}$
+  \item \textbf{Node queue:} tasks are queued FIFO; HEFT accounts for when
+        the node finishes its current task
+\end{itemize}
+
+HEFT uses the routing model's \texttt{get\_path\_bandwidth()} to estimate
+transfer times during placement.  All routing schemes delegate this to
+\texttt{WidestPathRouting} (max bottleneck bandwidth), so placement decisions
+are independent of the chosen routing scheme.
+
+\subsubsection{Example: demo\_simple Trace}
+
+For the 2-node scenario with T0 (cc=100, on n0, capacity=100) $\to$
+T1 (cc=200, on n0, capacity=100) with a 50\,MB transfer on l01 (BW=100, lat=0.001):
+
+\begin{lstlisting}
+HEFT assigns both tasks to n0 (same-node transfer, no network needed).
+t=0.000  task_start     T0  on n0
+t=1.000  task_complete  T0  on n0   (100 / 100 = 1.0 s)
+t=1.000  transfer_start T0->T1  (same node: immediate)
+t=1.000  task_start     T1  on n0
+t=3.000  task_complete  T1  on n0   (200 / 100 = 2.0 s)
+Makespan: 3.000 s
+\end{lstlisting}
+
+\subsubsection{Example: Parallel Corridors Trace (GSD)}
+
+Fork DAG: T0 (cc=1000) on n\_src (cap=200) fans out to T1, T2 on n\_dst.
+Two corridors (top: n\_src $\to$ n\_top $\to$ n\_dst; bot: similar),
+each link BW=100\,MB/s.
+
+\begin{lstlisting}
+t=0.000  task_start      T0  on n_src
+t=5.000  task_complete   T0  on n_src  (1000/200 = 5.0 s)
+t=5.000  transfer_start  T0->T1  via bot corridor (GSD: no active links -> bot)
+t=5.000  transfer_start  T0->T2  via top corridor (GSD: bot active -> pick top)
+           -- each transfer: 100 MB / 100 MB/s = 1.0 s + 0.002 latency --
+t=6.002  transfer_complete  T0->T1 and T0->T2
+t=6.002  task_start  T1 on n_dst
+t=6.007  task_complete  T1
+t=6.007  task_start  T2 on n_dst (FIFO queue)
+t=6.012  task_complete  T2
+Makespan: 6.012 s
+
+SP (both flows on same corridor):
+  effective BW = 100/2 = 50 MB/s per flow  ->  transfer = 2.0 s
+Makespan: 7.012 s   [GSD saves 1.0 s = 14%]
+\end{lstlisting}
+
+\subsubsection{Simulation Fidelity}
+
+The ncsim discrete-event simulator captures:
+\begin{itemize}
+  \item \textbf{Node queuing:} FIFO single-server queue per node; tasks wait
+        if a node is busy.  This is why T2 starts 0.005\,s after T1 in the
+        example above---both are assigned to n\_dst.
+  \item \textbf{Bandwidth sharing:} $N$ concurrent flows on a link each get
+        $\text{BW} \times \text{interference\_factor} / N$.  Recalculated
+        at every transfer start/complete event.
+  \item \textbf{Multi-hop paths:} bottleneck bandwidth = minimum BW along
+        path; total latency = sum of per-link latencies.
+  \item \textbf{Reproducibility:} all events are processed in
+        $(\text{sim\_time}, \text{priority}, \text{event\_id})$ order,
+        guaranteeing identical traces for the same seed.
+  \item \textbf{Time precision:} all times rounded to 6 decimal places
+        ($\mu$s resolution).
+\end{itemize}
+
+%----------------------------------------------------------------------
+\subsection{Evaluation Seeds and Averaging}
+
+Benchmark results are averaged over \textbf{30 seeds} (1--30) to smooth
+non-determinism introduced by Python's hash randomization, which affects
+HEFT's tie-breaking when multiple nodes have equal estimated finish times.
+
+Win-regime unit tests (\texttt{test\_win\_regimes.py}) use fixed seeds
+(default seed=42) and \textbf{task pinning} (\texttt{pinned\_to} field)
+to ensure completely deterministic, scheduler-independent results.
+
+%----------------------------------------------------------------------
+\subsection{Workload Heterogeneity}
+
+The evaluation workloads are intentionally \textbf{heterogeneous} in both
+data sizes and compute costs.  Uniform synthetic workloads tend to mask
+the advantages of flow-prioritization and criticality-aware schemes;
+heterogeneous workloads expose them.
+
+\subsubsection{Heterogeneous Data Sizes (2--30\,MB)}
+
+Transfer sizes are drawn from a fixed cycling list:
+\[
+  [10,\; 2,\; 25,\; 5,\; 30,\; 8,\; 15,\; 3,\; 20,\; 6,\; 12,\; 28,\;
+   4,\; 18,\; 7,\; 22]\;\text{MB}
+\]
+This gives a \textbf{15$\times$ range} (2\,MB to 30\,MB) with a roughly
+uniform spread on a log scale.  The same list is cycled across all edges
+in a DAG, so every DAG instance has a mix of small, medium, and large
+transfers regardless of topology size.
+
+\medskip
+\textbf{Why it matters:}
+\begin{itemize}
+  \item \textbf{Makespan is dominated by the largest transfers.}  A 30\,MB
+        flow on a congested link can cost $10\times$ as much as a 3\,MB
+        flow on the same link.  Schemes that route large flows first
+        (\textbf{GB}) or onto uncongested paths (\textbf{GSD}) gain the
+        most from heterogeneous sizes.
+  \item \textbf{HEFT's transfer-time estimates are size-scaled.}  HEFT-2
+        uses bottleneck bandwidth $b$ and estimates
+        $\text{data\_size}/b$ for each edge; large edges therefore pull
+        heavily on the EFT calculation and influence task placement.
+  \item \textbf{Small transfers are largely invisible to interference.}
+        A 2\,MB flow at 8.6\,MB/s takes 0.23\,s; a 30\,MB flow takes
+        3.5\,s.  Deferral (\textbf{GSD-D}) provides more benefit when
+        long transfers create sustained link contention.
+\end{itemize}
+
+\subsubsection{Heterogeneous Compute Costs (150--1000 compute units)}
+
+Task compute costs are drawn from a fixed cycling list:
+\[
+  [500,\; 200,\; 800,\; 350,\; 1000,\; 150,\; 600,\; 450,\; 750,\;
+   300,\; 900,\; 250,\; 550,\; 700,\; 400,\; 850]\;\text{units}
+\]
+This gives a \textbf{$\approx$6.7$\times$ range} (150 to 1000 compute
+units).  Node capacities are similarly heterogeneous:
+\[
+  [200,\; 100,\; 150,\; 80,\; 300,\; 120,\; 250,\; 180,\; 160,\; 90,\;
+   220,\; 140,\; 280,\; 110,\; 190,\; 170]\;\text{cu/s}
+\]
+giving task runtimes from $150/300 = 0.5$\,s to $1000/80 = 12.5$\,s
+depending on node assignment.
+
+\medskip
+\textbf{Why it matters:}
+\begin{itemize}
+  \item \textbf{HEFT upward ranks spread widely.}  A task with
+        \texttt{compute\_cost}=1000 that feeds several high-cost
+        successors has a much higher HEFT upward rank (ranku) than a
+        leaf task with cost 150.  This creates a clear ordering for
+        \textbf{GC} (criticality-based routing) to exploit.
+  \item \textbf{Task runtime variation staggers transfer start times.}
+        On a 16-task grid, actual transfer start times may span several
+        seconds, meaning the simultaneous-flow assumption implicit in the
+        static greedy schemes is only partially correct.  \textbf{GSD}
+        benefits because it observes real congestion at the actual start
+        time rather than a predicted window.
+  \item \textbf{Placement is sensitive to compute cost vs.\ transfer cost.}
+        HEFT-2 weighs the cost of sending a large data volume over a
+        multi-hop path against the benefit of using an otherwise-idle
+        fast node.  With wide compute-cost variation, some tasks are
+        worth the multi-hop transfer penalty; others are not.  This is
+        where HEFT-1 (which penalizes all multi-hop links) and HEFT-2
+        (which estimates them honestly) diverge most.
+\end{itemize}
+
+%----------------------------------------------------------------------
+\subsection{HEFT Scheduler Variants}
+
+HEFT (Heterogeneous Earliest Finish Time) decides \emph{where} each task runs
+by estimating the Earliest Finish Time on every node and assigning each task
+to the node where it finishes soonest:
+
+\[
+  \mathrm{EFT}(\text{task},\, n)
+  = \mathrm{EST}(\text{task},\, n)
+  + \frac{\text{compute\_cost}}{\text{node.compute\_capacity}}
+\]
+\[
+  \mathrm{EST}(\text{task},\, n)
+  = \max\!\Bigl(
+      t_n^{\text{free}},\;
+      \max_{\text{pred}}\!\Bigl[
+        \mathrm{EFT}(\text{pred}, n_{\text{pred}})
+        + \frac{\text{data\_size}}{\text{rate}(n_{\text{pred}},\, n)}
+      \Bigr]
+    \Bigr)
+\]
+
+The term $\text{rate}(n_i, n_j)$ is the pairwise transfer rate that HEFT uses
+for every (source node, destination node) pair.  Because the SAGA library
+requires a fully-connected graph, a rate must be supplied for \emph{every}
+pair, including pairs with no direct link.  The two variants differ only in
+how they populate this matrix.
+
+\subsubsection{HEFT (Calibrated) --- Runtime-Routing BW for All Pairs}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Class         & \texttt{SagaScheduler} \\
+CLI / YAML    & \texttt{scheduler: heft} \\
+Adjacent pair & bandwidth from the runtime routing model \\
+Same node     & 10{,}000 MB/s (effectively instant) \\
+No direct link & bandwidth from the runtime routing model (0.001\,MB/s if unreachable) \\
+\bottomrule
+\end{tabular}
+
+\medskip
+The original HEFT scheduler passes the \emph{runtime} routing model directly
+into the pairwise rate matrix.  When you run with \texttt{--routing shortest\_path},
+HEFT calls \texttt{ShortestPathRouting.get\_path\_bandwidth()} for every
+(src, dst) pair; when you run with \texttt{--routing interference\_aware\_dynamic},
+it delegates to \texttt{WidestPathRouting} (since dynamic models have no
+pre-simulation state) but at least uses the same code path.
+
+\medskip
+\textbf{Consequence:} HEFT's placement decisions are calibrated to the same
+routing scheme that will run at simulation time.  If you choose S as the runtime
+routing scheme, HEFT sees S-based bandwidth estimates and places tasks at nodes
+that work well with S's path choices.  This alignment between planner and router
+is especially valuable when the runtime routing scheme has systematically
+different path preferences from widest-path.
+
+\medskip
+\textbf{When it equals HEFT-2:} When the runtime routing scheme is
+\texttt{widest\_path}, the original HEFT and HEFT-2 produce identical pairwise
+rate matrices and therefore identical placements.  Differences emerge with
+other routing schemes (\texttt{shortest\_path}, \texttt{shortest\_hop}, etc.)
+on large topologies where path BW estimates diverge.
+
+\subsubsection{HEFT-1 --- Penalty Rate for Non-Adjacent Pairs}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Class         & \texttt{Heft1Scheduler} \\
+CLI / YAML    & \texttt{scheduler: heft1} \\
+Adjacent pair & actual link bandwidth \\
+Same node     & 10{,}000 MB/s (effectively instant) \\
+No direct link & \textbf{0.001 MB/s} (penalty) \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Non-adjacent node pairs receive a near-zero rate (0.001 MB/s).  HEFT computes
+a transfer time of $\text{data\_size}\,/\,0.001$, which is enormous --- a
+100 MB transfer is estimated at 100{,}000 seconds.  HEFT therefore
+\textbf{almost never places communicating tasks on non-adjacent nodes},
+concentrating placement on same-node or direct-neighbour assignments.
+
+\medskip
+\textbf{Consequence:} the pairwise rate matrix is accurate for adjacent pairs
+and wildly wrong for all others.  On a grid topology where the routing engine
+will happily route multi-hop (e.g.\ via widest-path or GSD), HEFT-1 makes
+placement decisions based on fictitious costs and may produce
+heavily unbalanced assignments that waste available network capacity.
+
+\subsubsection{HEFT-2 --- Widest-Path Bottleneck Rate for All Pairs}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Class         & \texttt{Heft2Scheduler} \\
+CLI / YAML    & \texttt{scheduler: heft2} \\
+Adjacent pair & widest-path bottleneck bandwidth \\
+Same node     & 10{,}000 MB/s (effectively instant) \\
+No direct link & widest-path bottleneck BW (0.001 MB/s if truly unreachable) \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Every pair receives the bottleneck bandwidth of the best multi-hop path
+between those two nodes, computed via \texttt{WidestPathRouting} at scheduling
+time.  HEFT sees accurate transfer time estimates for all reachable pairs
+regardless of whether a direct link exists.
+
+\medskip
+\textbf{Consequence:} HEFT can legitimately spread tasks across the topology.
+A task assigned to a non-adjacent node incurs a real but correctly-estimated
+multi-hop transfer cost, so HEFT weighs that cost fairly against the compute
+benefit of using an otherwise-idle node.
+
+\medskip
+\textbf{Important caveat:} HEFT-2 always uses \texttt{WidestPathRouting}
+internally for its BW estimates, regardless of the routing scheme used at
+simulation runtime (SP, GSD, etc.).  If the runtime routing scheme chooses
+a different path --- one with lower bottleneck bandwidth --- the actual
+transfer time will exceed HEFT's estimate.  HEFT-2 estimates are unbiased
+on average but may diverge for specific flows.
+
+\subsubsection{Comparison}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{llll}
+\toprule
+                          & \textbf{HEFT (Calib.)}        & \textbf{HEFT-1}               & \textbf{HEFT-2} \\
+\midrule
+Rate source               & runtime routing model         & 0.001 MB/s (penalty)          & WidestPathRouting \\
+Placement bias            & matches runtime scheme        & same-node / direct neighbours & any reachable node \\
+Estimate accuracy         & accurate for runtime scheme   & accurate for adjacent only    & accurate (widest-path) \\
+Alignment with runtime    & exact                         & independent                   & assumes widest-path BW \\
+Risk                      & runtime model may delegate    & wastes multi-hop capacity     & overestimates BW if runtime \\
+                          & to widest-path anyway         &                               & routing picks narrower path \\
+YAML key                  & \texttt{heft}                 & \texttt{heft1}                & \texttt{heft2} \\
+\bottomrule
+\end{tabular}
+\caption{HEFT scheduler variant pairwise rate matrix strategies.}
+\end{table}
+
+\medskip
+\textbf{When to use each:}
+\begin{itemize}
+  \item \textbf{HEFT (Calibrated)} is the best default for multi-hop routing
+        schemes (S, SH, GS, GC, GB, GO).  Its placement decisions account for
+        the same bandwidth structure that the runtime router uses, minimising
+        the gap between HEFT's estimates and actual execution.
+  \item \textbf{HEFT-1} is appropriate when the runtime routing is
+        \texttt{direct} (single-hop only), or on csma\_bianchi grids where
+        co-location is intentionally preferred because multi-hop interference
+        costs are prohibitive.
+  \item \textbf{HEFT-2} is a convenience variant: it always uses widest-path
+        BW regardless of runtime scheme.  Equivalent to Calibrated HEFT when
+        paired with \texttt{widest\_path}; may diverge for other schemes.
+\end{itemize}
+
+%======================================================================
 \section{Baseline Schemes}
+
+\subsection{D --- Direct Link}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Class        & \texttt{DirectLinkRouting} \\
+Objective    & Use direct (single-hop) link between source and destination \\
+Algorithm    & Lookup: \texttt{network.get\_link\_between(src, dst)} \\
+Multi-hop    & Not supported; returns None if no direct link exists \\
+Interference awareness & None \\
+\bottomrule
+\end{tabular}
+
+\medskip
+The simplest scheme: if a direct link exists between two nodes, use it.
+If no direct link exists, the transfer fails.  This is the Phase 2 baseline
+used to verify core simulation correctness on fully-connected topologies.
+Not suitable for sparse or grid networks where tasks are frequently placed
+on non-adjacent nodes.
 
 \subsection{W --- Widest-Path}
 
@@ -61,32 +584,118 @@ Interference awareness & None---ignores concurrent traffic \\
 \medskip
 Finds the path whose weakest link has the highest bandwidth.  Good when link
 capacities vary widely (e.g., short vs.\ long hops have different PHY rates)
-but oblivious to runtime contention.
+but oblivious to runtime contention.  Also used by all other routing schemes
+as the \textbf{bandwidth oracle} during HEFT scheduling and as a fallback
+when no real-time state is available.
 
-\subsection{S --- Shortest-Path}
+\subsection{S --- Shortest-Path (Minimum Transfer Delay)}
 
 \begin{tabular}{@{}ll@{}}
 \toprule
 \textbf{Property} & \textbf{Value} \\
 \midrule
 Class        & \texttt{ShortestPathRouting} \\
-Objective    & Minimize total path latency (sum of link latencies) \\
-Algorithm    & Standard Dijkstra on link latencies \\
+Objective    & Minimize total transfer delay: $\min \sum_{\ell \in \text{path}} \frac{1}{b_\ell}$ \\
+Algorithm    & Standard Dijkstra with edge weight $1/\text{bandwidth}$ \\
 Interference awareness & None \\
 \bottomrule
 \end{tabular}
 
 \medskip
-Minimizes propagation delay.  In grids where all links have equal latency
-this degenerates to minimum hop count.  Tends to concentrate traffic on short
-paths, which can increase contention.
+\textbf{Edge weight:} Each link $\ell$ contributes $1 / b_\ell$ to the path
+cost, where $b_\ell$ is the link bandwidth in MB/s.  The total path cost
+\[
+  \text{cost} = \sum_{\ell \in \text{path}} \frac{1}{b_\ell}
+\]
+is proportional to $\text{data\_size} \times \text{cost}$, i.e., the total
+transfer time for any fixed data size if the bottleneck were the average
+inverse-bandwidth.  In practice, transfer time is determined by the
+\emph{minimum} link bandwidth (bottleneck), but minimizing sum$(1/b)$
+strongly disfavors slow links and tends to find high-throughput paths.
 
-%----------------------------------------------------------------------
+\medskip
+\textbf{Comparison with previous definition:}  The prior definition minimized
+total latency ($\sum \text{lat}_\ell$), which on equal-latency grids reduced
+to minimum hop count.  The new definition minimizes sum$(1/b)$, which is
+delay-aware: it prefers high-bandwidth paths even if they have more hops, and
+avoids slow bottleneck links regardless of their propagation delay.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Path} & \textbf{Hops} & \textbf{Old cost (sum lat)} & \textbf{New cost (sum $1/b$)} \\
+\midrule
+Direct, BW=30 & 1 & 0.001 & 0.0333 \\
+2-hop, BW=100 each & 2 & 0.002 & 0.0200 $\leftarrow$ chosen \\
+2-hop, BW=50 each  & 2 & 0.002 & 0.0400 \\
+2-hop, BW=200 each & 2 & 0.002 & 0.0100 $\leftarrow$ chosen \\
+\bottomrule
+\end{tabular}
+\caption{Old vs.\ new SP cost for equal-latency links.  The new metric
+correctly prefers the high-bandwidth 2-hop path over a low-bandwidth direct
+link, and correctly orders high-BW paths above low-BW paths of equal length.}
+\end{table}
+
+\medskip
+S concentrates all same-(src, dst) flows on the same pre-computed path,
+since routes are cached at load time.  This causes contention when many
+flows share a path, which is the primary regime where interference-aware
+schemes outperform it.
+
+\subsection{SH --- Shortest-Hop (Minimum Hop Count)}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Class        & \texttt{ShortestHopRouting} \\
+Objective    & Minimize hop count; tie-break by $\min \sum_{\ell \in \text{path}} 1/b_\ell$ \\
+Algorithm    & BFS / modified Dijkstra with primary key = hops, secondary key = $\sum 1/b$ \\
+Interference awareness & None \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\textbf{Motivation:} In csma\_bianchi interference, each active link is an
+independent transmitter.  A relay hop adds a second simultaneous transmission
+to the network, increasing the interference factor seen by all nearby flows.
+Minimizing hop count directly minimizes the number of new interfering links
+created per transfer, which motivated SH as a candidate improvement over S.
+
+\medskip
+\textbf{Cost function:}
+\[
+  \text{key}(\text{path}) = \bigl(\text{hops},\; \textstyle\sum_{\ell} 1/b_\ell\bigr)
+\]
+Paths are sorted lexicographically: fewer hops always wins; among equal-hop
+paths, the lower $\sum 1/b$ wins (same tie-break as S).
+
+\medskip
+\textbf{When SH $\neq$ S:} The two differ only when a 1-hop path through a
+low-bandwidth link (e.g.\ a diagonal at 56.6\,m) has lower hop count than the
+cheapest $\sum 1/b$ path.  S would pick the 2-hop high-bandwidth route (lower
+$\sum 1/b$); SH picks the 1-hop diagonal (fewer hops, higher bottleneck cost).
+
+\medskip
+\textbf{Empirical result (csma\_bianchi 40\,m grids):} On the 4$\times$4 and
+7$\times$7 evaluation grids, SH and S produce \emph{identical} results for
+nearly all experiments.  Where they differ (7$\times$7 large DAG), S
+outperforms SH by 6\% under HEFT-1.  The reason: the grid's high-BW cardinal
+links make the 2-hop cardinal route cheaper in $\sum 1/b$ than the 1-hop
+diagonal, so S's 2-hop choice delivers higher bottleneck bandwidth despite the
+extra relay.  The expected interference benefit of fewer hops is outweighed by
+the bandwidth penalty of the diagonal link.  \textbf{Use S rather than SH on
+these grids.}
+
+%======================================================================
 \section{Static Greedy Schemes (GS, GC, GB, GO)}
 
 All four variants share the same two-stage architecture:
 
-\begin{enumerate}\item \textbf{HEFT} decides task-to-node placement and produces timing estimates.
+\begin{enumerate}
+\item \textbf{HEFT} decides task-to-node placement and produces timing estimates.
 \item \textbf{Greedy route planner}
       (\texttt{InterferenceAwareRouting.plan\_routes()}) iterates over
       inter-node flows in a variant-specific order and, for each flow, picks
@@ -96,6 +705,34 @@ All four variants share the same two-stage architecture:
 
 Routes are computed once at DAG injection and are fixed for the entire
 execution.  The variants differ only in the order flows are considered.
+
+\subsection{Scoring Function (All Four Variants)}
+
+For each candidate path, the planner computes a global throughput score:
+\[
+  \text{score} = \sum_{\text{concurrent flows}} \text{effective\_bottleneck\_bandwidth}
+\]
+where effective bandwidth for each flow accounts for:
+\begin{itemize}
+\item \textbf{Interference factor} from \texttt{csma\_bianchi} (SINR
+      degradation from hidden terminals + Bianchi MAC contention from
+      conflict-graph neighbors)
+\item \textbf{Per-link fair sharing:} $N$ flows on a link each get $1/N$ of
+      the base (post-interference) bandwidth
+\end{itemize}
+The candidate path with the highest total-throughput score is selected.
+
+\subsection{Concurrency Detection}
+
+Because routes are planned before execution, the planner uses \textbf{HEFT
+timing estimates} to determine which flows are concurrent.  Two flows
+are considered concurrent if their estimated time windows overlap:
+\[
+  [\text{start}_i, \text{end}_i] \cap [\text{start}_j, \text{end}_j] \neq \emptyset
+\]
+This is an approximation; actual execution times differ due to queueing
+and bandwidth contention.  GSD avoids this approximation by routing at
+actual transfer start time.
 
 \subsection{GS --- Greedy by Start Time}
 
@@ -124,7 +761,9 @@ CLI           & \texttt{-{}-routing interference\_aware -{}-greedy-order critica
 \medskip
 Upward rank (\texttt{ranku}) measures how much downstream work depends on a
 task.  Routing the most critical transfers first gives them the best paths,
-at the expense of less critical flows.
+at the expense of less critical flows.  Most effective when one or a few
+edges dominate the critical path and there exist alternative paths with
+significantly different BW.
 
 \subsection{GB --- Greedy by Bytes}
 
@@ -137,16 +776,17 @@ CLI           & \texttt{-{}-routing interference\_aware -{}-greedy-order bytes} 
 \end{tabular}
 
 \medskip
-When transfer sizes vary, the largest flows contribute most to makespan.
+When transfer sizes vary widely, the largest flows contribute most to makespan.
 GB prioritizes them.  Less effective when all transfers are the same size
-(as in many synthetic benchmarks).
+(as in many synthetic benchmarks) or when multiple large transfers all target
+the same path.
 
 \subsection{GO --- Greedy by Overlap}
 
 \begin{tabular}{@{}lp{9cm}@{}}
 \toprule
 Flow ordering & Descending overlap degree (total temporal overlap with other flows) \\
-Rationale     & Flows with the most contention should be routed first \\
+Rationale     & Flows competing with the most traffic should be routed first \\
 CLI           & \texttt{-{}-routing interference\_aware -{}-greedy-order overlap} \\
 \bottomrule
 \end{tabular}
@@ -154,24 +794,10 @@ CLI           & \texttt{-{}-routing interference\_aware -{}-greedy-order overlap
 \medskip
 Overlap degree is the sum of time-window overlaps between a flow and all
 other flows (using HEFT timing estimates).  Flows competing for airtime with
-many others get priority.
+many others get priority.  Most effective on dense grids with many parallel
+transfers.
 
-\subsection{Scoring Function (All Four Variants)}
-
-For each candidate path, the planner computes:
-\[
-  \text{score} = \sum_{\text{concurrent flows}} \text{effective\_bottleneck\_bandwidth}
-\]
-where effective bandwidth accounts for:
-\begin{itemize}\item \textbf{Interference factor} from \texttt{csma\_bianchi} (SINR
-      degradation from hidden terminals + Bianchi MAC contention from
-      conflict-graph neighbors)
-\item \textbf{Per-link fair sharing} ($N$ flows on a link each get $1/N$ of
-      the base bandwidth)
-\end{itemize}
-The candidate with the highest total-throughput score wins.
-
-%----------------------------------------------------------------------
+%======================================================================
 \section{Dynamic Greedy Scheme}
 
 \subsection{GSD --- Greedy by Start Time, Dynamic}
@@ -189,22 +815,47 @@ CLI            & \texttt{-{}-routing interference\_aware\_dynamic} \\
 \medskip
 Unlike the static variants (which estimate concurrency from HEFT timing),
 GSD sees the \emph{real} network state at the moment a transfer begins.
-This lets it:
+The engine recomputes the route inside \texttt{\_handle\_transfer\_start}:
 
-\begin{itemize}\item React to transfers that finished early or late relative to HEFT estimates
+\begin{lstlisting}[language=Python]
+network_state = {
+    "active_link_ids": self._get_active_link_ids(),   # links with >=1 transfer
+    "link_transfer_counts": {lid: ls.num_transfers     # per-link count
+                             for lid, ls in self.link_states.items()
+                             if ls.num_transfers > 0},
+}
+new_path = routing_model.get_path(src, dst, network, network_state)
+\end{lstlisting}
+
+\medskip
+This lets GSD:
+\begin{itemize}
+\item React to transfers that finished early or late relative to HEFT estimates
 \item See sibling transfers that started moments earlier at the same sim-time
+      (both TRANSFER\_START events at $t=5.0$ are processed sequentially; the
+      second sees the first's active links)
 \item Avoid paths that are congested \emph{right now}, not just predicted to be
 \end{itemize}
 
+\textbf{Scoring:} GSD scores each candidate path as:
+\[
+  \text{score}(\text{path}) = \min_{\ell \in \text{path}}
+  \frac{b_\ell \cdot f_\ell}{\text{count}_\ell + 1}
+\]
+where $b_\ell$ is the link's nominal bandwidth, $f_\ell$ is the interference
+factor from currently-active links, and $\text{count}_\ell$ is the current
+transfer count on link $\ell$.  This is the per-flow bottleneck, not the
+total system throughput (unlike the static variants).
+
 \textbf{Trade-off:} GSD optimizes for \emph{this individual flow's}
-bottleneck bandwidth rather than total system throughput.  It cannot
-coordinate across flows the way the static planner can.
+bottleneck rather than total system throughput.  It cannot coordinate across
+sibling flows the way the static planner can.
 
 \textbf{Delegation:} During HEFT scheduling (before execution), GSD
 delegates to \texttt{WidestPathRouting} for bandwidth estimates, since no
-runtime state is available yet.
+runtime state is available.
 
-%----------------------------------------------------------------------
+%======================================================================
 \section{Deferral Scheme}
 
 \subsection{GSD-D --- Dynamic + Deferral}
@@ -267,36 +918,39 @@ improved.
 Deferral is most effective on \textbf{small, dense grids with large DAGs}
 (e.g., $4\times4$ with a 30-task pipeline), where:
 \begin{itemize}
-\item Many transfers compete for the same few links
-\item Waiting 1--2 transfer completions frees enough airtime for a much
-      faster path
+\item Many transfers compete for the same few links simultaneously
+\item Waiting 1--2 transfer completions frees enough airtime for a
+      substantially faster path
 \item The DAG has enough parallelism that deferring one transfer does not
-      immediately stall the critical path
+      stall the critical path
 \end{itemize}
 
 On sparse grids or small DAGs, contention is mild enough that deferral adds
-latency without benefit---Shortest-Path (S) is typically sufficient.
+latency without benefit.
 
-%----------------------------------------------------------------------
+%======================================================================
 \section{Configuration Reference}
 
 \subsection{CLI}
 
 \begin{lstlisting}
---routing {direct,widest_path,shortest_path,
-           interference_aware,interference_aware_dynamic,
+--scheduler {heft, heft1, heft2, cpop, round_robin, manual}
+--routing {direct, widest_path, shortest_path, shortest_hop,
+           interference_aware, interference_aware_dynamic,
            interference_aware_dynamic_deferral}
---greedy-order {start,criticality,bytes,overlap}
---routing-hop-cutoff N
---deferral-threshold F   # default 0.3
---max-deferrals N        # default 3
---interference {none,proximity,csma_clique,csma_bianchi}
+--greedy-order {start, criticality, bytes, overlap}
+--routing-hop-cutoff N       # default 4
+--deferral-threshold F       # default 0.3
+--max-deferrals N            # default 3
+--interference {none, proximity, csma_clique, csma_bianchi}
+--interference-radius R      # for proximity model, default 15.0
 \end{lstlisting}
 
 \subsection{YAML}
 
 \begin{lstlisting}
 config:
+  scheduler: heft2           # heft1 or heft2
   routing: interference_aware
   greedy_order: start
   routing_hop_cutoff: 4
@@ -314,26 +968,56 @@ config:
 \bottomrule
 \end{tabular}
 
-%----------------------------------------------------------------------
+%======================================================================
 \section{Summary}
 
 \begin{table}[h]
 \centering
 \small
-\begin{tabular}{lllll}
+\begin{tabular}{llllll}
 \toprule
-\textbf{Scheme} & \textbf{Route timing} & \textbf{Objective} & \textbf{Flow ordering} & \textbf{Interference input} \\
+\textbf{Scheme} & \textbf{Route timing} & \textbf{Objective} & \textbf{Flow ordering} & \textbf{Interference input} & \textbf{Multi-hop} \\
 \midrule
-W    & Load time       & Max bottleneck BW       & ---              & None \\
-S    & Load time       & Min total latency        & ---              & None \\
-GS   & DAG inject      & Max system throughput     & Est.\ start time & HEFT estimates \\
-GC   & DAG inject      & Max system throughput     & HEFT upward rank & HEFT estimates \\
-GB   & DAG inject      & Max system throughput     & Data size (desc) & HEFT estimates \\
-GO   & DAG inject      & Max system throughput     & Overlap degree   & HEFT estimates \\
-GSD  & Transfer start  & Max flow bottleneck BW    & ---              & Actual active links \\
-GSD-D & Transfer start & Max flow bottleneck BW    & ---              & Actual + deferral \\
+D     & Load time       & Direct link only           & ---              & None              & No  \\
+W     & Load time       & Max bottleneck BW           & ---              & None              & Yes \\
+S     & Load time       & Min sum(1/bw)               & ---              & None              & Yes \\
+SH    & Load time       & Min hops; tie-break sum(1/bw) & ---            & None              & Yes \\
+GS    & DAG inject      & Max system throughput       & Est.\ start time & HEFT estimates    & Yes \\
+GC    & DAG inject      & Max system throughput       & HEFT upward rank & HEFT estimates    & Yes \\
+GB    & DAG inject      & Max system throughput       & Data size (desc) & HEFT estimates    & Yes \\
+GO    & DAG inject      & Max system throughput       & Overlap degree   & HEFT estimates    & Yes \\
+GSD   & Transfer start  & Max flow bottleneck BW      & ---              & Actual active     & Yes \\
+GSD-D & Transfer start  & Max flow bottleneck BW      & ---              & Actual + deferral & Yes \\
 \bottomrule
 \end{tabular}
+\caption{All routing schemes with key properties.  ``Route timing'' is when
+paths are computed; ``Interference input'' is what state the scheme uses
+when choosing paths.}
 \end{table}
+
+\medskip
+\textbf{When to use each scheme:}
+\begin{itemize}
+  \item \textbf{D:} Only on fully-connected small test topologies.
+  \item \textbf{W:} When link BW varies widely and contention is low.  Good
+        HEFT bandwidth oracle.
+  \item \textbf{S:} Best on sparse grids / small DAGs / low CCR, where
+        high-bandwidth paths also happen to be short.  Outperforms SH on
+        csma\_bianchi grids because 2-hop high-BW paths beat 1-hop diagonal
+        low-BW links both in bottleneck bandwidth and in practice.
+  \item \textbf{SH:} Use only when you have strong prior evidence that relay
+        interference (not bottleneck bandwidth) is the binding constraint.
+        On standard 40\,m grids this is not the case; SH and S tie or S wins.
+  \item \textbf{GS/GC/GB/GO:} Useful when HEFT timing estimates are accurate
+        and the DAG has enough structure to benefit from flow prioritization.
+        GB is best with skewed transfer sizes; GC is best when one critical
+        path dominates.
+  \item \textbf{GSD:} Best when actual runtime congestion differs significantly
+        from HEFT predictions (many concurrent sibling flows, variable task
+        durations).  Beats SP whenever parallel alternative paths exist.
+  \item \textbf{GSD-D:} Best on small dense grids with large DAGs where many
+        flows compete for the same few links simultaneously.  Wins the
+        $4\times4$/large-DAG benchmark ($-56\%$ vs.\ W, $-32\%$ vs.\ S).
+\end{itemize}
 
 \end{document}

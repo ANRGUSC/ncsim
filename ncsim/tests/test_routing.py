@@ -266,41 +266,41 @@ class TestShortestPathRouting:
         path = routing.get_path("n0", "n2", network)
         assert path == ["l01", "l12"]
 
-    def test_shortest_path_prefers_lower_latency(self):
-        """Should prefer path with lower total latency over wider path."""
-        # Path A: n0 -> n1 -> n2 with latency 0.01 + 0.01 = 0.02, bandwidth 50
-        # Path B: n0 -> n3 -> n2 with latency 0.1 + 0.1 = 0.2, bandwidth 200
-        # Shortest path should choose Path A (lower latency), even though B has more bandwidth
+    def test_shortest_path_prefers_higher_bandwidth(self):
+        """Should prefer path with lower sum(1/bw) — i.e. higher bandwidth."""
+        # Path A: n0 -> n1 -> n2, bw=50:  sum(1/bw) = 1/50 + 1/50 = 0.04
+        # Path B: n0 -> n3 -> n2, bw=200: sum(1/bw) = 1/200 + 1/200 = 0.01
+        # SP should choose Path B (lower delay cost), even though B has higher latency
         network = make_network(
             [{"id": "n0"}, {"id": "n1"}, {"id": "n2"}, {"id": "n3"}],
             [
-                {"id": "l01", "from": "n0", "to": "n1", "bandwidth": 50, "latency": 0.01},
-                {"id": "l12", "from": "n1", "to": "n2", "bandwidth": 50, "latency": 0.01},
+                {"id": "l01", "from": "n0", "to": "n1", "bandwidth": 50,  "latency": 0.01},
+                {"id": "l12", "from": "n1", "to": "n2", "bandwidth": 50,  "latency": 0.01},
                 {"id": "l03", "from": "n0", "to": "n3", "bandwidth": 200, "latency": 0.1},
                 {"id": "l32", "from": "n3", "to": "n2", "bandwidth": 200, "latency": 0.1}
             ]
         )
         routing = ShortestPathRouting()
         path = routing.get_path("n0", "n2", network)
-        # Should choose path through n1 (total latency 0.02 < 0.2)
-        assert path == ["l01", "l12"]
+        # Should choose path through n3 (sum(1/bw) = 0.01 < 0.04)
+        assert path == ["l03", "l32"]
 
-    def test_shortest_path_prefers_direct_low_latency(self):
-        """Should prefer direct low-latency link over indirect high-bandwidth path."""
-        # Direct: n0 -> n2 with latency 0.005, bandwidth 30
-        # Indirect: n0 -> n1 -> n2 with latency 0.001 + 0.001 = 0.002, bandwidth 100
-        # Should choose indirect (lower total latency)
+    def test_shortest_path_prefers_indirect_high_bandwidth(self):
+        """Should prefer indirect high-bandwidth path over direct slow link."""
+        # Direct: n0 -> n2 with bw=30:  sum(1/bw) = 1/30 ≈ 0.033
+        # Indirect: n0 -> n1 -> n2 with bw=100 each: sum(1/bw) = 0.01 + 0.01 = 0.02
+        # Should choose indirect (lower delay cost)
         network = make_network(
             [{"id": "n0"}, {"id": "n1"}, {"id": "n2"}],
             [
-                {"id": "l02", "from": "n0", "to": "n2", "bandwidth": 30, "latency": 0.005},
+                {"id": "l02", "from": "n0", "to": "n2", "bandwidth": 30,  "latency": 0.005},
                 {"id": "l01", "from": "n0", "to": "n1", "bandwidth": 100, "latency": 0.001},
                 {"id": "l12", "from": "n1", "to": "n2", "bandwidth": 100, "latency": 0.001}
             ]
         )
         routing = ShortestPathRouting()
         path = routing.get_path("n0", "n2", network)
-        # Indirect path has lower total latency (0.002 < 0.005)
+        # Indirect path has lower delay cost (0.02 < 0.033)
         assert path == ["l01", "l12"]
 
     def test_shortest_path_bandwidth_calculation(self):

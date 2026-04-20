@@ -262,14 +262,13 @@ class WidestPathRouting(RoutingModel):
 
 
 class ShortestPathRouting(RoutingModel):
-    """Multi-hop routing using shortest-path (minimum total latency) algorithm.
+    """Multi-hop routing using shortest-path (minimum transfer delay) algorithm.
 
-    Finds paths that minimize the sum of link latencies along the path.
-    Uses standard Dijkstra's algorithm. If all latencies are equal, this
-    degenerates to minimum hop count.
+    Finds paths that minimize sum(1/bandwidth) across links — the path with
+    the lowest total transfer delay for any fixed data size.  Prefers
+    high-bandwidth paths and avoids slow bottleneck links.
 
-    For transfers, latencies are summed across all links (store-and-forward model),
-    and the bottleneck bandwidth determines transfer rate.
+    Bottleneck bandwidth along the chosen path determines the actual transfer rate.
     """
 
     def __init__(self):
@@ -348,7 +347,12 @@ class ShortestPathRouting(RoutingModel):
         dst: str,
         network: "Network"
     ) -> Optional[List[str]]:
-        """Compute shortest path using Dijkstra's algorithm on link latencies.
+        """Compute shortest path using Dijkstra's algorithm on transfer delay.
+
+        Edge weight for each link is 1/bandwidth, so the path cost is
+        sum(1/bw_i) — proportional to total transfer time for any fixed
+        data size (data_size * sum(1/bw_i)).  Prefers high-bandwidth
+        paths and avoids slow bottleneck links.
 
         Args:
             src: Source node ID
@@ -358,7 +362,7 @@ class ShortestPathRouting(RoutingModel):
         Returns:
             List of link IDs forming the path, or None if no path exists.
         """
-        # dist[node] = minimum total latency to reach this node
+        # dist[node] = minimum sum(1/bw) to reach this node
         dist: Dict[str, float] = {node_id: float('inf') for node_id in network.nodes}
         dist[src] = 0.0
 
@@ -367,7 +371,7 @@ class ShortestPathRouting(RoutingModel):
             node_id: None for node_id in network.nodes
         }
 
-        # Min-heap: (total_latency, node_id)
+        # Min-heap: (sum_inv_bw, node_id)
         heap: List[Tuple[float, str]] = [(0.0, src)]
         visited: set = set()
 
@@ -388,10 +392,10 @@ class ShortestPathRouting(RoutingModel):
                 if neighbor in visited:
                     continue
 
-                # Total latency through this link
-                new_dist = current_dist + link.latency
+                # Transfer delay contribution: 1/bandwidth
+                new_dist = current_dist + (1.0 / link.bandwidth if link.bandwidth > 0 else float('inf'))
 
-                # Update if this gives lower latency
+                # Update if this gives lower total delay cost
                 if new_dist < dist[neighbor]:
                     dist[neighbor] = new_dist
                     predecessor[neighbor] = (current, link.id)
@@ -416,6 +420,116 @@ class ShortestPathRouting(RoutingModel):
 
         Call this if the network topology changes.
         """
+        self._path_cache.clear()
+        self._bandwidth_cache.clear()
+
+
+class ShortestHopRouting(RoutingModel):
+    """Multi-hop routing using minimum hop count (BFS).
+
+    Finds the path with the fewest links between source and destination,
+    breaking ties by total 1/bandwidth cost.  Each relay hop adds one
+    active transmission to the network, so minimising hop count directly
+    minimises the number of interfering links created per transfer.
+
+    Under csma_bianchi interference this is preferable to ShortestPath
+    (min sum(1/bw)) in congested scenarios: sum(1/bw) may route a transfer
+    over a two-hop high-BW path instead of a one-hop lower-BW link, but
+    the relay hop creates a second interfering transmitter, doubling
+    interference contribution to nearby flows.
+
+    Bottleneck bandwidth along the chosen path determines the actual
+    transfer rate (same as all other routing models).
+    """
+
+    def __init__(self):
+        self._path_cache: Dict[Tuple[str, str], Optional[List[str]]] = {}
+        self._bandwidth_cache: Dict[Tuple[str, str], float] = {}
+
+    def get_path(
+        self,
+        src_node: str,
+        dst_node: str,
+        network: "Network",
+        network_state: Optional["NetworkState"] = None
+    ) -> Optional[List[str]]:
+        """Find minimum-hop path from src to dst (BFS, tie-break by 1/bw sum)."""
+        if src_node == dst_node:
+            return []
+
+        cache_key = (src_node, dst_node)
+        if cache_key in self._path_cache:
+            return self._path_cache[cache_key]
+
+        path = self._compute_hop_path(src_node, dst_node, network)
+        self._path_cache[cache_key] = path
+        return path
+
+    def get_path_bandwidth(self, src_node: str, dst_node: str, network: "Network") -> float:
+        """Return bottleneck bandwidth of the minimum-hop path."""
+        if src_node == dst_node:
+            return float('inf')
+
+        cache_key = (src_node, dst_node)
+        if cache_key in self._bandwidth_cache:
+            return self._bandwidth_cache[cache_key]
+
+        path = self.get_path(src_node, dst_node, network)
+        if path is None or len(path) == 0:
+            bw = 0.0
+        else:
+            bw = min(network.links[lid].bandwidth for lid in path)
+
+        self._bandwidth_cache[cache_key] = bw
+        return bw
+
+    def _compute_hop_path(self, src: str, dst: str, network: "Network") -> Optional[List[str]]:
+        """BFS to find minimum-hop path; ties broken by sum(1/bw)."""
+        # (hops, inv_bw_sum, node) → predecessor (prev_node, link_id)
+        dist: Dict[str, Tuple[int, float]] = {src: (0, 0.0)}
+        predecessor: Dict[str, Optional[Tuple[str, str]]] = {src: None}
+
+        heap: List[Tuple[int, float, str]] = [(0, 0.0, src)]
+        visited: set = set()
+
+        while heap:
+            hops, inv_bw, current = heapq.heappop(heap)
+
+            if current in visited:
+                continue
+            visited.add(current)
+
+            if current == dst:
+                break
+
+            for link in network.get_links_from(current):
+                neighbor = link.to_node
+                if neighbor in visited:
+                    continue
+
+                new_hops = hops + 1
+                new_inv_bw = inv_bw + (1.0 / link.bandwidth if link.bandwidth > 0 else float('inf'))
+                cur_best = dist.get(neighbor, (float('inf'), float('inf')))
+
+                if (new_hops, new_inv_bw) < cur_best:
+                    dist[neighbor] = (new_hops, new_inv_bw)
+                    predecessor[neighbor] = (current, link.id)
+                    heapq.heappush(heap, (new_hops, new_inv_bw, neighbor))
+
+        if dst not in predecessor or predecessor[dst] is None and dst != src:
+            return None
+
+        path: List[str] = []
+        current = dst
+        while predecessor.get(current) is not None:
+            prev_node, link_id = predecessor[current]
+            path.append(link_id)
+            current = prev_node
+
+        path.reverse()
+        return path if path else None
+
+    def clear_cache(self) -> None:
         self._path_cache.clear()
         self._bandwidth_cache.clear()
 

@@ -172,13 +172,18 @@ def main(args: list = None) -> int:
     )
     parser.add_argument(
         "--scheduler",
-        choices=["heft", "cpop", "round_robin", "manual"],
+        choices=["heft1", "heft2", "heft", "cpop", "round_robin", "manual"],
         default=None,
-        help="Scheduling algorithm (overrides scenario config)"
+        help=(
+            "Scheduling algorithm (overrides scenario config). "
+            "heft1=HEFT with 0.001 MB/s penalty for non-adjacent pairs; "
+            "heft2=HEFT with widest-path bottleneck BW for all pairs; "
+            "heft=legacy alias (heft1 or heft2 depending on routing flag)"
+        )
     )
     parser.add_argument(
         "--routing",
-        choices=["direct", "widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic", "interference_aware_dynamic_deferral"],
+        choices=["direct", "widest_path", "shortest_path", "shortest_hop", "interference_aware", "interference_aware_dynamic", "interference_aware_dynamic_deferral"],
         default=None,
         help="Routing algorithm (overrides scenario config)"
     )
@@ -348,13 +353,16 @@ def main(args: list = None) -> int:
         elif routing_type == "shortest_path":
             from ncsim.models.routing import ShortestPathRouting
             routing_model = ShortestPathRouting()
+        elif routing_type == "shortest_hop":
+            from ncsim.models.routing import ShortestHopRouting
+            routing_model = ShortestHopRouting()
         else:
             from ncsim.models.routing import DirectLinkRouting
             routing_model = DirectLinkRouting()
 
         # Create scheduler (pass routing model for SAGA bandwidth awareness)
         logger.info(f"Creating scheduler: {scheduler_algo}")
-        if routing_type in ("widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic", "interference_aware_dynamic_deferral"):
+        if routing_type in ("widest_path", "shortest_path", "shortest_hop", "interference_aware", "interference_aware_dynamic", "interference_aware_dynamic_deferral"):
             scheduler = create_scheduler(scheduler_algo, routing=routing_model)
         else:
             scheduler = create_scheduler(scheduler_algo)

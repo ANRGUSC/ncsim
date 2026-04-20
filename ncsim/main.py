@@ -172,15 +172,46 @@ def main(args: list = None) -> int:
     )
     parser.add_argument(
         "--scheduler",
-        choices=["heft", "cpop", "round_robin", "manual"],
+        choices=["heft1", "heft2", "heft", "cpop", "round_robin", "manual"],
         default=None,
-        help="Scheduling algorithm (overrides scenario config)"
+        help=(
+            "Scheduling algorithm (overrides scenario config). "
+            "heft1=HEFT with 0.001 MB/s penalty for non-adjacent pairs; "
+            "heft2=HEFT with widest-path bottleneck BW for all pairs; "
+            "heft=legacy alias (heft1 or heft2 depending on routing flag)"
+        )
     )
     parser.add_argument(
         "--routing",
-        choices=["direct", "widest_path", "shortest_path"],
+        choices=["direct", "widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic", "interference_aware_dynamic_deferral"],
         default=None,
         help="Routing algorithm (overrides scenario config)"
+    )
+    parser.add_argument(
+        "--routing-hop-cutoff",
+        type=int,
+        default=None,
+        help="Max hops for interference_aware routing path enumeration (default: 4)"
+    )
+    parser.add_argument(
+        "--greedy-order",
+        choices=["start", "criticality", "bytes", "overlap"],
+        default=None,
+        help="Greedy flow ordering for interference_aware routing: "
+             "start=GS, criticality=GC, bytes=GB, overlap=GO (default: start)"
+    )
+    parser.add_argument(
+        "--deferral-threshold",
+        type=float,
+        default=None,
+        help="Deferral threshold for interference_aware_dynamic_deferral routing: "
+             "defer if effective BW < threshold * no-contention BW (default: 0.3)"
+    )
+    parser.add_argument(
+        "--max-deferrals",
+        type=int,
+        default=None,
+        help="Max times a transfer can be deferred before forced start (default: 3)"
     )
     parser.add_argument(
         "--interference",
@@ -233,7 +264,7 @@ def main(args: list = None) -> int:
     parser.add_argument(
         "--version",
         action="version",
-        version="ncsim 1.0.0"
+        version="ncsim 0.2.0"
     )
 
     parsed = parser.parse_args(args)
@@ -254,19 +285,7 @@ def main(args: list = None) -> int:
         scheduler_algo = parsed.scheduler if parsed.scheduler else scenario.config.scheduler
         routing_type = parsed.routing if parsed.routing else scenario.config.routing
 
-        # Create routing model
-        logger.info(f"Creating routing model: {routing_type}")
-        if routing_type == "widest_path":
-            from ncsim.models.routing import WidestPathRouting
-            routing_model = WidestPathRouting()
-        elif routing_type == "shortest_path":
-            from ncsim.models.routing import ShortestPathRouting
-            routing_model = ShortestPathRouting()
-        else:
-            from ncsim.models.routing import DirectLinkRouting
-            routing_model = DirectLinkRouting()
-
-        # Create interference model
+        # Create interference model FIRST (needed by interference_aware routing)
         interference_type = parsed.interference if parsed.interference else scenario.config.interference
         interference_model = None
         extra_metrics = None
@@ -287,9 +306,60 @@ def main(args: list = None) -> int:
         else:
             logger.info("Interference model: none")
 
+        # Create routing model
+        logger.info(f"Creating routing model: {routing_type}")
+        if routing_type == "interference_aware":
+            from ncsim.models.routing import InterferenceAwareRouting
+            from ncsim.models.interference import NoInterference
+            hop_cutoff = parsed.routing_hop_cutoff if parsed.routing_hop_cutoff is not None else (
+                scenario.config.routing_hop_cutoff if scenario.config.routing_hop_cutoff is not None else 4
+            )
+            greedy_order = parsed.greedy_order if parsed.greedy_order is not None else (
+                scenario.config.greedy_order if scenario.config.greedy_order is not None else "start"
+            )
+            # Use existing interference model, or NoInterference as fallback
+            im = interference_model if interference_model is not None else NoInterference()
+            routing_model = InterferenceAwareRouting(
+                im, hop_cutoff=hop_cutoff, greedy_order=greedy_order
+            )
+            logger.info(f"  hop_cutoff={hop_cutoff}, greedy_order={greedy_order}")
+        elif routing_type == "interference_aware_dynamic":
+            from ncsim.models.routing import DynamicInterferenceAwareRouting
+            from ncsim.models.interference import NoInterference
+            hop_cutoff = parsed.routing_hop_cutoff if parsed.routing_hop_cutoff is not None else (
+                scenario.config.routing_hop_cutoff if scenario.config.routing_hop_cutoff is not None else 4
+            )
+            im = interference_model if interference_model is not None else NoInterference()
+            routing_model = DynamicInterferenceAwareRouting(im, hop_cutoff=hop_cutoff)
+            logger.info(f"  hop_cutoff={hop_cutoff}")
+        elif routing_type == "interference_aware_dynamic_deferral":
+            from ncsim.models.routing import DeferralDynamicRouting
+            from ncsim.models.interference import NoInterference
+            hop_cutoff = parsed.routing_hop_cutoff if parsed.routing_hop_cutoff is not None else (
+                scenario.config.routing_hop_cutoff if scenario.config.routing_hop_cutoff is not None else 4
+            )
+            deferral_threshold = parsed.deferral_threshold if parsed.deferral_threshold is not None else 0.3
+            max_deferrals = parsed.max_deferrals if parsed.max_deferrals is not None else 3
+            im = interference_model if interference_model is not None else NoInterference()
+            routing_model = DeferralDynamicRouting(
+                im, hop_cutoff=hop_cutoff,
+                deferral_threshold=deferral_threshold,
+                max_deferrals=max_deferrals,
+            )
+            logger.info(f"  hop_cutoff={hop_cutoff}, deferral_threshold={deferral_threshold}, max_deferrals={max_deferrals}")
+        elif routing_type == "widest_path":
+            from ncsim.models.routing import WidestPathRouting
+            routing_model = WidestPathRouting()
+        elif routing_type == "shortest_path":
+            from ncsim.models.routing import ShortestPathRouting
+            routing_model = ShortestPathRouting()
+        else:
+            from ncsim.models.routing import DirectLinkRouting
+            routing_model = DirectLinkRouting()
+
         # Create scheduler (pass routing model for SAGA bandwidth awareness)
         logger.info(f"Creating scheduler: {scheduler_algo}")
-        if routing_type in ("widest_path", "shortest_path"):
+        if routing_type in ("widest_path", "shortest_path", "interference_aware", "interference_aware_dynamic", "interference_aware_dynamic_deferral"):
             scheduler = create_scheduler(scheduler_algo, routing=routing_model)
         else:
             scheduler = create_scheduler(scheduler_algo)
