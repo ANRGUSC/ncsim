@@ -4,7 +4,6 @@
 \usepackage{xcolor}
 \usepackage{amsmath}
 \usepackage{float}
-\usepackage{graphicx}
 \usepackage{hyperref}
 
 \hypersetup{colorlinks=true, linkcolor=blue!60!black}
@@ -64,31 +63,6 @@ regardless of the runtime routing scheme.
 \textbf{SH} (Shortest Hop) minimises hop count, breaking ties by $\sum 1/b_\ell$.
 Added alongside S to test whether reducing relay count reduces csma\_bianchi
 interference enough to offset lower bottleneck bandwidth.
-
-%======================================================================
-\section{Makespan vs.\ Grid Size}
-
-Each point is the \emph{best-routing} mean makespan for that scheduler at
-that grid size, averaged over 30 seeds.  Routing scheme labels are annotated
-next to each point.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.72\textwidth]{grid_small.pdf}
-\caption{Best-routing mean makespan vs.\ grid size --- Small DAG (8 tasks,
-fork-join).  HEFT-1 stays flat near 18--20\,s regardless of grid size; HEFT
-and HEFT-2 are nearly identical and rise only marginally from 4$\times$4
-to 7$\times$7 ($<$4\%).}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.72\textwidth]{grid_large.pdf}
-\caption{Best-routing mean makespan vs.\ grid size --- Large DAG (30 tasks
-on 4$\times$4, 60 tasks on 7$\times$7).  HEFT-1 scales from 292\,s to 542\,s
-($1.9\times$); HEFT and HEFT-2 scale from 856\,s to 2490\,s ($2.9\times$),
-widening the HEFT-1 advantage from $2.9\times$ to $4.6\times$ as the grid grows.}
-\end{figure}
 
 %======================================================================
 \section{Full Results Tables}
