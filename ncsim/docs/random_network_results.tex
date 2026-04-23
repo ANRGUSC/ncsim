@@ -4,6 +4,7 @@
 \usepackage{xcolor}
 \usepackage{amsmath}
 \usepackage{float}
+\usepackage{graphicx}
 \usepackage{hyperref}
 \hypersetup{colorlinks=true, linkcolor=blue!60!black}
 
@@ -72,47 +73,23 @@ Each line shows the mean makespan of the \emph{best routing scheme}
 for that scheduler at each density level.  X-axis is average node degree
 (higher = denser); Y-axis is mean makespan in seconds (log scale).
 
-\begin{table}[H]
+\begin{figure}[H]
 \centering
-\small
-\begin{tabular}{l r r r r r}
-\toprule
-\textbf{Density} & \textbf{Avg.\ deg.} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} & \textbf{HEFT-1 speedup} \\
-\midrule
-L150 & 24.0 &  31.584 & \win{21.594} &  34.633 & $1.5\times$ \\
-L200 & 17.1 &  29.712 & \win{27.861} &  35.664 & $1.1\times$ \\
-L250 & 12.4 &  32.688 & \win{23.513} &  37.796 & $1.4\times$ \\
-L300 &  8.7 &  31.009 & \win{24.388} &  28.641 & $1.2\times$ \\
-L350 &  6.7 &  75.816 & \win{24.179} &  71.486 & $3.1\times$ \\
-L400 &  5.8 &  45.980 & \win{22.909} &  54.861 & $2.0\times$ \\
-L500 &  3.7 & 247.260 & \win{20.926} & 174.510 & $11.8\times$ \\
-\bottomrule
-\end{tabular}
-\caption{Best-routing makespan vs.\ density --- Small DAG (8 tasks, fork-join).
-Each value is the minimum mean makespan over all routing schemes at that
-density, averaged over 30 seeds.  HEFT-1 speedup = min(HEFT, HEFT-2) / HEFT-1.}
-\end{table}
+\includegraphics[width=0.9\textwidth]{density_small.pdf}
+\caption{Best-routing mean makespan vs.\ average node degree --- Small DAG (8 tasks,
+fork-join).  Each point is the minimum mean makespan over all 7 routing schemes
+at that density level, averaged over 30 seeds.  X-axis is inverted so denser
+networks appear on the left.}
+\end{figure}
 
-\begin{table}[H]
+\begin{figure}[H]
 \centering
-\small
-\begin{tabular}{l r r r r r}
-\toprule
-\textbf{Density} & \textbf{Avg.\ deg.} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} & \textbf{HEFT-1 speedup} \\
-\midrule
-L150 & 24.0 &   287.323 & \win{149.899} &   308.494 & $1.9\times$ \\
-L200 & 17.1 &   501.174 & \win{391.400} &   472.856 & $1.2\times$ \\
-L250 & 12.4 & 1344.548  & \win{449.477} & 1336.595  & $3.0\times$ \\
-L300 &  8.7 & 2063.615  & \win{405.276} & 2140.430  & $5.1\times$ \\
-L350 &  6.7 & 1939.104  & \win{362.181} & 2060.780  & $5.4\times$ \\
-L400 &  5.8 & 2426.675  & \win{927.488} & 2388.566  & $2.6\times$ \\
-L500 &  3.7 & 3914.460  & \win{694.194} & 5068.567  & $5.6\times$ \\
-\bottomrule
-\end{tabular}
-\caption{Best-routing makespan vs.\ density --- Large DAG (30 tasks, 5-stage pipeline).
-Each value is the minimum mean makespan over all routing schemes, averaged over
-30 seeds.  HEFT-1 speedup = min(HEFT, HEFT-2) / HEFT-1.}
-\end{table}
+\includegraphics[width=0.9\textwidth]{density_large.pdf}
+\caption{Best-routing mean makespan vs.\ average node degree --- Large DAG (30 tasks,
+5-stage pipeline).  Same conventions as Figure~1.  Note the log scale: HEFT-1
+stays below 1000\,s across all densities while HEFT and HEFT-2 reach 3000--5000\,s
+at the sparsest setting.}
+\end{figure}
 
 \section{Best Routing Scheme per Density and Scheduler}
 
