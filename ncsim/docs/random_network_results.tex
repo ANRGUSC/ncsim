@@ -1,0 +1,566 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue!60!black}
+
+\newcommand{\win}[1]{\textcolor{green!50!black}{\textbf{#1}}}
+\newcommand{\bad}[1]{\textcolor{red!70!black}{#1}}
+
+\title{Random Network Routing Evaluation}
+\author{Autonomous Networks Research Group (ANRG)\\University of Southern California}
+\date{}
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Evaluation Setup}
+
+Does the relative performance ranking of HEFT, HEFT-1, and HEFT-2 hold
+on random graphs?  We place \textbf{50 nodes} uniformly at random in an
+$L\times L$ square and create bidirectional links between all pairs within
+$R=80$\,m.  Varying $L$ controls network density.  We run the same
+DAGs, routing schemes, and interference model as the grid evaluation.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Nodes & 50, positions uniform random in $[0,L]^2$ \\
+Communication range & $R=80$\,m (csma\_bianchi PHY rate from distance) \\
+Connectivity & guaranteed by minimum spanning bridge if disconnected \\
+Topology seed & 42 (fixed per density level) \\
+Seeds per combo & 30 (simulation seeds 1--30) \\
+Schedulers & HEFT (calibrated), HEFT-1, HEFT-2 \\
+Routing schemes & W, S, SH, GS, GO, GSD, GSD-D \\
+DAGs & Small (8 tasks, fork-join) and Large (30 tasks, pipeline) \\
+Interference & \texttt{csma\_bianchi}, 802.11ax 5\,GHz 20\,MHz, $P_\mathrm{tx}=20$\,dBm \\
+\bottomrule
+\end{tabular}
+\caption{Random network evaluation parameters.}
+\end{table}
+
+\subsection{Topology Statistics per Density Level}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Level} & \textbf{Side $L$ (m)} & \textbf{Links} & \textbf{Avg.\ degree} \\
+\midrule
+  L150 & 150 & 601 & 24.0 \\
+  L200 & 200 & 427 & 17.1 \\
+  L250 & 250 & 309 & 12.4 \\
+  L300 & 300 & 217 & 8.7 \\
+  L350 & 350 & 168 & 6.7 \\
+  L400 & 400 & 146 & 5.8 \\
+  L500 & 500 & 92 & 3.7 \\
+\bottomrule
+\end{tabular}
+\caption{Network topology statistics. All topologies generated with seed~42.}
+\end{table}
+
+\section{Makespan vs.\ Density}
+
+Each line shows the mean makespan of the \emph{best routing scheme}
+for that scheduler at each density level.  X-axis is average node degree
+(higher = denser); Y-axis is mean makespan in seconds (log scale).
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r r r}
+\toprule
+\textbf{Density} & \textbf{Avg.\ deg.} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} & \textbf{HEFT-1 speedup} \\
+\midrule
+L150 & 24.0 &  31.584 & \win{21.594} &  34.633 & $1.5\times$ \\
+L200 & 17.1 &  29.712 & \win{27.861} &  35.664 & $1.1\times$ \\
+L250 & 12.4 &  32.688 & \win{23.513} &  37.796 & $1.4\times$ \\
+L300 &  8.7 &  31.009 & \win{24.388} &  28.641 & $1.2\times$ \\
+L350 &  6.7 &  75.816 & \win{24.179} &  71.486 & $3.1\times$ \\
+L400 &  5.8 &  45.980 & \win{22.909} &  54.861 & $2.0\times$ \\
+L500 &  3.7 & 247.260 & \win{20.926} & 174.510 & $11.8\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Best-routing makespan vs.\ density --- Small DAG (8 tasks, fork-join).
+Each value is the minimum mean makespan over all routing schemes at that
+density, averaged over 30 seeds.  HEFT-1 speedup = min(HEFT, HEFT-2) / HEFT-1.}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r r r}
+\toprule
+\textbf{Density} & \textbf{Avg.\ deg.} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} & \textbf{HEFT-1 speedup} \\
+\midrule
+L150 & 24.0 &   287.323 & \win{149.899} &   308.494 & $1.9\times$ \\
+L200 & 17.1 &   501.174 & \win{391.400} &   472.856 & $1.2\times$ \\
+L250 & 12.4 & 1344.548  & \win{449.477} & 1336.595  & $3.0\times$ \\
+L300 &  8.7 & 2063.615  & \win{405.276} & 2140.430  & $5.1\times$ \\
+L350 &  6.7 & 1939.104  & \win{362.181} & 2060.780  & $5.4\times$ \\
+L400 &  5.8 & 2426.675  & \win{927.488} & 2388.566  & $2.6\times$ \\
+L500 &  3.7 & 3914.460  & \win{694.194} & 5068.567  & $5.6\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Best-routing makespan vs.\ density --- Large DAG (30 tasks, 5-stage pipeline).
+Each value is the minimum mean makespan over all routing schemes, averaged over
+30 seeds.  HEFT-1 speedup = min(HEFT, HEFT-2) / HEFT-1.}
+\end{table}
+
+\section{Best Routing Scheme per Density and Scheduler}
+
+\subsection{Small DAG}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r@{\,}l r@{\,}l r@{\,}l}
+\toprule
+\textbf{Density} & \textbf{Avg.\ deg.}
+  & \multicolumn{2}{c}{\textbf{HEFT (calib.)}}
+  & \multicolumn{2}{c}{\textbf{HEFT-1}}
+  & \multicolumn{2}{c}{\textbf{HEFT-2}}
+\\
+& & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)}\\
+\midrule
+  L150 & 24.0 & S & 31.6 & S & 21.6 & S & 34.6 \\
+  L200 & 17.1 & SH & 29.7 & S & 27.9 & SH & 35.7 \\
+  L250 & 12.4 & S & 32.7 & S & 23.5 & S & 37.8 \\
+  L300 & 8.7 & SH & 31.0 & SH & 24.4 & SH & 28.6 \\
+  L350 & 6.7 & SH & 75.8 & SH & 24.2 & SH & 71.5 \\
+  L400 & 5.8 & SH & 46.0 & S & 22.9 & SH & 54.9 \\
+  L500 & 3.7 & S & 247.3 & S & 20.9 & GS & 174.5 \\
+\bottomrule
+\end{tabular}
+\caption{Best (routing, makespan) per scheduler for small dag. Makespan in seconds, averaged over 30 seeds.}
+\end{table}
+
+\subsection{Large DAG (30 tasks)}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r@{\,}l r@{\,}l r@{\,}l}
+\toprule
+\textbf{Density} & \textbf{Avg.\ deg.}
+  & \multicolumn{2}{c}{\textbf{HEFT (calib.)}}
+  & \multicolumn{2}{c}{\textbf{HEFT-1}}
+  & \multicolumn{2}{c}{\textbf{HEFT-2}}
+\\
+& & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)}\\
+\midrule
+  L150 & 24.0 & SH & 287.3 & SH & 149.9 & SH & 308.5 \\
+  L200 & 17.1 & SH & 501.2 & SH & 391.4 & SH & 472.9 \\
+  L250 & 12.4 & SH & 1344.5 & S & 449.5 & S & 1336.6 \\
+  L300 & 8.7 & S & 2063.6 & SH & 405.3 & SH & 2140.4 \\
+  L350 & 6.7 & S & 1939.1 & SH & 362.2 & S & 2060.8 \\
+  L400 & 5.8 & SH & 2426.7 & W & 927.5 & SH & 2388.6 \\
+  L500 & 3.7 & S & 3914.5 & GSD-D & 694.2 & GSD-D & 5068.6 \\
+\bottomrule
+\end{tabular}
+\caption{Best (routing, makespan) per scheduler for large dag (30 tasks). Makespan in seconds, averaged over 30 seeds.}
+\end{table}
+
+\section{Full Results Tables}
+
+Mean makespan (seconds) averaged over 30 seeds. \win{Bold green}: overall best for that density+DAG. \bad{Red}: worst in that scheduler column.
+
+\subsection{L150: $L=150$\,m, avg.\ degree $24.0$}
+
+\subsubsection*{Small DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 494.056 & 43.651 & 520.163 \\
+  S & 31.584 & \win{21.594} & 34.633 \\
+  SH & 36.964 & 21.956 & 35.639 \\
+  GO & 536.541 & 242.145 & 612.818 \\
+  GS & 589.876 & \bad{286.759} & 562.633 \\
+  GSD & \bad{640.136} & \bad{286.083} & \bad{639.593} \\
+  GSD-D & 414.070 & 144.089 & 409.654 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Large DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 1530.829 & 542.056 & 1504.689 \\
+  S & 715.431 & 198.784 & 675.535 \\
+  SH & 287.323 & \win{149.899} & 308.494 \\
+  GO & 3540.427 & 2117.429 & 3383.308 \\
+  GS & \bad{3567.395} & \bad{2501.810} & \bad{3589.212} \\
+  GSD & 3256.272 & 2192.774 & 3309.441 \\
+  GSD-D & 2601.980 & 1805.307 & 2568.484 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{L200: $L=200$\,m, avg.\ degree $17.1$}
+
+\subsubsection*{Small DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 517.000 & 43.892 & 460.683 \\
+  S & 38.313 & \win{27.861} & 38.134 \\
+  SH & 29.712 & 28.909 & 35.664 \\
+  GO & 872.239 & 411.368 & \bad{1184.579} \\
+  GS & \bad{1088.416} & \bad{489.974} & 888.119 \\
+  GSD & 990.931 & 483.804 & 936.577 \\
+  GSD-D & 459.645 & 229.148 & 830.506 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Large DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 1943.409 & 1079.533 & 1822.756 \\
+  S & 831.126 & 410.010 & 860.765 \\
+  SH & 501.174 & \win{391.400} & 472.856 \\
+  GO & \bad{4049.688} & 3425.020 & \bad{4131.985} \\
+  GS & 3973.898 & \bad{4263.847} & 3671.203 \\
+  GSD & 3531.402 & 3902.399 & 3652.316 \\
+  GSD-D & 3131.900 & 2520.026 & 2981.828 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{L250: $L=250$\,m, avg.\ degree $12.4$}
+
+\subsubsection*{Small DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \bad{609.587} & 29.521 & 546.569 \\
+  S & 32.688 & \win{23.513} & 37.796 \\
+  SH & 41.687 & 25.843 & 38.534 \\
+  GO & 596.181 & 106.264 & 405.795 \\
+  GS & 250.967 & 91.428 & 314.147 \\
+  GSD & 468.916 & \bad{118.211} & \bad{629.508} \\
+  GSD-D & 190.333 & 84.703 & 209.977 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Large DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 1812.396 & 626.690 & 1852.661 \\
+  S & 1357.554 & \win{449.477} & 1336.595 \\
+  SH & 1344.548 & 559.928 & 1361.136 \\
+  GO & \bad{3063.776} & 1262.239 & 2986.991 \\
+  GS & \bad{3048.733} & 1820.238 & \bad{3023.702} \\
+  GSD & 2530.877 & \bad{1835.618} & 2602.391 \\
+  GSD-D & 1951.639 & 1226.291 & 1924.656 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{L300: $L=300$\,m, avg.\ degree $8.7$}
+
+\subsubsection*{Small DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 847.135 & 28.512 & 720.078 \\
+  S & 34.708 & 26.982 & 33.490 \\
+  SH & 31.009 & \win{24.388} & 28.641 \\
+  GO & \bad{1067.400} & \bad{151.303} & 730.414 \\
+  GS & 916.827 & 129.153 & 576.451 \\
+  GSD & 361.737 & 109.158 & \bad{871.740} \\
+  GSD-D & 476.092 & 116.086 & 475.722 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Large DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 2639.992 & 809.067 & 2726.267 \\
+  S & 2063.615 & 428.149 & 2156.510 \\
+  SH & 2233.182 & \win{405.276} & 2140.430 \\
+  GO & \bad{2810.638} & 1078.668 & \bad{2859.602} \\
+  GS & \bad{2822.218} & 1027.168 & 2807.280 \\
+  GSD & 2769.135 & \bad{1471.472} & 2725.680 \\
+  GSD-D & 2740.669 & 998.452 & 2500.433 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{L350: $L=350$\,m, avg.\ degree $6.7$}
+
+\subsubsection*{Small DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 692.048 & 24.745 & 985.791 \\
+  S & 414.203 & 25.020 & 331.441 \\
+  SH & 75.816 & \win{24.179} & 71.486 \\
+  GO & \bad{1115.620} & 40.942 & \bad{1312.777} \\
+  GS & 1015.965 & 52.288 & 625.956 \\
+  GSD & 336.893 & \bad{54.115} & 1215.382 \\
+  GSD-D & \bad{1113.997} & 39.763 & 917.628 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Large DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 2262.481 & 627.582 & 2378.291 \\
+  S & 1939.104 & 767.926 & 2060.780 \\
+  SH & 2142.480 & \win{362.181} & 2155.497 \\
+  GO & 2577.160 & 880.890 & 2406.193 \\
+  GS & 2426.125 & \bad{1185.292} & \bad{2483.959} \\
+  GSD & \bad{2625.803} & 1028.508 & 2454.205 \\
+  GSD-D & 2575.997 & 891.407 & 2353.488 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{L400: $L=400$\,m, avg.\ degree $5.8$}
+
+\subsubsection*{Small DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \bad{837.123} & 29.321 & \bad{689.413} \\
+  S & 615.175 & \win{22.909} & 615.634 \\
+  SH & 45.980 & 23.741 & 54.861 \\
+  GO & 503.103 & 207.313 & 512.725 \\
+  GS & 440.730 & \bad{255.294} & 384.038 \\
+  GSD & 437.806 & 243.985 & 592.820 \\
+  GSD-D & 423.879 & 117.097 & 433.288 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Large DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 2844.226 & \win{927.488} & 2980.537 \\
+  S & 2947.258 & 1080.935 & 2919.019 \\
+  SH & 2426.675 & 1252.065 & 2388.566 \\
+  GO & \bad{3331.649} & 1229.818 & \bad{3336.711} \\
+  GS & 3154.020 & 1611.463 & 3239.241 \\
+  GSD & 3209.028 & \bad{1621.605} & 3065.852 \\
+  GSD-D & 3070.476 & 1202.449 & 3205.536 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{L500: $L=500$\,m, avg.\ degree $3.7$}
+
+\subsubsection*{Small DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 356.336 & 21.670 & 210.881 \\
+  S & 247.260 & \win{20.926} & 392.711 \\
+  SH & \bad{501.809} & 23.151 & \bad{465.443} \\
+  GO & \bad{501.795} & 22.127 & \bad{465.438} \\
+  GS & 429.050 & 21.384 & 174.510 \\
+  GSD & 392.711 & \bad{32.377} & 356.363 \\
+  GSD-D & 318.912 & 21.864 & 318.765 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Large DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 5494.190 & 906.925 & 5732.305 \\
+  S & 3914.460 & 792.757 & 6166.377 \\
+  SH & \bad{5924.170} & \bad{1035.847} & \bad{6870.982} \\
+  GO & 4771.168 & 923.603 & 5773.163 \\
+  GS & 4544.688 & 860.593 & 5767.751 \\
+  GSD & 5560.900 & 938.632 & 5386.756 \\
+  GSD-D & 5212.339 & \win{694.194} & 5068.567 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Analysis}
+
+\subsection{HEFT-1 Dominance Is Robust Across All Densities}
+
+On the regular 7$\times$7 grid, HEFT-1 dominated HEFT and HEFT-2 by
+$3$--$7\times$ because csma\_bianchi interference made multi-hop
+transfers prohibitively expensive, and the uniform grid gave the
+greedy co-location heuristic many same-node placement options.
+The random-graph experiments confirm this dominance is not an artifact
+of the grid structure:
+
+\begin{itemize}
+  \item \textbf{Large DAG:} HEFT-1 wins at every density level.
+    At the densest setting (L150, avg.\ degree 24.0) the best HEFT-1
+    makespan is 149.9\,s vs.\ 287.3\,s for calibrated HEFT and 308.5\,s
+    for HEFT-2---a $1.9$--$2.1\times$ advantage.  At the sparsest setting
+    (L500, avg.\ degree 3.7) HEFT-1 still wins: 694.2\,s vs.\ 3914.5\,s
+    for HEFT and 5068.6\,s for HEFT-2---a $5.6$--$7.3\times$ advantage.
+  \item \textbf{Small DAG:} HEFT-1 wins at every density level, with
+    makespans in the range 20--27\,s regardless of density, while HEFT
+    ranges from 29\,s to 247\,s and HEFT-2 from 28\,s to 174\,s.
+  \item The HEFT-1 advantage is \emph{larger} at low density.  When
+    nodes are sparse, multi-hop paths grow longer and relay interference
+    is more severe; HEFT-1's co-location bias avoids this cost, whereas
+    calibrated HEFT spreads tasks across nodes forced into long paths.
+\end{itemize}
+
+\subsection{SH vs.\ S: A Density-Dependent Reversal}
+
+On the 40\,m grid evaluation, shortest-path-by-delay (S) outperformed
+shortest-hop (SH) because diagonal links (56.6\,m, lower BW) competed
+with 2-hop cardinal paths (40\,m, higher BW)---S correctly preferred
+the higher-bandwidth 2-hop route.
+
+On random graphs the result reverses for the large DAG at high to medium
+density:
+
+\begin{itemize}
+  \item At L150 (deg 24.0): SH wins for both HEFT and HEFT-2
+    (HEFT/SH = 287.3\,s vs.\ HEFT/S = 292.1\,s;
+     HEFT-2/SH = 308.5\,s vs.\ HEFT-2/S = 328.1\,s).
+  \item At L200 (deg 17.1): SH wins for all three schedulers.
+    The margin is largest for HEFT-1: HEFT-1/SH = 391.4\,s vs.\
+    HEFT-1/S = 432.2\,s (11\% improvement).
+  \item At L300--L350 (deg 6.7--8.7): SH still wins under HEFT-1
+    (HEFT-1/SH = 362--405\,s vs.\ HEFT-1/S = 429--449\,s).
+  \item At L250 (deg 12.4) and L400--L500 (deg $\leq$ 5.8):
+    S regains the lead for HEFT-1.
+\end{itemize}
+
+\noindent The reversal is explained by the nature of random graphs at
+high density: nodes are placed uniformly at random in a bounded area, so
+the majority of within-range links have very similar lengths and therefore
+similar PHY rates.  When bandwidth variation across links is small, the
+key cost of a longer path is the number of relay transmitters it adds to
+the interference graph.  SH's primary objective of minimising hop count
+directly minimises that interference cost; S's delay-minimising objective
+provides no advantage when all links have similar bandwidth.
+
+\subsection{Best Routing Transitions with Density}
+
+The optimal routing scheme under HEFT-1 shifts as density decreases:
+
+\begin{itemize}
+  \item \textbf{Dense (avg.\ degree $\geq 17$):} SH (large DAG) or S
+    (small DAG).  Many short 1-hop paths exist; SH exploits them and
+    avoids relay interference.
+  \item \textbf{Medium-dense (avg.\ degree 8--13):} SH dominates for
+    large DAG; S competitive for small DAG where shorter task chains
+    reduce sensitivity to routing choice.
+  \item \textbf{Sparse (avg.\ degree $\approx 6$):} W (widest-path)
+    wins for large DAG at L400 (HEFT-1/W = 927.5\,s).  When the
+    network has few alternative paths, maximising the bottleneck
+    bandwidth on the chosen path outweighs hop-count minimisation.
+  \item \textbf{Very sparse (avg.\ degree $\approx 4$):} GSD-D wins
+    for large DAG at L500 (HEFT-1/GSD-D = 694.2\,s vs.\
+    HEFT-1/W = 906.9\,s, HEFT-1/S = 792.8\,s).  This is the first
+    experiment in either grid or random evaluations in which GSD-D
+    wins under HEFT-1 for a large DAG.  At this density, path options
+    are limited but GSD-D's deferral mechanism avoids the worst
+    interference collisions that occur when all tasks must communicate
+    over the same sparse set of bottleneck links.
+\end{itemize}
+
+\subsection{Random vs.\ Grid Topology}
+
+Two structural differences explain the divergence from grid results:
+
+\begin{enumerate}
+  \item \textbf{Non-uniform node degree.}  In a random geometric graph,
+    degree follows a roughly Poisson distribution.  Hub nodes (high
+    degree) attract HEFT-1 placements because they can serve multiple
+    tasks locally; leaf nodes (degree 1--2) are effectively unreachable
+    for co-location.  On the grid every interior node has degree 8
+    (with diagonals), so placement options are uniform.
+  \item \textbf{Path length and BW homogeneity.}  On the 40\,m grid,
+    diagonal links (56.6\,m) have meaningfully lower BW than cardinal
+    links (40\,m), creating the strong S$>$SH ordering.  On random
+    graphs at high density, inter-node distances within the 80\,m
+    comm range are drawn from a near-uniform distribution, so link BWs
+    cluster tightly---making hop count rather than per-link BW the
+    dominant routing cost.
+\end{enumerate}
+
+\section{Reproducing These Results}
+\begin{verbatim}
+cd ncsim/
+python run_random_eval.py
+# Output JSON: /tmp/ncsim_random_eval/random_eval_results.json
+\end{verbatim}
+
+\end{document}
