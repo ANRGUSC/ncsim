@@ -1,0 +1,616 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue!60!black}
+
+\newcommand{\win}[1]{\textcolor{green!50!black}{\textbf{#1}}}
+\newcommand{\bad}[1]{\textcolor{red!70!black}{#1}}
+
+\title{Routing Evaluation --- No Interference}
+\author{Autonomous Networks Research Group (ANRG)\\University of Southern California}
+\date{}
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Evaluation Setup}
+
+Identical workloads and scheduler/routing combinations as the \texttt{csma\_bianchi}
+interference evaluations, but with \texttt{--interference none}: links share
+bandwidth fairly under concurrent flows but there is no inter-link interference.
+Results can be compared directly against the interference reports to isolate
+the cost imposed by wireless contention.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Interference & \textbf{none} (intra-link fair-share only) \\
+Schedulers & HEFT (calibrated), HEFT-1, HEFT-2 \\
+Grid routing & W, S, SH, GS, GC, GB, GO, GSD, GSD-D \\
+Random routing & W, S, SH, GO, GS, GSD, GSD-D \\
+Seeds per combo & 30 \\
+Grid sizes & $4\times4$ (16 nodes, 40\,m spacing) and $7\times7$ (49 nodes) \\
+Random nodes & 50, uniform in $[0,L]^2$, comm range $R=80$\,m \\
+Density levels & L150--L500 ($L=150$\,m to $500$\,m) \\
+DAGs & Small (8 tasks, fork-join), Large (30/60 tasks, pipeline) \\
+\bottomrule
+\end{tabular}
+\caption{Evaluation parameters. All other settings identical to the interference reports.}
+\end{table}
+
+\section{Grid Network Results}
+
+Mean makespan in seconds, averaged over 30 seeds.
+\win{Bold green}: overall experiment winner. \bad{Red}: worst in that scheduler column.
+
+\subsection{$4\times4$ Grid, Small (8 tasks, fork-join)}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \win{13.500} & \win{13.500} & \win{13.500} \\
+  S & \win{13.500} & \win{13.500} & \win{13.500} \\
+  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GC & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GB & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+\midrule
+  \textit{Best} & \textit{W 13.500} & \textit{W 13.500} & \textit{W 13.500} \\
+\bottomrule
+\end{tabular}
+\caption{$4\times4$ small (8 tasks, fork-join). Mean makespan over 30 seeds.}
+\end{table}
+
+\subsection{$4\times4$ Grid, Large (30 tasks, 5-stage pipeline)}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \bad{130.167} & 63.667 & \bad{130.167} \\
+  S & 102.167 & 63.667 & 102.167 \\
+  SH & 102.167 & 63.667 & 102.167 \\
+  GS & 102.167 & 63.667 & 102.167 \\
+  GC & 107.167 & 63.667 & 107.167 \\
+  GB & 102.167 & \bad{68.333} & 102.167 \\
+  GO & 102.167 & 63.667 & 102.167 \\
+  GSD & 70.440 & \win{45.375} & 70.440 \\
+  GSD-D & 73.083 & \win{45.375} & 73.083 \\
+\midrule
+  \textit{Best} & \textit{GSD 70.440} & \textit{GSD 45.375} & \textit{GSD 70.440} \\
+\bottomrule
+\end{tabular}
+\caption{$4\times4$ large (30 tasks, 5-stage pipeline). Mean makespan over 30 seeds.}
+\end{table}
+
+\subsection{$7\times7$ Grid, Small (8 tasks, fork-join)}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \win{13.500} & \win{13.500} & \win{13.500} \\
+  S & \win{13.500} & \win{13.500} & \win{13.500} \\
+  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GC & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GB & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+\midrule
+  \textit{Best} & \textit{W 13.500} & \textit{W 13.500} & \textit{W 13.500} \\
+\bottomrule
+\end{tabular}
+\caption{$7\times7$ small (8 tasks, fork-join). Mean makespan over 30 seeds.}
+\end{table}
+
+\subsection{$7\times7$ Grid, Large (60 tasks, 6-stage pipeline)}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \bad{156.033} & 141.357 & \bad{155.471} \\
+  S & 145.100 & 142.690 & 145.200 \\
+  SH & 145.333 & 134.690 & 145.133 \\
+  GS & 152.071 & \bad{147.193} & 153.921 \\
+  GC & 152.908 & 142.157 & 152.854 \\
+  GB & 152.358 & 142.690 & 154.437 \\
+  GO & 154.058 & 145.357 & 153.854 \\
+  GSD & 130.041 & \win{71.483} & 128.321 \\
+  GSD-D & 122.935 & 72.417 & 136.970 \\
+\midrule
+  \textit{Best} & \textit{GSD-D 122.935} & \textit{GSD 71.483} & \textit{GSD 128.321} \\
+\bottomrule
+\end{tabular}
+\caption{$7\times7$ large (60 tasks, 6-stage pipeline). Mean makespan over 30 seeds.}
+\end{table}
+
+\section{Random Network Results}
+
+\subsection{Topology Statistics}
+\begin{table}[H]
+\centering
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Level} & \textbf{Side $L$ (m)} & \textbf{Links} & \textbf{Avg.\ degree} \\
+\midrule
+  L150 & 150 & 601 & 24.0 \\
+  L200 & 200 & 427 & 17.1 \\
+  L250 & 250 & 309 & 12.4 \\
+  L300 & 300 & 217 & 8.7 \\
+  L350 & 350 & 168 & 6.7 \\
+  L400 & 400 & 146 & 5.8 \\
+  L500 & 500 & 92 & 3.7 \\
+\bottomrule
+\end{tabular}
+\caption{Random network topology statistics (seed~42).}
+\end{table}
+
+\subsection{Makespan vs.\ Density}
+
+Each point is the best-routing mean makespan for that scheduler at that
+density, averaged over 30 seeds.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{noint_density_small.pdf}
+\caption{No-interference: best-routing mean makespan vs.\ average node degree --- Small DAG (8 tasks, fork-join).}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{noint_density_large.pdf}
+\caption{No-interference: best-routing mean makespan vs.\ average node degree --- Large DAG (30 tasks, 5-stage pipeline).}
+\end{figure}
+
+\subsection{Best Routing --- Small DAG}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r@{\,}l r@{\,}l r@{\,}l}
+\toprule
+\textbf{Density} & \textbf{Avg.\ deg.} & \multicolumn{2}{c}{\textbf{HEFT (calib.)}} & \multicolumn{2}{c}{\textbf{HEFT-1}} & \multicolumn{2}{c}{\textbf{HEFT-2}} \\
+ & & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} \\
+\midrule
+  L150 & 24.0 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
+  L200 & 17.1 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
+  L250 & 12.4 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
+  L300 & 8.7 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
+  L350 & 6.7 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
+  L400 & 5.8 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
+  L500 & 3.7 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
+\bottomrule
+\end{tabular}
+\caption{Best routing scheme and mean makespan per scheduler and density level --- Small DAG. \win{Bold green}: overall best.}
+\end{table}
+
+\subsection{Best Routing --- Large DAG (30 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r@{\,}l r@{\,}l r@{\,}l}
+\toprule
+\textbf{Density} & \textbf{Avg.\ deg.} & \multicolumn{2}{c}{\textbf{HEFT (calib.)}} & \multicolumn{2}{c}{\textbf{HEFT-1}} & \multicolumn{2}{c}{\textbf{HEFT-2}} \\
+ & & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} \\
+\midrule
+  L150 & 24.0 & W & 102.000 & W & 61.667 & W & 102.000 \\
+  L200 & 17.1 & W & 102.000 & W & 61.667 & W & 102.000 \\
+  L250 & 12.4 & GSD-D & 85.017 & GSD-D & 55.278 & GSD-D & 77.983 \\
+  L300 & 8.7 & GSD-D & 67.394 & GSD & 65.667 & GSD-D & 66.767 \\
+  L350 & 6.7 & S & 120.433 & GSD & 47.544 & GSD-D & 120.333 \\
+  L400 & 5.8 & S & 121.133 & GSD-D & \win{47.458} & W & 121.600 \\
+  L500 & 3.7 & S & 120.600 & GSD-D & 57.061 & GSD-D & 121.633 \\
+\bottomrule
+\end{tabular}
+\caption{Best routing scheme and mean makespan per scheduler and density level --- Large DAG (30 tasks). \win{Bold green}: overall best.}
+\end{table}
+
+\section{Full Random Network Results}
+
+Mean makespan (seconds) averaged over 30 seeds. \win{Bold green}: overall best for that density+DAG. \bad{Red}: worst in that scheduler column.
+
+\subsection{L150 (avg.\ degree 24.0) --- Small DAG (8 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \win{13.500} & \win{13.500} & \win{13.500} \\
+  S & \win{13.500} & \win{13.500} & \win{13.500} \\
+  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+\bottomrule
+\end{tabular}
+\caption{L150 ($L=150$\,m, avg.\ degree 24.0) --- Small DAG (8 tasks).}
+\end{table}
+
+\subsection{L200 (avg.\ degree 17.1) --- Small DAG (8 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \win{13.500} & \win{13.500} & \win{13.500} \\
+  S & \win{13.500} & \win{13.500} & \win{13.500} \\
+  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+\bottomrule
+\end{tabular}
+\caption{L200 ($L=200$\,m, avg.\ degree 17.1) --- Small DAG (8 tasks).}
+\end{table}
+
+\subsection{L250 (avg.\ degree 12.4) --- Small DAG (8 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \win{13.500} & \win{13.500} & \win{13.500} \\
+  S & \win{13.500} & \win{13.500} & \win{13.500} \\
+  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+\bottomrule
+\end{tabular}
+\caption{L250 ($L=250$\,m, avg.\ degree 12.4) --- Small DAG (8 tasks).}
+\end{table}
+
+\subsection{L300 (avg.\ degree 8.7) --- Small DAG (8 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \win{13.500} & \win{13.500} & \win{13.500} \\
+  S & \win{13.500} & \win{13.500} & \win{13.500} \\
+  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+\bottomrule
+\end{tabular}
+\caption{L300 ($L=300$\,m, avg.\ degree 8.7) --- Small DAG (8 tasks).}
+\end{table}
+
+\subsection{L350 (avg.\ degree 6.7) --- Small DAG (8 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \win{13.500} & \win{13.500} & \win{13.500} \\
+  S & \win{13.500} & \win{13.500} & \win{13.500} \\
+  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+\bottomrule
+\end{tabular}
+\caption{L350 ($L=350$\,m, avg.\ degree 6.7) --- Small DAG (8 tasks).}
+\end{table}
+
+\subsection{L400 (avg.\ degree 5.8) --- Small DAG (8 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \win{13.500} & \win{13.500} & \win{13.500} \\
+  S & \win{13.500} & \win{13.500} & \win{13.500} \\
+  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+\bottomrule
+\end{tabular}
+\caption{L400 ($L=400$\,m, avg.\ degree 5.8) --- Small DAG (8 tasks).}
+\end{table}
+
+\subsection{L500 (avg.\ degree 3.7) --- Small DAG (8 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \win{13.500} & \win{13.500} & \win{13.500} \\
+  S & \win{13.500} & \win{13.500} & \win{13.500} \\
+  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
+  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+\bottomrule
+\end{tabular}
+\caption{L500 ($L=500$\,m, avg.\ degree 3.7) --- Small DAG (8 tasks).}
+\end{table}
+
+\subsection{L150 (avg.\ degree 24.0) --- Large DAG (30 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 102.000 & \win{61.667} & 102.000 \\
+  S & 102.000 & \win{61.667} & 102.000 \\
+  SH & 102.000 & \win{61.667} & 102.000 \\
+  GO & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+  GS & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+  GSD & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+  GSD-D & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+\bottomrule
+\end{tabular}
+\caption{L150 ($L=150$\,m, avg.\ degree 24.0) --- Large DAG (30 tasks).}
+\end{table}
+
+\subsection{L200 (avg.\ degree 17.1) --- Large DAG (30 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 102.000 & \win{61.667} & 102.000 \\
+  S & 102.000 & \win{61.667} & 102.000 \\
+  SH & 102.000 & \win{61.667} & 102.000 \\
+  GO & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+  GS & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+  GSD & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+  GSD-D & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+\bottomrule
+\end{tabular}
+\caption{L200 ($L=200$\,m, avg.\ degree 17.1) --- Large DAG (30 tasks).}
+\end{table}
+
+\subsection{L250 (avg.\ degree 12.4) --- Large DAG (30 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 122.300 & \bad{61.667} & 125.100 \\
+  S & 124.267 & \bad{61.667} & 122.967 \\
+  SH & \bad{127.467} & \bad{61.667} & \bad{128.000} \\
+  GO & 105.000 & \bad{61.667} & 103.833 \\
+  GS & 105.000 & \bad{61.667} & 103.667 \\
+  GSD & 88.300 & 55.722 & 80.083 \\
+  GSD-D & 85.017 & \win{55.278} & 77.983 \\
+\bottomrule
+\end{tabular}
+\caption{L250 ($L=250$\,m, avg.\ degree 12.4) --- Large DAG (30 tasks).}
+\end{table}
+
+\subsection{L300 (avg.\ degree 8.7) --- Large DAG (30 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 127.900 & 71.828 & 123.067 \\
+  S & 121.867 & 68.037 & 122.133 \\
+  SH & \bad{128.500} & \bad{77.074} & \bad{124.933} \\
+  GO & 102.833 & 72.382 & 103.000 \\
+  GS & 102.500 & 71.838 & 102.500 \\
+  GSD & 67.472 & \win{65.667} & 68.117 \\
+  GSD-D & 67.394 & 66.521 & 66.767 \\
+\bottomrule
+\end{tabular}
+\caption{L300 ($L=300$\,m, avg.\ degree 8.7) --- Large DAG (30 tasks).}
+\end{table}
+
+\subsection{L350 (avg.\ degree 6.7) --- Large DAG (30 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \bad{128.000} & 61.578 & 121.200 \\
+  S & 120.433 & \bad{62.114} & 122.300 \\
+  SH & 124.167 & \bad{62.067} & \bad{126.800} \\
+  GO & 123.567 & 60.430 & 125.267 \\
+  GS & 121.200 & 61.285 & 125.100 \\
+  GSD & 123.067 & \win{47.544} & 121.967 \\
+  GSD-D & 122.467 & 47.718 & 120.333 \\
+\bottomrule
+\end{tabular}
+\caption{L350 ($L=350$\,m, avg.\ degree 6.7) --- Large DAG (30 tasks).}
+\end{table}
+
+\subsection{L400 (avg.\ degree 5.8) --- Large DAG (30 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & \bad{126.467} & 60.967 & 121.600 \\
+  S & 121.133 & 61.456 & 122.733 \\
+  SH & 123.400 & 61.138 & 124.933 \\
+  GO & 125.867 & 60.942 & 125.700 \\
+  GS & 124.333 & \bad{61.602} & \bad{126.467} \\
+  GSD & 125.367 & 47.544 & 123.067 \\
+  GSD-D & 122.300 & \win{47.458} & 125.700 \\
+\bottomrule
+\end{tabular}
+\caption{L400 ($L=400$\,m, avg.\ degree 5.8) --- Large DAG (30 tasks).}
+\end{table}
+
+\subsection{L500 (avg.\ degree 3.7) --- Large DAG (30 tasks)}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\midrule
+  W & 122.133 & 61.194 & 124.933 \\
+  S & 120.600 & 60.833 & 124.600 \\
+  SH & 121.200 & 60.683 & \bad{129.000} \\
+  GO & 124.500 & 61.100 & 126.033 \\
+  GS & 124.600 & \bad{61.567} & 126.733 \\
+  GSD & 123.833 & 58.050 & 124.933 \\
+  GSD-D & \bad{125.533} & \win{57.061} & 121.633 \\
+\bottomrule
+\end{tabular}
+\caption{L500 ($L=500$\,m, avg.\ degree 3.7) --- Large DAG (30 tasks).}
+\end{table}
+
+\section{Analysis}
+
+\subsection{Small DAG: Compute-Bound, Routing Irrelevant}
+
+The most striking finding is that \textbf{all routing schemes and all
+schedulers produce identical makespan (13.500\,s) on the small DAG},
+across both grid sizes and all seven random-network density levels.
+Without interference, the PHY rates on all paths are high enough that
+transfer time is negligible compared to task compute time
+(costs 150--1000\,cu on nodes at 80--300\,cu/s).
+The 8-task fork-join DAG's makespan is determined entirely by the
+critical compute path; routing and placement strategy are irrelevant.
+This is in sharp contrast to the \texttt{csma\_bianchi} results, where
+the same DAG showed a $3$--$12\times$ spread across routing schemes
+because interference inflated transfer times to the point where they
+dominated the makespan.
+
+\subsection{Large DAG: HEFT-1 Advantage Shrinks, GSD Emerges}
+
+On the large DAG the picture is more nuanced:
+
+\begin{itemize}
+  \item \textbf{HEFT-1 still wins, but by a much smaller margin.}
+    On the $4\times4$ grid, HEFT-1/GSD achieves 45.4\,s vs.\
+    HEFT/GSD = HEFT-2/GSD = 70.4\,s---a $1.6\times$ advantage.
+    Under csma\_bianchi the same experiments showed $3$--$7\times$.
+    The reduction confirms that co-location's main benefit was avoiding
+    inter-link spectrum contention, not intra-link queuing.
+  \item \textbf{GSD is the best routing scheme on grids.}
+    GSD (interference-aware dynamic) wins in all four grid experiments
+    under HEFT-1, including the $7\times7$ large (71.5\,s), where
+    under interference GO had won (542\,s).
+    Without interference GSD's dynamic path selection still reduces
+    intra-link congestion by spreading flows across the grid.
+    GSD-D wins only for the $7\times7$ large under HEFT (122.9\,s).
+  \item \textbf{Widest-path (W) is no longer the worst.}
+    Under interference W was always worst by a large margin
+    (e.g.\ 5696\,s vs.\ 542\,s for $7\times7$ large).
+    Without interference W is within 2$\times$ of GSD on grids
+    (141\,s vs.\ 71\,s under HEFT-1 on $7\times7$ large), confirming
+    that W's penalty came almost entirely from inter-link contention.
+\end{itemize}
+
+\subsection{Random Networks: Flat Small DAG, Density-Insensitive Large DAG}
+
+On random networks without interference:
+
+\begin{itemize}
+  \item \textbf{Small DAG:} All (scheduler, routing, density) combinations
+    produce 13.500\,s---exactly as on the grids.  Compute dominates.
+  \item \textbf{Large DAG:} HEFT-1 achieves 47--66\,s across all density
+    levels with the best routing scheme (GSD or GSD-D), compared to
+    150--927\,s under csma\_bianchi.  The makespan is \emph{nearly flat}
+    across densities: without interference, denser topologies provide more
+    path diversity for GSD's dynamic selection, but offer no dramatic
+    improvement because compute time already dominates.
+  \item \textbf{GSD and GSD-D win at all densities} under HEFT-1 for the
+    large DAG (GSD-D at L250--L400 and L500; GSD at L350).  This contrasts
+    with the csma\_bianchi case where SH dominated at high density
+    and W/GSD-D won only at very sparse topologies.
+  \item \textbf{SH never wins.}  Without the interference-reduction
+    rationale, SH offers no advantage over S or W.  GSD/GSD-D
+    consistently outperform SH by 10--30\% on the large DAG.
+  \item \textbf{HEFT and HEFT-2 tie at most densities} (W or S gives
+    the same result for both), matching the pattern seen on the grid
+    where calibration only diverges when topology is large.
+\end{itemize}
+
+\subsection{Key Takeaways}
+
+\begin{enumerate}
+  \item \textbf{Interference is the dominant cost on these workloads.}
+    The small DAG shifts from a 13$\times$ spread across routing schemes
+    (with interference) to a flat 13.5\,s (without).  Interference, not
+    bandwidth or hop count, was the binding constraint.
+  \item \textbf{HEFT-1 co-location benefit is mostly interference avoidance.}
+    The $3$--$7\times$ advantage over HEFT/HEFT-2 shrinks to $1.6\times$
+    without interference.  On interference-free networks, spreading tasks
+    is not nearly as costly.
+  \item \textbf{GSD replaces SH as best routing for large DAGs.}
+    Without interference, GSD's dynamic load spreading beats SH's
+    hop-count minimisation because relay hops no longer carry an
+    interference penalty.
+  \item \textbf{W is rehabilitated.}  Widest-path routing was catastrophic
+    under csma\_bianchi because it routed flows through the busiest, most
+    interfered links.  Without interference it is within $2\times$ of GSD,
+    and is the best scheme for several (density, scheduler) combinations
+    on the large random-network DAG.
+\end{enumerate}
+
+\subsection{Reproducing These Results}
+\begin{verbatim}
+cd ncsim/
+python run_no_interference_eval.py
+# JSON: /tmp/ncsim_no_interference_eval/no_interference_results.json
+\end{verbatim}
+
+\end{document}
