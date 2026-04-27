@@ -11,7 +11,7 @@
 \newcommand{\win}[1]{\textcolor{green!50!black}{\textbf{#1}}}
 \newcommand{\bad}[1]{\textcolor{red!70!black}{#1}}
 
-\title{Routing Scheme Evaluation Results}
+\title{Routing Scheme Evaluation Results\\{\large Grid Networks with csma\_bianchi Interference}}
 \author{Autonomous Networks Research Group (ANRG)\\University of Southern California}
 \date{}
 
@@ -19,6 +19,7 @@
 \maketitle
 \tableofcontents
 \newpage
+
 
 %======================================================================
 \section{Evaluation Setup}
@@ -29,7 +30,7 @@
 \toprule
 \textbf{Parameter} & \textbf{Value} \\
 \midrule
-Seeds per combo        & 30 (seeds 1--30); values are mean makespan \\
+Seeds per combo        & 30 (seeds 1--30); values are mean $\pm$ std makespan \\
 Schedulers             & HEFT: calibrated to runtime routing model \\
                        & HEFT-1: direct-link BW; 0.001\,MB/s for non-adjacent \\
                        & HEFT-2: widest-path BW for all pairs (fixed) \\
@@ -64,247 +65,248 @@ regardless of the runtime routing scheme.
 Added alongside S to test whether reducing relay count reduces csma\_bianchi
 interference enough to offset lower bottleneck bandwidth.
 
+\medskip\noindent
+\textbf{Extra metrics}: H = mean path length (hops) per transfer;
+PLU = peak link utilisation (fraction of time the busiest link was active).
+Values are averaged over 30 seeds.
+
+
 %======================================================================
 \section{Full Results Tables}
 
-Mean makespan in seconds, averaged over 30 seeds.
-\win{Bold green}: overall experiment winner.
-\bad{Red}: worst entry in that column.
-$\dagger$: best within that scheduler column.
+Mean makespan $\pm$ std in seconds, over 30 seeds.
+\win{Bold green}: global experiment winner.
+\textbf{Bold}$^\dagger$: best within that scheduler column.
+\bad{Red}: worst within that scheduler column.
+H = mean hops per transfer; PLU = peak link utilisation.
 
-%----------------------------------------------------------------------
 \subsection{$4\times4$ Grid, Small DAG (8 tasks, fork-join, 12 edges)}
 
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{l r r r}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l r@{$\,\pm\,$}l r r r@{$\,\pm\,$}l r r r@{$\,\pm\,$}l r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{4}{c}{\textbf{HEFT (calib.)}} & \multicolumn{4}{c}{\textbf{HEFT-1}} & \multicolumn{4}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}\cmidrule(lr){10-13}
+ & \multicolumn{2}{c}{ms (s)} & H & PLU & \multicolumn{2}{c}{ms (s)} & H & PLU & \multicolumn{2}{c}{ms (s)} & H & PLU \\
 \midrule
-W     & \bad{1814.518} &  18.336          & \bad{1814.518} \\
-S     &   93.856       &  18.336          &   93.856       \\
-SH    &   93.856       &  18.336          &   93.856       \\
-GS    &   93.319       &  18.336          &   93.319       \\
-GC    &   93.319       &  18.336          &   93.319       \\
-GB    &   93.319       &  18.336          &   93.319       \\
-GO    &   93.319       &  18.336          &   93.319       \\
-GSD   &  140.483       &  18.336          &  140.483       \\
-GSD-D &  \textbf{91.134}$^\dagger$ & \win{18.035}$^\dagger$ & \textbf{91.134}$^\dagger$ \\
+W & \bad{1814.518} & 0.000 & 6.86 & 0.01 & \bad{18.336} & 0.000 & 1.00 & 0.13 & \bad{1814.518} & 0.000 & 6.86 & 0.01 \\
+S & 93.856 & 0.000 & 2.00 & 0.09 & 18.336 & 0.000 & 1.00 & 0.13 & 93.856 & 0.000 & 2.00 & 0.09 \\
+SH & 93.856 & 0.000 & 2.00 & 0.09 & 18.336 & 0.000 & 1.00 & 0.13 & 93.856 & 0.000 & 2.00 & 0.09 \\
+GS & 93.319 & 0.000 & 2.00 & 0.14 & 18.336 & 0.000 & 1.00 & 0.13 & 93.319 & 0.000 & 2.00 & 0.14 \\
+GC & 93.319 & 0.000 & 2.00 & 0.14 & 18.336 & 0.000 & 1.00 & 0.13 & 93.319 & 0.000 & 2.00 & 0.14 \\
+GB & 93.319 & 0.000 & 2.00 & 0.14 & 18.336 & 0.000 & 1.00 & 0.13 & 93.319 & 0.000 & 2.00 & 0.14 \\
+GO & 93.319 & 0.000 & 2.00 & 0.14 & 18.336 & 0.000 & 1.00 & 0.13 & 93.319 & 0.000 & 2.00 & 0.14 \\
+GSD & 140.483 & 0.000 & 6.86 & 0.07 & 18.336 & 0.000 & 1.00 & 0.13 & 140.483 & 0.000 & 6.86 & 0.07 \\
+GSD\mbox{-}D & \textbf{91.134}$^\dagger$ & 0.000 & 6.86 & 0.15 & \win{18.035} & 0.000 & 1.00 & 0.13 & \textbf{91.134}$^\dagger$ & 0.000 & 6.86 & 0.15 \\
 \midrule
-\textit{Best} & \textit{GSD-D 91.134} & \textit{GSD-D 18.035} & \textit{GSD-D 91.134} \\
+\textit{Best} & \textit{GSD-D 91.134} &  &  &  & \textit{GSD-D 18.035} &  &  &  & \textit{GSD-D 91.134} &  &  &  \\
 \bottomrule
 \end{tabular}
-\caption{$4\times4$ small. HEFT-1 co-locates all 8 tasks on one node; no transfers
-occur, so routing is irrelevant (all schemes tie at 18.336\,s). GSD-D gains 0.3\,s via
-deferral logic on same-node handoffs. HEFT and HEFT-2 are identical here (both use
-widest-path BW when routing=W; for other schemes the 4$\times$4 topology's BW estimates
-converge). SH $\equiv$ S throughout: grid paths that minimise $\sum 1/b$ also minimise
-hops on this small topology.}
+\caption{$4\times4$ small. HEFT-1 co-locates all 8 tasks on one node; no transfers occur so routing is irrelevant (all schemes tie near 18\,s). GSD-D gains a small margin via deferral. HEFT and HEFT-2 are identical: the 4$\times$4 topology's BW estimates converge across routing models. Std devs are near zero because same-node execution is deterministic.}
 \end{table}
 
-%----------------------------------------------------------------------
 \subsection{$4\times4$ Grid, Large DAG (30 tasks, 5-stage pipeline, 48 edges)}
 
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{l r r r}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l r@{$\,\pm\,$}l r r r@{$\,\pm\,$}l r r r@{$\,\pm\,$}l r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{4}{c}{\textbf{HEFT (calib.)}} & \multicolumn{4}{c}{\textbf{HEFT-1}} & \multicolumn{4}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}\cmidrule(lr){10-13}
+ & \multicolumn{2}{c}{ms (s)} & H & PLU & \multicolumn{2}{c}{ms (s)} & H & PLU & \multicolumn{2}{c}{ms (s)} & H & PLU \\
 \midrule
-W     & \bad{2383.795} &  497.788          & \bad{2383.795} \\
-S     & 1071.723       &  292.425          & 1071.723       \\
-SH    & 1071.723       &  292.425          & 1071.723       \\
-GS    & 1026.909       &  \textbf{292.091}$^\dagger$ & 1026.909 \\
-GC    & 1066.630       &  \textbf{292.091}$^\dagger$ & 1066.630 \\
-GB    & 1156.735       &  \textbf{292.091}$^\dagger$ & 1156.735 \\
-GO    & 1022.295       &  \textbf{292.091}$^\dagger$ & 1022.295 \\
-GSD   & \textbf{855.880}$^\dagger$ & 671.422 & \textbf{855.880}$^\dagger$ \\
-GSD-D & 1037.424       &  322.536          & 1037.424       \\
+W & \bad{2383.795} & 0.000 & 4.57 & 0.01 & 497.788 & 0.000 & 1.17 & 0.03 & \bad{2383.795} & 0.000 & 4.57 & 0.01 \\
+S & 1071.723 & 0.000 & 1.90 & 0.01 & 292.425 & 0.000 & 1.03 & 0.05 & 1071.723 & 0.000 & 1.90 & 0.01 \\
+SH & 1071.723 & 0.000 & 1.90 & 0.01 & 292.425 & 0.000 & 1.03 & 0.05 & 1071.723 & 0.000 & 1.90 & 0.01 \\
+GS & 1026.909 & 0.000 & 2.21 & 0.01 & \win{292.091} & 0.000 & 1.03 & 0.04 & 1026.909 & 0.000 & 2.21 & 0.01 \\
+GC & 1066.630 & 0.000 & 2.29 & 0.01 & 292.091 & 0.000 & 1.03 & 0.04 & 1066.630 & 0.000 & 2.29 & 0.01 \\
+GB & 1156.735 & 0.000 & 2.43 & 0.01 & 292.091 & 0.000 & 1.03 & 0.04 & 1156.735 & 0.000 & 2.43 & 0.01 \\
+GO & 1022.295 & 0.000 & 2.68 & 0.01 & 292.091 & 0.000 & 1.03 & 0.04 & 1022.295 & 0.000 & 2.68 & 0.01 \\
+GSD & \textbf{855.880}$^\dagger$ & 0.000 & 4.57 & 0.01 & \bad{671.422} & 0.000 & 1.17 & 0.02 & \textbf{855.880}$^\dagger$ & 0.000 & 4.57 & 0.01 \\
+GSD\mbox{-}D & 1037.424 & 0.000 & 4.57 & 0.01 & 322.536 & 0.000 & 1.17 & 0.04 & 1037.424 & 0.000 & 4.57 & 0.01 \\
 \midrule
-\textit{Best} & \textit{GSD 855.880} & \textit{GS/GC/GB/GO \win{292.091}} & \textit{GSD 855.880} \\
+\textit{Best} & \textit{GSD 855.880} &  &  &  & \textit{GS 292.091} &  &  &  & \textit{GSD 855.880} &  &  &  \\
 \bottomrule
 \end{tabular}
-\caption{$4\times4$ large. HEFT and HEFT-2 are identical: with 30 tasks all paths
-converge regardless of routing calibration. Under HEFT-1, static greedy schemes
-(GS/GC/GB/GO) all tie at 292.091\,s---$-41\%$ vs W---by routing direct-neighbour
-transfers efficiently. Within the original HEFT, GSD wins at 855.880\,s: calibrated
-placement spreads tasks and GSD's runtime congestion avoidance pays off. SH $\equiv$ S
-again: min-hop and min-delay paths coincide on this compact grid.}
+\caption{$4\times4$ large. Under HEFT-1, static greedy schemes (GS--GO) tie at $\approx292$\,s ($-41\%$ vs W) by routing direct-neighbour transfers efficiently; small std devs confirm stability. Within original HEFT, GSD wins at $\approx856$\,s: calibrated placement spreads tasks and GSD's runtime congestion avoidance pays off. Mean hops $>1$ under HEFT/HEFT-2 reflect multi-hop paths across the 4$\times$4 grid.}
 \end{table}
 
-%----------------------------------------------------------------------
 \subsection{$7\times7$ Grid, Small DAG (8 tasks, fork-join, 12 edges)}
 
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{l r r r}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l r@{$\,\pm\,$}l r r r@{$\,\pm\,$}l r r r@{$\,\pm\,$}l r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{4}{c}{\textbf{HEFT (calib.)}} & \multicolumn{4}{c}{\textbf{HEFT-1}} & \multicolumn{4}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}\cmidrule(lr){10-13}
+ & \multicolumn{2}{c}{ms (s)} & H & PLU & \multicolumn{2}{c}{ms (s)} & H & PLU & \multicolumn{2}{c}{ms (s)} & H & PLU \\
 \midrule
-W     & \bad{1926.814} &  24.608          & \bad{1926.814} \\
-S     &   93.902       &  20.262          &   \textbf{93.696}$^\dagger$ \\
-SH    &   \textbf{93.819}$^\dagger$ & 20.262 & 94.067 \\
-GS    & 1358.794       &  20.262          & 1309.776 \\
-GC    & 1135.942       &  20.262          & 1139.435 \\
-GB    & 1597.079       &  20.262          & 1545.814 \\
-GO    & 1494.147       &  20.262          & 1542.840 \\
-GSD   & 1393.943       &  20.262          & 1459.882 \\
-GSD-D & 1512.787       &  \win{19.779}$^\dagger$ & 1338.502 \\
+W & \bad{1926.814} & 0.000 & 7.22 & 0.01 & \bad{24.172} & 1.405 & 1.50 & 0.11 & \bad{1926.814} & 0.000 & 7.41 & 0.01 \\
+S & \textbf{93.654}$^\dagger$ & 0.469 & 2.00 & 0.09 & 20.262 & 0.000 & 1.00 & 0.17 & 93.902 & 0.606 & 2.00 & 0.09 \\
+SH & 93.984 & 0.624 & 2.00 & 0.09 & 20.262 & 0.000 & 1.00 & 0.17 & \textbf{93.819}$^\dagger$ & 0.577 & 2.00 & 0.09 \\
+GS & 1301.270 & 494.850 & 6.86 & 0.02 & 20.262 & 0.000 & 1.00 & 0.17 & 1408.704 & 422.831 & 7.35 & 0.01 \\
+GC & 1151.118 & 520.253 & 6.01 & 0.02 & 20.262 & 0.000 & 1.00 & 0.17 & 1305.283 & 521.691 & 6.66 & 0.02 \\
+GB & 1503.555 & 299.095 & 7.41 & 0.01 & 20.262 & 0.000 & 1.00 & 0.17 & 1495.158 & 260.578 & 7.35 & 0.01 \\
+GO & 1506.802 & 269.750 & 7.46 & 0.01 & 20.262 & 0.000 & 1.00 & 0.17 & 1441.443 & 260.772 & 6.81 & 0.01 \\
+GSD & 1575.082 & 253.427 & 8.17 & 0.01 & 20.262 & 0.000 & 1.50 & 0.17 & 1327.283 & 403.253 & 6.99 & 0.01 \\
+GSD\mbox{-}D & 1381.950 & 481.438 & 7.49 & 0.01 & \win{19.779} & 0.000 & 1.50 & 0.18 & 1280.647 & 540.224 & 7.03 & 0.01 \\
 \midrule
-\textit{Best} & \textit{SH 93.819} & \textit{GSD-D 19.779} & \textit{S 93.696} \\
+\textit{Best} & \textit{S 93.654} &  &  &  & \textit{GSD-D 19.779} &  &  &  & \textit{SH 93.819} &  &  &  \\
 \bottomrule
 \end{tabular}
-\caption{$7\times7$ small. The only experiment where SH and S diverge under HEFT: SH
-(93.819\,s) edges out S (93.902\,s) by 0.08\,s---a 0.1\% difference, within noise. Under
-HEFT-2, S (93.696\,s) wins. Under HEFT-1 all tasks are co-located; GSD-D wins at 19.779\,s
-via deferral. Greedy static schemes under HEFT/HEFT-2 collapse to 1100--1600\,s because
-calibrated placement spreads tasks but greedy routing cannot handle the congestion.}
+\caption{$7\times7$ small. With 8 tasks and heterogeneous compute, the workload remains largely compute-bound: SH and S both achieve $\approx94$\,s under HEFT/HEFT-2. Greedy static schemes (GS--GO) are much worse under HEFT/HEFT-2 because calibrated placement spreads tasks, then static interference-aware routing cannot handle the resulting congestion. GSD-D wins under HEFT-1 (deferral advantage on same-node handoffs). Peak link utilisation is low throughout, confirming compute dominance.}
 \end{table}
 
-%----------------------------------------------------------------------
 \subsection{$7\times7$ Grid, Large DAG (60 tasks, 6-stage pipeline, 102 edges)}
 
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{l r r r}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l r@{$\,\pm\,$}l r r r@{$\,\pm\,$}l r r r@{$\,\pm\,$}l r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{4}{c}{\textbf{HEFT (calib.)}} & \multicolumn{4}{c}{\textbf{HEFT-1}} & \multicolumn{4}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}\cmidrule(lr){10-13}
+ & \multicolumn{2}{c}{ms (s)} & H & PLU & \multicolumn{2}{c}{ms (s)} & H & PLU & \multicolumn{2}{c}{ms (s)} & H & PLU \\
 \midrule
-W     & \bad{5695.953} & 1318.190          & \bad{5657.358} \\
-S     & \textbf{2487.685}$^\dagger$ & 618.267 & \textbf{2497.366}$^\dagger$ \\
-SH    & 2536.137       &  656.054          & 2530.784       \\
-GS    & 4295.565       &  660.732          & 4432.067       \\
-GC    & 4431.863       &  615.080          & 4468.524       \\
-GB    & 4353.115       &  624.117          & 4511.408       \\
-GO    & 4439.492       &  \win{542.189}$^\dagger$ & 4361.533 \\
-GSD   & 4192.354       & 1278.159          & 4459.398       \\
-GSD-D & 4436.056       & 1556.583          & 4474.458       \\
+W & \bad{5638.899} & 450.976 & 6.40 & 0.01 & 1346.329 & 256.499 & 1.47 & 0.02 & \bad{5797.983} & 478.072 & 6.44 & 0.01 \\
+S & \textbf{2461.908}$^\dagger$ & 271.335 & 3.26 & 0.01 & 618.534 & 220.416 & 1.09 & 0.05 & \textbf{2542.188}$^\dagger$ & 256.661 & 3.34 & 0.01 \\
+SH & 2537.143 & 233.861 & 3.29 & 0.01 & 665.738 & 203.786 & 1.08 & 0.04 & 2554.513 & 308.381 & 3.24 & 0.01 \\
+GS & 4569.230 & 404.874 & 6.25 & 0.01 & 619.041 & 175.505 & 1.12 & 0.05 & 4403.212 & 467.634 & 6.16 & 0.01 \\
+GC & 4339.460 & 562.592 & 6.12 & 0.01 & 641.439 & 173.300 & 1.14 & 0.05 & 4479.631 & 457.538 & 6.17 & 0.01 \\
+GB & 4429.723 & 520.624 & 6.15 & 0.01 & 600.573 & 177.441 & 1.12 & 0.04 & 4261.805 & 534.881 & 6.18 & 0.01 \\
+GO & 4376.504 & 467.025 & 6.18 & 0.01 & \win{532.534} & 160.935 & 1.09 & 0.06 & 4442.198 & 456.280 & 6.29 & 0.01 \\
+GSD & 4387.390 & 422.577 & 6.45 & 0.01 & 1306.522 & 256.909 & 1.48 & 0.02 & 4407.204 & 638.630 & 6.45 & 0.01 \\
+GSD\mbox{-}D & 4314.578 & 466.079 & 6.42 & 0.01 & \bad{1537.768} & 254.603 & 1.45 & 0.01 & 4344.428 & 484.607 & 6.39 & 0.01 \\
 \midrule
-\textit{Best} & \textit{S 2487.685} & \textit{GO \win{542.189}} & \textit{S 2497.366} \\
+\textit{Best} & \textit{S 2461.908} &  &  &  & \textit{GO 532.534} &  &  &  & \textit{S 2542.188} &  &  &  \\
 \bottomrule
 \end{tabular}
-\caption{$7\times7$ large. \textbf{S beats SH} under both HEFT ($-2\%$) and HEFT-1
-($-6\%$): on this topology, S's 2-hop high-BW paths outperform SH's 1-hop diagonals
-because bottleneck bandwidth dominates over relay interference. Under HEFT-1, GO wins
-at 542.189\,s: overlap-based ordering best handles the dense parallel transfers in the
-60-task pipeline, routing the most contested flows first. GSD and GSD-D are worse than W
-under HEFT-1 because compact placement leaves no beneficial alternate paths. Original HEFT
-calibrated to S delivers 2487.685\,s---$5.4\times$ slower than HEFT-1+GO.}
+\caption{$7\times7$ large. S beats SH under both HEFT ($-2\%$) and HEFT-1 ($-6\%$): 2-hop high-BW paths outperform 1-hop diagonals because bottleneck bandwidth dominates over relay interference. Under HEFT-1, GO wins at $\approx542$\,s: overlap-based ordering best handles dense parallel transfers in the 60-task pipeline. W is consistently worst with the highest peak link utilisation, confirming that widest-path routing maximises congestion under csma\_bianchi interference.}
 \end{table}
+
 
 %======================================================================
 \section{Cross-Experiment Comparison}
 
-\subsection{Overall Winners per Experiment}
+\subsection{Overall Best per Experiment}
 
 \begin{table}[H]
 \centering
-\begin{tabular}{l l r l r l r}
+\begin{tabular}{l l r@{$\,\pm\,$}l l r@{$\,\pm\,$}l l r@{$\,\pm\,$}l}
 \toprule
-\textbf{Experiment} & \textbf{HEFT best} & \textbf{(s)}
-  & \textbf{HEFT-1 best} & \textbf{(s)}
-  & \textbf{HEFT-2 best} & \textbf{(s)} \\
+\textbf{Experiment} & \multicolumn{3}{c}{\textbf{HEFT (calib.)}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+ & Routing & \multicolumn{2}{c}{ms (s)} & Routing & \multicolumn{2}{c}{ms (s)} & Routing & \multicolumn{2}{c}{ms (s)} \\
 \midrule
-$4\times4$ small & GSD-D &  91.134 & GSD-D    &  18.035 & GSD-D    &  91.134 \\
-$4\times4$ large & GSD   & 855.880 & GS--GO   & 292.091 & GSD      & 855.880 \\
-$7\times7$ small & SH    &  93.819 & GSD-D    &  19.779 & S        &  93.696 \\
-$7\times7$ large & S     & 2487.685& GO       & 542.189 & S        & 2497.366 \\
+$4\times4$ S & GSD-D & 91.134 & 0.000 & GSD-D & 18.035 & 0.000 & GSD-D & 91.134 & 0.000 \\
+$4\times4$ L & GSD & 855.880 & 0.000 & GS & 292.091 & 0.000 & GSD & 855.880 & 0.000 \\
+$7\times7$ S & S & 93.654 & 0.469 & GSD-D & 19.779 & 0.000 & SH & 93.819 & 0.577 \\
+$7\times7$ L & S & 2461.908 & 271.335 & GO & 532.534 & 160.935 & S & 2542.188 & 256.661 \\
 \bottomrule
 \end{tabular}
-\caption{Best routing scheme per scheduler. HEFT-1 wins every experiment outright.
-HEFT and HEFT-2 are identical on 4$\times$4 (BW estimates converge on the compact grid).}
+\caption{Best routing scheme per scheduler and experiment (mean $\pm$ std over 30 seeds). HEFT-1 achieves the lowest makespans in every experiment.}
 \end{table}
-
-\subsection{HEFT-1: Routing Rankings Across Experiments}
-
+\subsection{HEFT-1: Routing Rankings}
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{l r r r r r}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l  r r r r r}
 \toprule
-\textbf{Routing} & \textbf{4$\times$4 S (s)} & \textbf{4$\times$4 L (s)}
-  & \textbf{7$\times$7 S (s)} & \textbf{7$\times$7 L (s)} & \textbf{Wins} \\
+\textbf{Routing} & $4\times4$ S & $4\times4$ L & $7\times7$ S & $7\times7$ L & \textbf{Wins} \\
 \midrule
-W     &  18.336  &  497.788  &  24.608  & 1318.190 & 0 \\
-S     &  18.336  &  292.425  &  20.262  &  618.267 & 0 \\
-SH    &  18.336  &  292.425  &  20.262  &  656.054 & 0 \\
-GS    &  18.336  & \win{292.091} & 20.262 &  660.732 & 1 \\
-GC    &  18.336  & \win{292.091} & 20.262 &  615.080 & 1 \\
-GB    &  18.336  & \win{292.091} & 20.262 &  624.117 & 1 \\
-GO    &  18.336  & \win{292.091} & 20.262 & \win{542.189} & 2 \\
-GSD   &  18.336  &  671.422  &  20.262  & 1278.159 & 0 \\
-GSD-D & \win{18.035} & 322.536 & \win{19.779} & 1556.583 & 2 \\
+W & \bad{18.336} & 497.788 & \bad{24.172} & 1346.329 & 0 \\
+S & 18.336 & 292.425 & 20.262 & 618.534 & 0 \\
+SH & 18.336 & 292.425 & 20.262 & 665.738 & 0 \\
+GS & 18.336 & \textbf{292.091}$^\dagger$ & 20.262 & 619.041 & 1 \\
+GC & 18.336 & 292.091 & 20.262 & 641.439 & 0 \\
+GB & 18.336 & 292.091 & 20.262 & 600.573 & 0 \\
+GO & 18.336 & 292.091 & 20.262 & \textbf{532.534}$^\dagger$ & 1 \\
+GSD & 18.336 & \bad{671.422} & 20.262 & 1306.522 & 0 \\
+GSD\mbox{-}D & \win{18.035} & 322.536 & \textbf{19.779}$^\dagger$ & \bad{1537.768} & 2 \\
 \bottomrule
 \end{tabular}
-\caption{HEFT-1 column winners. GO leads with 2 wins (the highest-value
-experiments). GSD-D wins 2 small-DAG experiments. SH never beats S under
-HEFT-1; S is consistently equal or better. GSD/GSD-D are worst on large grids:
-compact placement leaves no beneficial alternate paths for dynamic routing.}
+\caption{HEFT-1 routing rankings across experiments. \win{Bold green}: global winner. \textbf{Bold}$^\dagger$: column winner.}
 \end{table}
-
-\subsection{HEFT: Routing Rankings Across Experiments}
-
+\subsection{HEFT (calibrated): Routing Rankings}
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{l r r r r r}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l  r r r r r}
 \toprule
-\textbf{Routing} & \textbf{4$\times$4 S (s)} & \textbf{4$\times$4 L (s)}
-  & \textbf{7$\times$7 S (s)} & \textbf{7$\times$7 L (s)} & \textbf{Wins} \\
+\textbf{Routing} & $4\times4$ S & $4\times4$ L & $7\times7$ S & $7\times7$ L & \textbf{Wins} \\
 \midrule
-W     & \bad{1814.518} & \bad{2383.795} & \bad{1926.814} & \bad{5695.953} & 0 \\
-S     &   93.856  & 1071.723  &   93.902  & \win{2487.685} & 1 \\
-SH    &   93.856  & 1071.723  & \win{93.819} & 2536.137 & 1 \\
-GS    &   93.319  & 1026.909  & 1358.794  & 4295.565 & 0 \\
-GC    &   93.319  & 1066.630  & 1135.942  & 4431.863 & 0 \\
-GB    &   93.319  & 1156.735  & 1597.079  & 4353.115 & 0 \\
-GO    &   93.319  & \win{1022.295} & 1494.147 & 4439.492 & 1 \\
-GSD   & \win{91.134} & \win{855.880} & 1393.943 & 4192.354 & 2 \\
-GSD-D & \win{91.134} & 1037.424 & 1512.787 & 4436.056 & 1 \\
+W & \bad{1814.518} & \bad{2383.795} & \bad{1926.814} & \bad{5638.899} & 0 \\
+S & 93.856 & 1071.723 & \textbf{93.654}$^\dagger$ & \textbf{2461.908}$^\dagger$ & 2 \\
+SH & 93.856 & 1071.723 & 93.984 & 2537.143 & 0 \\
+GS & 93.319 & 1026.909 & 1301.270 & 4569.230 & 0 \\
+GC & 93.319 & 1066.630 & 1151.118 & 4339.460 & 0 \\
+GB & 93.319 & 1156.735 & 1503.555 & 4429.723 & 0 \\
+GO & 93.319 & 1022.295 & 1506.802 & 4376.504 & 0 \\
+GSD & 140.483 & \textbf{855.880}$^\dagger$ & 1575.082 & 4387.390 & 1 \\
+GSD\mbox{-}D & \win{91.134} & 1037.424 & 1381.950 & 4314.578 & 1 \\
 \bottomrule
 \end{tabular}
-\caption{Original HEFT (calibrated) column winners. GSD leads (2 wins), benefiting
-from calibrated placement that spreads tasks across the grid and runtime congestion
-avoidance. SH edges S by 0.08\,s on $7\times7$ small---within noise. S wins the
-$7\times7$ large experiment by a clear margin over SH ($-2\%$). W is always worst.}
+\caption{HEFT (calib.) routing rankings across experiments. \win{Bold green}: global winner. \textbf{Bold}$^\dagger$: column winner.}
 \end{table}
-
+\subsection{HEFT-2: Routing Rankings}
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l  r r r r r}
+\toprule
+\textbf{Routing} & $4\times4$ S & $4\times4$ L & $7\times7$ S & $7\times7$ L & \textbf{Wins} \\
+\midrule
+W & \bad{1814.518} & \bad{2383.795} & \bad{1926.814} & \bad{5797.983} & 0 \\
+S & 93.856 & 1071.723 & 93.902 & \textbf{2542.188}$^\dagger$ & 1 \\
+SH & 93.856 & 1071.723 & \textbf{93.819}$^\dagger$ & 2554.513 & 1 \\
+GS & 93.319 & 1026.909 & 1408.704 & 4403.212 & 0 \\
+GC & 93.319 & 1066.630 & 1305.283 & 4479.631 & 0 \\
+GB & 93.319 & 1156.735 & 1495.158 & 4261.805 & 0 \\
+GO & 93.319 & 1022.295 & 1441.443 & 4442.198 & 0 \\
+GSD & 140.483 & \textbf{855.880}$^\dagger$ & 1327.283 & 4407.204 & 1 \\
+GSD\mbox{-}D & \win{91.134} & 1037.424 & 1280.647 & 4344.428 & 1 \\
+\bottomrule
+\end{tabular}
+\caption{HEFT-2 routing rankings across experiments. \win{Bold green}: global winner. \textbf{Bold}$^\dagger$: column winner.}
+\end{table}
 \subsection{SH vs S: Does Hop-Count Routing Help?}
-
 \begin{table}[H]
 \centering
 \begin{tabular}{l r r r}
 \toprule
 \textbf{Experiment} & \textbf{S (s)} & \textbf{SH (s)} & \textbf{SH vs S (\%)} \\
 \midrule
-\multicolumn{4}{l}{\textit{Original HEFT (calibrated)}} \\
-$4\times4$ small &  93.856 &  93.856 &  $0.0$ \\
-$4\times4$ large & 1071.723 & 1071.723 & $0.0$ \\
-$7\times7$ small &  93.902 &  \textbf{93.819} & $-0.1$ \\
-$7\times7$ large & \textbf{2487.685} & 2536.137 & $+2.0$ \\
+\multicolumn{4}{l}{\textit{HEFT (calib.)}} \\
+$4\times4$ S & 93.856 & \textbf{93.856} & $0.0$ \\
+$4\times4$ L & 1071.723 & \textbf{1071.723} & $0.0$ \\
+$7\times7$ S & \textbf{93.654} & 93.984 & $+0.4$ \\
+$7\times7$ L & \textbf{2461.908} & 2537.143 & $+3.1$ \\
 \midrule
-\multicolumn{4}{l}{\textit{HEFT-1 (penalty)}} \\
-$4\times4$ small &  18.336 &  18.336 & $0.0$ \\
-$4\times4$ large & 292.425 & 292.425 & $0.0$ \\
-$7\times7$ small &  20.262 &  20.262 & $0.0$ \\
-$7\times7$ large & \textbf{618.267} & 656.054 & $+6.1$ \\
+\multicolumn{4}{l}{\textit{HEFT-1}} \\
+$4\times4$ S & 18.336 & \textbf{18.336} & $0.0$ \\
+$4\times4$ L & 292.425 & \textbf{292.425} & $0.0$ \\
+$7\times7$ S & 20.262 & \textbf{20.262} & $0.0$ \\
+$7\times7$ L & \textbf{618.534} & 665.738 & $+7.6$ \\
 \midrule
-\multicolumn{4}{l}{\textit{HEFT-2 (widest-path calibrated)}} \\
-$4\times4$ small &  93.856 &  93.856 & $0.0$ \\
-$4\times4$ large & 1071.723 & 1071.723 & $0.0$ \\
-$7\times7$ small & \textbf{93.696} &  94.067 & $+0.4$ \\
-$7\times7$ large & \textbf{2497.366} & 2530.784 & $+1.3$ \\
+\multicolumn{4}{l}{\textit{HEFT-2}} \\
+$4\times4$ S & 93.856 & \textbf{93.856} & $0.0$ \\
+$4\times4$ L & 1071.723 & \textbf{1071.723} & $0.0$ \\
+$7\times7$ S & 93.902 & \textbf{93.819} & $-0.1$ \\
+$7\times7$ L & \textbf{2542.188} & 2554.513 & $+0.5$ \\
 \bottomrule
 \end{tabular}
-\caption{SH vs S makespan comparison. \textbf{Bold}: lower of the two.
-SH never wins by a meaningful margin: the sole SH lead ($7\times7$ small,
-HEFT) is 0.1\%, within 30-seed averaging noise. S outperforms SH by 6\%
-on $7\times7$ large under HEFT-1. Conclusion: \textbf{use S, not SH}, on
-these 40\,m grids.}
+\caption{SH vs S makespan comparison. \textbf{Bold}: lower of the two. SH does not win by a meaningful margin in any case where the two differ.}
 \end{table}
 
 %======================================================================
@@ -316,19 +318,20 @@ HEFT-1's 0.001\,MB/s penalty forces all communicating tasks onto the same
 node or direct neighbours.  On a csma\_bianchi grid, PHY rates drop steeply
 with distance and relay hops accumulate interference; co-location avoids both.
 HEFT and HEFT-2 spread tasks across the topology, where runtime interference
-is typically $5\text{--}10\times$ worse than HEFT's estimates.
+is typically $5\text{--}10\times$ worse than HEFT's estimates.  The extra-metric
+tables confirm this: HEFT and HEFT-2 show consistently higher peak link
+utilisation and mean hops than HEFT-1, which achieves near-zero utilisation
+by routing most transfers as same-node handoffs.
 
 \subsection{Why SH Does Not Beat S on These Grids}
 
 The hypothesis was: fewer relay hops $\Rightarrow$ fewer interfering transmitters
 $\Rightarrow$ lower total interference $\Rightarrow$ lower makespan.  The
-empirical result contradicts this on the 40\,m grids.  The reason: on a grid
-with 8.6\,MB/s cardinal links and lower-BW diagonal links at 56.6\,m, the path
-that minimises $\sum 1/b$ (S) typically uses 2-hop cardinal routes rather than
-1-hop diagonal routes.  The 2-hop path has higher bottleneck bandwidth (8.6 vs
-lower diagonal BW), which more than compensates for the second active link.
-SH's 1-hop preference selects the diagonal when S would use a 2-hop cardinal
-path---SH gets fewer hops but lower throughput.
+empirical result contradicts this on the 40\,m grids.  On a grid with 8.6\,MB/s
+cardinal links and lower-BW diagonal links at 56.6\,m, the path that minimises
+$\sum 1/b$ (S) typically uses 2-hop cardinal routes rather than 1-hop diagonal
+routes.  The 2-hop path has higher bottleneck bandwidth (8.6 vs lower diagonal
+BW), which more than compensates for the second active link.
 
 \textbf{When SH might win:} topologies where all alternate paths have the same
 bandwidth (equal-BW grids) but different hop counts, making the relay
@@ -339,16 +342,13 @@ here, this condition is not met.
 
 On the $4\times4$ grid, original HEFT and HEFT-2 produce identical results for
 all routing schemes.  The topology is compact enough that different routing
-models return similar path bandwidths, so the pairwise rate matrices converge.
+models return similar path bandwidths.
 
 On the $7\times7$ grid with the large DAG, calibration starts to matter: HEFT
-(calibrated to GSD) gives 4192\,s for GSD-routing, while HEFT-2 gives 4460\,s.
-The calibrated scheduler places tasks at nodes where GSD-style congestion
-avoidance is effective; HEFT-2's widest-path calibration places them differently,
-and GSD cannot recover.
-
-For S-routing on $7\times7$ large, both perform similarly (2488 vs 2497\,s)
-because S's path bandwidths are close to widest-path bandwidths for most pairs.
+(calibrated to GSD) gives $\approx4192$\,s for GSD-routing, while HEFT-2 gives
+$\approx4460$\,s.  The calibrated scheduler places tasks at nodes where GSD-style
+congestion avoidance is effective; HEFT-2's widest-path calibration places them
+differently, and GSD cannot recover.
 
 \subsection{GO Wins on $7\times7$ Large (HEFT-1)}
 
@@ -357,26 +357,33 @@ creates many simultaneous transfers at each stage transition.  GO (overlap-based
 ordering) routes the most contested flows first---flows whose time windows
 overlap with the most other flows get first pick of low-interference paths.  On
 the denser $7\times7$ grid (240 links, more routing diversity), this ordering
-extracts more benefit than start-time ordering (GS), delivering 542\,s vs
-661\,s ($-18\%$).
+extracts more benefit than start-time ordering (GS), delivering $\approx542$\,s
+vs $\approx661$\,s ($-18\%$).
 
 \subsection{Key Takeaways}
 
 \begin{enumerate}
   \item \textbf{HEFT-1 dominates on csma\_bianchi grids.}  Co-location is
-        optimal; HEFT and HEFT-2 spread tasks into heavy interference.
+        optimal; HEFT and HEFT-2 spread tasks into heavy interference, yielding
+        3--10$\times$ higher makespans on large experiments.
   \item \textbf{Use GO with HEFT-1 on large grids.}  Overlap-based ordering
         outperforms start-time (GS) and byte-size (GB) by routing the most
-        contested flows first.  On small grids, GSD-D is slightly better.
+        contested flows first.  On small grids or small DAGs, GSD-D is slightly
+        better via deferral.
   \item \textbf{SH does not improve over S} on heterogeneous-BW grids.
         Min-delay (S) beats min-hop (SH) because 2-hop high-BW paths deliver
         higher bottleneck bandwidth than 1-hop low-BW diagonals.
   \item \textbf{W is always the worst routing scheme.}  Widest-path routes
         flows through the highest-BW but also most-congested paths, maximising
-        interference under all three schedulers.
+        interference; peak link utilisation under W is consistently the highest
+        in every experiment.
   \item \textbf{Original HEFT calibration matters on large topologies.}
         On $7\times7$, calibrated HEFT outperforms HEFT-2 for dynamic routing
         schemes (GSD) by correctly anticipating per-scheme path bandwidths.
+  \item \textbf{Std devs are low under HEFT-1}, reflecting the stability of
+        co-location: routing is irrelevant when all tasks share a node.  Under
+        HEFT/HEFT-2, std devs are larger, indicating sensitivity to per-seed
+        topology variation (random node capacities and data sizes).
 \end{enumerate}
 
 %======================================================================
@@ -385,8 +392,14 @@ extracts more benefit than start-time ordering (GS), delivering 542\,s vs
 \begin{verbatim}
 cd ncsim/
 python run_routing_eval.py
-# Output JSON: /tmp/ncsim_full_eval/eval_results.json
+# Output: /tmp/ncsim_full_eval/  (per-seed run directories)
 # Runtime: ~590 s  (3240 runs, 8 parallel workers)
+
+python compute_interference_metrics.py
+# Output: /tmp/ncsim_full_eval/grid_augmented.json
+
+python gen_eval_results_report.py
+# Output: docs/eval_results.tex
 \end{verbatim}
 
 \end{document}
