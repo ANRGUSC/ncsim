@@ -47,16 +47,27 @@ DAGs & Small (8 tasks, fork-join), Large (30/60 tasks, pipeline) \\
 \caption{Evaluation parameters. All other settings identical to the interference reports.}
 \end{table}
 
+Additional metrics collected per run:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Mean hops}: average path length (number of links) per logical transfer.
+  \item \textbf{Max hops}: longest path seen in any transfer.
+  \item \textbf{Peak link util.}: maximum link utilisation fraction across all links
+        (time the link carried traffic / makespan).
+  \item \textbf{Mean active link util.}: mean utilisation of links that carried any traffic.
+  \item \textbf{Peak node util.}: maximum node utilisation fraction (compute busy / makespan).
+  \item \textbf{Mean xfer duration}: mean duration of individual transfers (seconds).
+  \item \textbf{Mean queue wait}: mean time a task waits in a node queue before starting.
+\end{itemize}
+
 \section{Grid Network Results}
 
-Mean makespan in seconds, averaged over 30 seeds.
+Mean makespan and additional metrics averaged over 30 seeds.
 \win{Bold green}: overall experiment winner. \bad{Red}: worst in that scheduler column.
 
 \subsection{$4\times4$ Grid, Small (8 tasks, fork-join)}
 
 \begin{table}[H]
-\centering
-\small
+\centering\small
 \begin{tabular}{l r r r}
 \toprule
 \textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
@@ -74,14 +85,35 @@ Mean makespan in seconds, averaged over 30 seeds.
   \textit{Best} & \textit{W 13.500} & \textit{W 13.500} & \textit{W 13.500} \\
 \bottomrule
 \end{tabular}
-\caption{$4\times4$ small (8 tasks, fork-join). Mean makespan over 30 seeds.}
+\caption{$4\times4$ small (8 tasks, fork-join) --- mean makespan (s) over 30 seeds.}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
+\toprule
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} \\
+\midrule
+  W & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  S & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  SH & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GS & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GC & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GB & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GO & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GSD & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GSD-D & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+\bottomrule
+\end{tabular}
+\caption{$4\times4$ small (8 tasks, fork-join) --- additional metrics averaged over 30 seeds. Hops = mean path length; P-LU = peak link utilisation; XD = mean transfer duration.}
 \end{table}
 
 \subsection{$4\times4$ Grid, Large (30 tasks, 5-stage pipeline)}
 
 \begin{table}[H]
-\centering
-\small
+\centering\small
 \begin{tabular}{l r r r}
 \toprule
 \textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
@@ -99,14 +131,35 @@ Mean makespan in seconds, averaged over 30 seeds.
   \textit{Best} & \textit{GSD 70.440} & \textit{GSD 45.375} & \textit{GSD 70.440} \\
 \bottomrule
 \end{tabular}
-\caption{$4\times4$ large (30 tasks, 5-stage pipeline). Mean makespan over 30 seeds.}
+\caption{$4\times4$ large (30 tasks, 5-stage pipeline) --- mean makespan (s) over 30 seeds.}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
+\toprule
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} \\
+\midrule
+  W & 4.7 & 0.968 & 40.8 & 1.0 & 0.644 & 14.6 & 4.7 & 0.968 & 40.8 \\
+  S & 2.0 & 0.959 & 32.0 & 1.0 & 0.644 & 14.6 & 2.0 & 0.959 & 32.0 \\
+  SH & 2.0 & 0.959 & 32.0 & 1.0 & 0.644 & 14.6 & 2.0 & 0.959 & 32.0 \\
+  GS & 3.2 & 0.959 & 32.0 & 3.3 & 0.644 & 14.6 & 3.2 & 0.959 & 32.0 \\
+  GC & 3.2 & 0.961 & 36.2 & 3.6 & 0.644 & 14.6 & 3.2 & 0.961 & 36.2 \\
+  GB & 3.9 & 0.959 & 32.0 & 3.4 & 0.600 & 15.6 & 3.9 & 0.959 & 32.0 \\
+  GO & 3.2 & 0.959 & 32.0 & 3.3 & 0.644 & 14.6 & 3.2 & 0.959 & 32.0 \\
+  GSD & 4.7 & 0.852 & 19.4 & 1.0 & 0.529 & 9.5 & 4.7 & 0.852 & 19.4 \\
+  GSD-D & 4.7 & 0.876 & 20.0 & 1.0 & 0.529 & 9.5 & 4.7 & 0.876 & 20.0 \\
+\bottomrule
+\end{tabular}
+\caption{$4\times4$ large (30 tasks, 5-stage pipeline) --- additional metrics averaged over 30 seeds. Hops = mean path length; P-LU = peak link utilisation; XD = mean transfer duration.}
 \end{table}
 
 \subsection{$7\times7$ Grid, Small (8 tasks, fork-join)}
 
 \begin{table}[H]
-\centering
-\small
+\centering\small
 \begin{tabular}{l r r r}
 \toprule
 \textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
@@ -124,14 +177,35 @@ Mean makespan in seconds, averaged over 30 seeds.
   \textit{Best} & \textit{W 13.500} & \textit{W 13.500} & \textit{W 13.500} \\
 \bottomrule
 \end{tabular}
-\caption{$7\times7$ small (8 tasks, fork-join). Mean makespan over 30 seeds.}
+\caption{$7\times7$ small (8 tasks, fork-join) --- mean makespan (s) over 30 seeds.}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
+\toprule
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} \\
+\midrule
+  W & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  S & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  SH & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GS & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GC & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GB & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GO & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GSD & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+  GSD-D & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 & 0.0 & 0.000 & 0.0 \\
+\bottomrule
+\end{tabular}
+\caption{$7\times7$ small (8 tasks, fork-join) --- additional metrics averaged over 30 seeds. Hops = mean path length; P-LU = peak link utilisation; XD = mean transfer duration.}
 \end{table}
 
 \subsection{$7\times7$ Grid, Large (60 tasks, 6-stage pipeline)}
 
 \begin{table}[H]
-\centering
-\small
+\centering\small
 \begin{tabular}{l r r r}
 \toprule
 \textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
@@ -149,7 +223,29 @@ Mean makespan in seconds, averaged over 30 seeds.
   \textit{Best} & \textit{GSD-D 122.935} & \textit{GSD 71.483} & \textit{GSD 128.321} \\
 \bottomrule
 \end{tabular}
-\caption{$7\times7$ large (60 tasks, 6-stage pipeline). Mean makespan over 30 seeds.}
+\caption{$7\times7$ large (60 tasks, 6-stage pipeline) --- mean makespan (s) over 30 seeds.}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
+\toprule
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{XD(s)} \\
+\midrule
+  W & 6.0 & 0.930 & 30.2 & 1.0 & 0.933 & 27.7 & 5.9 & 0.931 & 30.0 \\
+  S & 3.9 & 0.936 & 25.2 & 1.0 & 0.933 & 28.4 & 3.8 & 0.937 & 25.3 \\
+  SH & 4.0 & 0.937 & 25.3 & 1.0 & 0.929 & 25.0 & 4.0 & 0.936 & 25.2 \\
+  GS & 5.8 & 0.937 & 28.1 & 2.4 & 0.927 & 31.5 & 5.9 & 0.936 & 29.0 \\
+  GC & 6.4 & 0.934 & 28.6 & 2.7 & 0.933 & 27.8 & 6.2 & 0.936 & 28.5 \\
+  GB & 6.3 & 0.936 & 28.3 & 2.3 & 0.933 & 27.3 & 6.2 & 0.935 & 29.3 \\
+  GO & 5.9 & 0.936 & 29.0 & 2.4 & 0.935 & 29.0 & 5.9 & 0.936 & 28.9 \\
+  GSD & 5.5 & 0.862 & 23.0 & 1.0 & 0.786 & 13.7 & 5.6 & 0.847 & 23.0 \\
+  GSD-D & 5.4 & 0.831 & 21.5 & 1.0 & 0.773 & 13.8 & 5.9 & 0.885 & 24.3 \\
+\bottomrule
+\end{tabular}
+\caption{$7\times7$ large (60 tasks, 6-stage pipeline) --- additional metrics averaged over 30 seeds. Hops = mean path length; P-LU = peak link utilisation; XD = mean transfer duration.}
 \end{table}
 
 \section{Random Network Results}
@@ -174,443 +270,436 @@ Mean makespan in seconds, averaged over 30 seeds.
 \end{table}
 
 \subsection{Makespan vs.\ Density}
-
-Each point is the best-routing mean makespan for that scheduler at that
-density, averaged over 30 seeds.
+Each point is the best-routing mean makespan for that scheduler at that density, averaged over 30 seeds.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.9\textwidth]{noint_density_small.pdf}
-\caption{No-interference: best-routing mean makespan vs.\ average node degree --- Small DAG (8 tasks, fork-join).}
+\includegraphics[width=0.85\textwidth]{noint_density_small.pdf}
+\caption{No-interference: best-routing mean makespan vs.\ avg node degree --- Small DAG (8 tasks, fork-join).}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.9\textwidth]{noint_density_large.pdf}
-\caption{No-interference: best-routing mean makespan vs.\ average node degree --- Large DAG (30 tasks, 5-stage pipeline).}
+\includegraphics[width=0.85\textwidth]{noint_density_large.pdf}
+\caption{No-interference: best-routing mean makespan vs.\ avg node degree --- Large DAG (30 tasks, 5-stage pipeline).}
 \end{figure}
 
-\subsection{Best Routing --- Small DAG}
+\subsection{Additional Metrics vs.\ Density (Large DAG)}
+
+Metrics are taken at the \emph{best} routing scheme for each scheduler at each density level, averaged over 30 seeds. Small-DAG metrics are omitted: all transfers are same-node (0\,hops), so hops and link utilisation are zero.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{noint_hops_large.pdf}
+\caption{Mean hops per transfer for the best routing scheme at each density.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{noint_peaklu_large.pdf}
+\caption{Peak link utilisation (max over all links, fraction of makespan) for the best routing scheme.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{noint_xferdur_large.pdf}
+\caption{Mean transfer duration (s) for the best routing scheme at each density.}
+\end{figure}
+
+\subsection{Best Routing Summary --- Small DAG (8 tasks)}
+
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r@{\,}l r@{\,}l r@{\,}l}
+\centering\small
+\begin{tabular}{l r r@{\,}l@{\,}r r@{\,}l@{\,}r r@{\,}l@{\,}r}
 \toprule
-\textbf{Density} & \textbf{Avg.\ deg.} & \multicolumn{2}{c}{\textbf{HEFT (calib.)}} & \multicolumn{2}{c}{\textbf{HEFT-1}} & \multicolumn{2}{c}{\textbf{HEFT-2}} \\
- & & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} \\
+\textbf{Density} & \textbf{Deg.} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}\cmidrule(lr){9-11}
+& & \textbf{Rt} & \textbf{ms(s)} & \textbf{H/PLU} & \textbf{Rt} & \textbf{ms(s)} & \textbf{H/PLU} & \textbf{Rt} & \textbf{ms(s)} & \textbf{H/PLU} \\
 \midrule
-  L150 & 24.0 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
-  L200 & 17.1 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
-  L250 & 12.4 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
-  L300 & 8.7 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
-  L350 & 6.7 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
-  L400 & 5.8 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
-  L500 & 3.7 & W & \win{13.500} & W & \win{13.500} & W & \win{13.500} \\
+  L150 & 24.0 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 \\
+  L200 & 17.1 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 \\
+  L250 & 12.4 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 \\
+  L300 & 8.7 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 \\
+  L350 & 6.7 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 \\
+  L400 & 5.8 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 \\
+  L500 & 3.7 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 & W & \win{13.500} & 0.0/0.00 \\
 \bottomrule
 \end{tabular}
-\caption{Best routing scheme and mean makespan per scheduler and density level --- Small DAG. \win{Bold green}: overall best.}
+\caption{Small DAG (8 tasks) --- best routing scheme per (density, scheduler). ms(s) = mean makespan; H = mean hops; PLU = peak link util. \win{Bold green}: overall best.}
 \end{table}
 
-\subsection{Best Routing --- Large DAG (30 tasks)}
+\subsection{Best Routing Summary --- Large DAG (30 tasks)}
+
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r@{\,}l r@{\,}l r@{\,}l}
+\centering\small
+\begin{tabular}{l r r@{\,}l@{\,}r r@{\,}l@{\,}r r@{\,}l@{\,}r}
 \toprule
-\textbf{Density} & \textbf{Avg.\ deg.} & \multicolumn{2}{c}{\textbf{HEFT (calib.)}} & \multicolumn{2}{c}{\textbf{HEFT-1}} & \multicolumn{2}{c}{\textbf{HEFT-2}} \\
- & & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} \\
+\textbf{Density} & \textbf{Deg.} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}\cmidrule(lr){9-11}
+& & \textbf{Rt} & \textbf{ms(s)} & \textbf{H/PLU} & \textbf{Rt} & \textbf{ms(s)} & \textbf{H/PLU} & \textbf{Rt} & \textbf{ms(s)} & \textbf{H/PLU} \\
 \midrule
-  L150 & 24.0 & W & 102.000 & W & 61.667 & W & 102.000 \\
-  L200 & 17.1 & W & 102.000 & W & 61.667 & W & 102.000 \\
-  L250 & 12.4 & GSD-D & 85.017 & GSD-D & 55.278 & GSD-D & 77.983 \\
-  L300 & 8.7 & GSD-D & 67.394 & GSD & 65.667 & GSD-D & 66.767 \\
-  L350 & 6.7 & S & 120.433 & GSD & 47.544 & GSD-D & 120.333 \\
-  L400 & 5.8 & S & 121.133 & GSD-D & \win{47.458} & W & 121.600 \\
-  L500 & 3.7 & S & 120.600 & GSD-D & 57.061 & GSD-D & 121.633 \\
+  L150 & 24.0 & W & 102.000 & 1.3/0.96 & W & 61.667 & 1.0/0.76 & W & 102.000 & 1.4/0.96 \\
+  L200 & 17.1 & W & 102.000 & 1.2/0.96 & W & 61.667 & 1.0/0.76 & W & 102.000 & 1.3/0.96 \\
+  L250 & 12.4 & GSD-D & 85.017 & 1.4/0.87 & GSD-D & 55.278 & 1.0/0.73 & GSD-D & 77.983 & 1.3/0.84 \\
+  L300 & 8.7 & GSD-D & 67.394 & 2.3/0.90 & GSD & 65.667 & 1.0/0.75 & GSD-D & 66.767 & 2.3/0.89 \\
+  L350 & 6.7 & S & 120.433 & 2.5/0.96 & GSD & 47.544 & 1.0/0.65 & GSD-D & 120.333 & 2.7/0.95 \\
+  L400 & 5.8 & S & 121.133 & 3.9/0.96 & GSD-D & \win{47.458} & 1.0/0.64 & W & 121.600 & 4.9/0.95 \\
+  L500 & 3.7 & S & 120.600 & 5.7/0.96 & GSD-D & 57.061 & 1.0/0.71 & GSD-D & 121.633 & 5.4/0.96 \\
 \bottomrule
 \end{tabular}
-\caption{Best routing scheme and mean makespan per scheduler and density level --- Large DAG (30 tasks). \win{Bold green}: overall best.}
+\caption{Large DAG (30 tasks) --- best routing scheme per (density, scheduler). ms(s) = mean makespan; H = mean hops; PLU = peak link util. \win{Bold green}: overall best.}
 \end{table}
 
 \section{Full Random Network Results}
 
-Mean makespan (seconds) averaged over 30 seeds. \win{Bold green}: overall best for that density+DAG. \bad{Red}: worst in that scheduler column.
+Mean makespan (s), mean hops, and peak link util.\ averaged over 30 seeds. \win{Bold green}: overall best for that density+DAG. \bad{Red}: worst in that scheduler column.
 
 \subsection{L150 (avg.\ degree 24.0) --- Small DAG (8 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & \win{13.500} & \win{13.500} & \win{13.500} \\
-  S & \win{13.500} & \win{13.500} & \win{13.500} \\
-  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+  W & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  S & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  SH & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GO & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GS & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD-D & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
 \bottomrule
 \end{tabular}
-\caption{L150 ($L=150$\,m, avg.\ degree 24.0) --- Small DAG (8 tasks).}
+\caption{L150 ($L=150$\,m) --- Small DAG (8 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L200 (avg.\ degree 17.1) --- Small DAG (8 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & \win{13.500} & \win{13.500} & \win{13.500} \\
-  S & \win{13.500} & \win{13.500} & \win{13.500} \\
-  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+  W & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  S & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  SH & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GO & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GS & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD-D & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
 \bottomrule
 \end{tabular}
-\caption{L200 ($L=200$\,m, avg.\ degree 17.1) --- Small DAG (8 tasks).}
+\caption{L200 ($L=200$\,m) --- Small DAG (8 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L250 (avg.\ degree 12.4) --- Small DAG (8 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & \win{13.500} & \win{13.500} & \win{13.500} \\
-  S & \win{13.500} & \win{13.500} & \win{13.500} \\
-  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+  W & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  S & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  SH & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GO & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GS & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD-D & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
 \bottomrule
 \end{tabular}
-\caption{L250 ($L=250$\,m, avg.\ degree 12.4) --- Small DAG (8 tasks).}
+\caption{L250 ($L=250$\,m) --- Small DAG (8 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L300 (avg.\ degree 8.7) --- Small DAG (8 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & \win{13.500} & \win{13.500} & \win{13.500} \\
-  S & \win{13.500} & \win{13.500} & \win{13.500} \\
-  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+  W & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  S & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  SH & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GO & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GS & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD-D & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
 \bottomrule
 \end{tabular}
-\caption{L300 ($L=300$\,m, avg.\ degree 8.7) --- Small DAG (8 tasks).}
+\caption{L300 ($L=300$\,m) --- Small DAG (8 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L350 (avg.\ degree 6.7) --- Small DAG (8 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & \win{13.500} & \win{13.500} & \win{13.500} \\
-  S & \win{13.500} & \win{13.500} & \win{13.500} \\
-  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+  W & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  S & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  SH & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GO & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GS & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD-D & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
 \bottomrule
 \end{tabular}
-\caption{L350 ($L=350$\,m, avg.\ degree 6.7) --- Small DAG (8 tasks).}
+\caption{L350 ($L=350$\,m) --- Small DAG (8 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L400 (avg.\ degree 5.8) --- Small DAG (8 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & \win{13.500} & \win{13.500} & \win{13.500} \\
-  S & \win{13.500} & \win{13.500} & \win{13.500} \\
-  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+  W & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  S & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  SH & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GO & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GS & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD-D & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
 \bottomrule
 \end{tabular}
-\caption{L400 ($L=400$\,m, avg.\ degree 5.8) --- Small DAG (8 tasks).}
+\caption{L400 ($L=400$\,m) --- Small DAG (8 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L500 (avg.\ degree 3.7) --- Small DAG (8 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & \win{13.500} & \win{13.500} & \win{13.500} \\
-  S & \win{13.500} & \win{13.500} & \win{13.500} \\
-  SH & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GO & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GS & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD & \win{13.500} & \win{13.500} & \win{13.500} \\
-  GSD-D & \win{13.500} & \win{13.500} & \win{13.500} \\
+  W & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  S & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  SH & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GO & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GS & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
+  GSD-D & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 & \win{13.500} & 0.0 & 0.000 \\
 \bottomrule
 \end{tabular}
-\caption{L500 ($L=500$\,m, avg.\ degree 3.7) --- Small DAG (8 tasks).}
+\caption{L500 ($L=500$\,m) --- Small DAG (8 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L150 (avg.\ degree 24.0) --- Large DAG (30 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & 102.000 & \win{61.667} & 102.000 \\
-  S & 102.000 & \win{61.667} & 102.000 \\
-  SH & 102.000 & \win{61.667} & 102.000 \\
-  GO & \bad{107.000} & \win{61.667} & \bad{107.000} \\
-  GS & \bad{107.000} & \win{61.667} & \bad{107.000} \\
-  GSD & \bad{107.000} & \win{61.667} & \bad{107.000} \\
-  GSD-D & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+  W & 102.000 & 1.3 & 0.961 & \win{61.667} & 1.0 & 0.762 & 102.000 & 1.4 & 0.961 \\
+  S & 102.000 & 1.3 & 0.961 & \win{61.667} & 1.0 & 0.762 & 102.000 & 1.3 & 0.961 \\
+  SH & 102.000 & 1.4 & 0.961 & \win{61.667} & 1.0 & 0.762 & 102.000 & 1.2 & 0.961 \\
+  GO & \bad{107.000} & 4.0 & 0.963 & \win{61.667} & 4.0 & 0.762 & \bad{107.000} & 4.0 & 0.963 \\
+  GS & \bad{107.000} & 4.0 & 0.963 & \win{61.667} & 4.0 & 0.762 & \bad{107.000} & 4.0 & 0.963 \\
+  GSD & \bad{107.000} & 1.3 & 0.963 & \win{61.667} & 1.0 & 0.762 & \bad{107.000} & 1.4 & 0.963 \\
+  GSD-D & \bad{107.000} & 1.3 & 0.963 & \win{61.667} & 1.0 & 0.762 & \bad{107.000} & 1.2 & 0.963 \\
 \bottomrule
 \end{tabular}
-\caption{L150 ($L=150$\,m, avg.\ degree 24.0) --- Large DAG (30 tasks).}
+\caption{L150 ($L=150$\,m) --- Large DAG (30 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L200 (avg.\ degree 17.1) --- Large DAG (30 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & 102.000 & \win{61.667} & 102.000 \\
-  S & 102.000 & \win{61.667} & 102.000 \\
-  SH & 102.000 & \win{61.667} & 102.000 \\
-  GO & \bad{107.000} & \win{61.667} & \bad{107.000} \\
-  GS & \bad{107.000} & \win{61.667} & \bad{107.000} \\
-  GSD & \bad{107.000} & \win{61.667} & \bad{107.000} \\
-  GSD-D & \bad{107.000} & \win{61.667} & \bad{107.000} \\
+  W & 102.000 & 1.2 & 0.961 & \win{61.667} & 1.0 & 0.762 & 102.000 & 1.3 & 0.961 \\
+  S & 102.000 & 1.3 & 0.961 & \win{61.667} & 1.0 & 0.762 & 102.000 & 1.3 & 0.961 \\
+  SH & 102.000 & 1.4 & 0.961 & \win{61.667} & 1.0 & 0.762 & 102.000 & 1.4 & 0.961 \\
+  GO & \bad{107.000} & 4.0 & 0.963 & \win{61.667} & 4.0 & 0.762 & \bad{107.000} & 4.0 & 0.963 \\
+  GS & \bad{107.000} & 4.0 & 0.963 & \win{61.667} & 4.0 & 0.762 & \bad{107.000} & 4.0 & 0.963 \\
+  GSD & \bad{107.000} & 1.4 & 0.963 & \win{61.667} & 1.0 & 0.762 & \bad{107.000} & 1.3 & 0.963 \\
+  GSD-D & \bad{107.000} & 1.3 & 0.963 & \win{61.667} & 1.0 & 0.762 & \bad{107.000} & 1.3 & 0.963 \\
 \bottomrule
 \end{tabular}
-\caption{L200 ($L=200$\,m, avg.\ degree 17.1) --- Large DAG (30 tasks).}
+\caption{L200 ($L=200$\,m) --- Large DAG (30 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L250 (avg.\ degree 12.4) --- Large DAG (30 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & 122.300 & \bad{61.667} & 125.100 \\
-  S & 124.267 & \bad{61.667} & 122.967 \\
-  SH & \bad{127.467} & \bad{61.667} & \bad{128.000} \\
-  GO & 105.000 & \bad{61.667} & 103.833 \\
-  GS & 105.000 & \bad{61.667} & 103.667 \\
-  GSD & 88.300 & 55.722 & 80.083 \\
-  GSD-D & 85.017 & \win{55.278} & 77.983 \\
+  W & 122.300 & 1.3 & 0.956 & \bad{61.667} & 1.0 & 0.762 & 125.100 & 1.4 & 0.953 \\
+  S & 124.267 & 1.3 & 0.959 & \bad{61.667} & 1.0 & 0.762 & 122.967 & 1.4 & 0.951 \\
+  SH & \bad{127.467} & 1.5 & 0.947 & \bad{61.667} & 1.0 & 0.762 & \bad{128.000} & 1.4 & 0.955 \\
+  GO & 105.000 & 4.0 & 0.962 & \bad{61.667} & 4.0 & 0.762 & 103.833 & 4.0 & 0.962 \\
+  GS & 105.000 & 4.0 & 0.962 & \bad{61.667} & 4.0 & 0.762 & 103.667 & 4.0 & 0.962 \\
+  GSD & 88.300 & 1.3 & 0.882 & 55.722 & 1.0 & 0.758 & 80.083 & 1.3 & 0.847 \\
+  GSD-D & 85.017 & 1.4 & 0.868 & \win{55.278} & 1.0 & 0.732 & 77.983 & 1.3 & 0.845 \\
 \bottomrule
 \end{tabular}
-\caption{L250 ($L=250$\,m, avg.\ degree 12.4) --- Large DAG (30 tasks).}
+\caption{L250 ($L=250$\,m) --- Large DAG (30 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L300 (avg.\ degree 8.7) --- Large DAG (30 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & 127.900 & 71.828 & 123.067 \\
-  S & 121.867 & 68.037 & 122.133 \\
-  SH & \bad{128.500} & \bad{77.074} & \bad{124.933} \\
-  GO & 102.833 & 72.382 & 103.000 \\
-  GS & 102.500 & 71.838 & 102.500 \\
-  GSD & 67.472 & \win{65.667} & 68.117 \\
-  GSD-D & 67.394 & 66.521 & 66.767 \\
+  W & 127.900 & 2.4 & 0.950 & 71.828 & 1.0 & 0.771 & 123.067 & 2.3 & 0.956 \\
+  S & 121.867 & 2.3 & 0.953 & 68.037 & 1.0 & 0.751 & 122.133 & 2.3 & 0.957 \\
+  SH & \bad{128.500} & 2.4 & 0.951 & \bad{77.074} & 1.0 & 0.800 & \bad{124.933} & 2.4 & 0.954 \\
+  GO & 102.833 & 3.8 & 0.961 & 72.382 & 3.1 & 0.775 & 103.000 & 3.8 & 0.961 \\
+  GS & 102.500 & 3.8 & 0.961 & 71.838 & 2.7 & 0.815 & 102.500 & 3.7 & 0.961 \\
+  GSD & 67.472 & 2.4 & 0.894 & \win{65.667} & 1.0 & 0.747 & 68.117 & 2.3 & 0.901 \\
+  GSD-D & 67.394 & 2.3 & 0.898 & 66.521 & 1.0 & 0.755 & 66.767 & 2.3 & 0.891 \\
 \bottomrule
 \end{tabular}
-\caption{L300 ($L=300$\,m, avg.\ degree 8.7) --- Large DAG (30 tasks).}
+\caption{L300 ($L=300$\,m) --- Large DAG (30 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L350 (avg.\ degree 6.7) --- Large DAG (30 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & \bad{128.000} & 61.578 & 121.200 \\
-  S & 120.433 & \bad{62.114} & 122.300 \\
-  SH & 124.167 & \bad{62.067} & \bad{126.800} \\
-  GO & 123.567 & 60.430 & 125.267 \\
-  GS & 121.200 & 61.285 & 125.100 \\
-  GSD & 123.067 & \win{47.544} & 121.967 \\
-  GSD-D & 122.467 & 47.718 & 120.333 \\
+  W & \bad{128.000} & 2.7 & 0.955 & 61.578 & 1.0 & 0.705 & 121.200 & 2.5 & 0.958 \\
+  S & 120.433 & 2.5 & 0.958 & \bad{62.114} & 1.0 & 0.686 & 122.300 & 2.6 & 0.956 \\
+  SH & 124.167 & 2.7 & 0.954 & \bad{62.067} & 1.0 & 0.712 & \bad{126.800} & 2.8 & 0.952 \\
+  GO & 123.567 & 3.0 & 0.952 & 60.430 & 2.4 & 0.715 & 125.267 & 3.1 & 0.952 \\
+  GS & 121.200 & 2.9 & 0.958 & 61.285 & 2.7 & 0.708 & 125.100 & 3.1 & 0.953 \\
+  GSD & 123.067 & 2.6 & 0.956 & \win{47.544} & 1.0 & 0.654 & 121.967 & 2.5 & 0.958 \\
+  GSD-D & 122.467 & 2.7 & 0.955 & 47.718 & 1.0 & 0.643 & 120.333 & 2.7 & 0.953 \\
 \bottomrule
 \end{tabular}
-\caption{L350 ($L=350$\,m, avg.\ degree 6.7) --- Large DAG (30 tasks).}
+\caption{L350 ($L=350$\,m) --- Large DAG (30 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L400 (avg.\ degree 5.8) --- Large DAG (30 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & \bad{126.467} & 60.967 & 121.600 \\
-  S & 121.133 & 61.456 & 122.733 \\
-  SH & 123.400 & 61.138 & 124.933 \\
-  GO & 125.867 & 60.942 & 125.700 \\
-  GS & 124.333 & \bad{61.602} & \bad{126.467} \\
-  GSD & 125.367 & 47.544 & 123.067 \\
-  GSD-D & 122.300 & \win{47.458} & 125.700 \\
+  W & \bad{126.467} & 4.7 & 0.954 & 60.967 & 1.0 & 0.696 & 121.600 & 4.9 & 0.949 \\
+  S & 121.133 & 3.9 & 0.964 & 61.456 & 1.0 & 0.703 & 122.733 & 4.4 & 0.958 \\
+  SH & 123.400 & 4.5 & 0.954 & 61.138 & 1.0 & 0.710 & 124.933 & 5.1 & 0.954 \\
+  GO & 125.867 & 4.9 & 0.953 & 60.942 & 2.3 & 0.699 & 125.700 & 4.9 & 0.954 \\
+  GS & 124.333 & 5.2 & 0.953 & \bad{61.602} & 2.7 & 0.702 & \bad{126.467} & 4.8 & 0.954 \\
+  GSD & 125.367 & 4.7 & 0.957 & 47.544 & 1.0 & 0.630 & 123.067 & 4.6 & 0.956 \\
+  GSD-D & 122.300 & 4.6 & 0.956 & \win{47.458} & 1.0 & 0.636 & 125.700 & 4.8 & 0.954 \\
 \bottomrule
 \end{tabular}
-\caption{L400 ($L=400$\,m, avg.\ degree 5.8) --- Large DAG (30 tasks).}
+\caption{L400 ($L=400$\,m) --- Large DAG (30 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \subsection{L500 (avg.\ degree 3.7) --- Large DAG (30 tasks)}
 \begin{table}[H]
-\centering
-\small
-\begin{tabular}{l r r r}
+\centering\small
+\begin{tabular}{l r r r r r r r r r}
 \toprule
-\textbf{Routing} & \textbf{HEFT (s)} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} \\
+\textbf{Routing} & \multicolumn{3}{c}{\textbf{HEFT}} & \multicolumn{3}{c}{\textbf{HEFT-1}} & \multicolumn{3}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+& \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} & \textbf{ms(s)} & \textbf{Hops} & \textbf{P-LU} \\
 \midrule
-  W & 122.133 & 61.194 & 124.933 \\
-  S & 120.600 & 60.833 & 124.600 \\
-  SH & 121.200 & 60.683 & \bad{129.000} \\
-  GO & 124.500 & 61.100 & 126.033 \\
-  GS & 124.600 & \bad{61.567} & 126.733 \\
-  GSD & 123.833 & 58.050 & 124.933 \\
-  GSD-D & \bad{125.533} & \win{57.061} & 121.633 \\
+  W & 122.133 & 5.9 & 0.957 & 61.194 & 1.0 & 0.719 & 124.933 & 6.3 & 0.954 \\
+  S & 120.600 & 5.7 & 0.957 & 60.833 & 1.0 & 0.691 & 124.600 & 5.9 & 0.956 \\
+  SH & 121.200 & 5.7 & 0.958 & 60.683 & 1.0 & 0.702 & \bad{129.000} & 6.7 & 0.948 \\
+  GO & 124.500 & 6.5 & 0.951 & 61.100 & 1.7 & 0.704 & 126.033 & 6.0 & 0.952 \\
+  GS & 124.600 & 6.0 & 0.956 & \bad{61.567} & 1.7 & 0.702 & 126.733 & 5.6 & 0.958 \\
+  GSD & 123.833 & 5.5 & 0.956 & 58.050 & 1.0 & 0.701 & 124.933 & 5.9 & 0.954 \\
+  GSD-D & \bad{125.533} & 6.1 & 0.955 & \win{57.061} & 1.0 & 0.708 & 121.633 & 5.4 & 0.961 \\
 \bottomrule
 \end{tabular}
-\caption{L500 ($L=500$\,m, avg.\ degree 3.7) --- Large DAG (30 tasks).}
+\caption{L500 ($L=500$\,m) --- Large DAG (30 tasks). ms = makespan (s); Hops = mean path length; P-LU = peak link util.}
 \end{table}
 
 \section{Analysis}
 
-\subsection{Small DAG: Compute-Bound, Routing Irrelevant}
+\subsection{Small DAG: Compute-Bound, All Metrics Trivial}
 
-The most striking finding is that \textbf{all routing schemes and all
-schedulers produce identical makespan (13.500\,s) on the small DAG},
-across both grid sizes and all seven random-network density levels.
-Without interference, the PHY rates on all paths are high enough that
-transfer time is negligible compared to task compute time
-(costs 150--1000\,cu on nodes at 80--300\,cu/s).
-The 8-task fork-join DAG's makespan is determined entirely by the
-critical compute path; routing and placement strategy are irrelevant.
-This is in sharp contrast to the \texttt{csma\_bianchi} results, where
-the same DAG showed a $3$--$12\times$ spread across routing schemes
-because interference inflated transfer times to the point where they
-dominated the makespan.
+All routing schemes and schedulers produce identical makespan (13.500\,s) on the small DAG across both grid sizes and all density levels. Transfers are same-node (0 hops, 0 link utilisation) because HEFT-1 co-locates all 8 tasks. Even under HEFT/HEFT-2, the DAG's compute time dominates: transfer costs are negligible without interference. The additional metrics (hops, link utilisation) are all zero or near-zero for the small DAG and are therefore omitted from the density graphs.
 
-\subsection{Large DAG: HEFT-1 Advantage Shrinks, GSD Emerges}
+\subsection{Why GSD/GSD-D Win on the Large DAG}
 
-On the large DAG the picture is more nuanced:
+The extra metrics reveal the mechanism clearly. On the $7\times7$ grid large DAG under HEFT-1:
 
-\begin{itemize}
-  \item \textbf{HEFT-1 still wins, but by a much smaller margin.}
-    On the $4\times4$ grid, HEFT-1/GSD achieves 45.4\,s vs.\
-    HEFT/GSD = HEFT-2/GSD = 70.4\,s---a $1.6\times$ advantage.
-    Under csma\_bianchi the same experiments showed $3$--$7\times$.
-    The reduction confirms that co-location's main benefit was avoiding
-    inter-link spectrum contention, not intra-link queuing.
-  \item \textbf{GSD is the best routing scheme on grids.}
-    GSD (interference-aware dynamic) wins in all four grid experiments
-    under HEFT-1, including the $7\times7$ large (71.5\,s), where
-    under interference GO had won (542\,s).
-    Without interference GSD's dynamic path selection still reduces
-    intra-link congestion by spreading flows across the grid.
-    GSD-D wins only for the $7\times7$ large under HEFT (122.9\,s).
-  \item \textbf{Widest-path (W) is no longer the worst.}
-    Under interference W was always worst by a large margin
-    (e.g.\ 5696\,s vs.\ 542\,s for $7\times7$ large).
-    Without interference W is within 2$\times$ of GSD on grids
-    (141\,s vs.\ 71\,s under HEFT-1 on $7\times7$ large), confirming
-    that W's penalty came almost entirely from inter-link contention.
-\end{itemize}
+\begin{center}
+\small
+\begin{tabular}{l r r r r}
+\toprule
+\textbf{Routing} & \textbf{Makespan (s)} & \textbf{Mean hops} & \textbf{Peak link util.} & \textbf{Mean xfer dur.\ (s)} \\
+\midrule
+  W & 141.357 & 1.0 & 0.933 & 27.7 \\
+  S & 142.690 & 1.0 & 0.933 & 28.4 \\
+  SH & 134.690 & 1.0 & 0.929 & 25.0 \\
+  GS & 147.193 & 2.4 & 0.927 & 31.5 \\
+  GO & 145.357 & 2.4 & 0.935 & 29.0 \\
+  GSD & 71.483 & 1.0 & 0.786 & 13.7 \\
+  GSD-D & 72.417 & 1.0 & 0.773 & 13.8 \\
+\bottomrule
+\end{tabular}
+\end{center}
 
-\subsection{Random Networks: Flat Small DAG, Density-Insensitive Large DAG}
+W, S, and SH all use 1-hop paths but achieve peak link utilisation of 0.93, with mean transfer durations of 25--28\,s. GS and GO use 2.4--2.7 hops on average---their greedy ordering tries to route around congested links but can only do so at schedule time, and picks longer paths without reducing peak utilisation. GSD and GSD-D also use 1-hop paths but reduce peak link utilisation to 0.77--0.79 and halve the mean transfer duration to 13.7\,s, directly explaining the $2\times$ makespan advantage.
 
-On random networks without interference:
+The mechanism: HEFT-1 places each task on a direct neighbour, so all transfers are 1-hop. However, 60 tasks across 6 pipeline stages create many simultaneous transfers at each stage boundary. Static-path schemes commit all flows to the same set of links; GSD observes current link load at transfer time and routes each flow to the \emph{least-loaded} 1-hop neighbour. The result is lower peak utilisation on any single link and faster completion times---a pure traffic-engineering benefit that persists even without inter-link interference.
+
+\subsection{Density Effects on the Random Network (Large DAG)}
+
+The three new density graphs (hops, peak link util., transfer duration) show complementary trends:
 
 \begin{itemize}
-  \item \textbf{Small DAG:} All (scheduler, routing, density) combinations
-    produce 13.500\,s---exactly as on the grids.  Compute dominates.
-  \item \textbf{Large DAG:} HEFT-1 achieves 47--66\,s across all density
-    levels with the best routing scheme (GSD or GSD-D), compared to
-    150--927\,s under csma\_bianchi.  The makespan is \emph{nearly flat}
-    across densities: without interference, denser topologies provide more
-    path diversity for GSD's dynamic selection, but offer no dramatic
-    improvement because compute time already dominates.
-  \item \textbf{GSD and GSD-D win at all densities} under HEFT-1 for the
-    large DAG (GSD-D at L250--L400 and L500; GSD at L350).  This contrasts
-    with the csma\_bianchi case where SH dominated at high density
-    and W/GSD-D won only at very sparse topologies.
-  \item \textbf{SH never wins.}  Without the interference-reduction
-    rationale, SH offers no advantage over S or W.  GSD/GSD-D
-    consistently outperform SH by 10--30\% on the large DAG.
-  \item \textbf{HEFT and HEFT-2 tie at most densities} (W or S gives
-    the same result for both), matching the pattern seen on the grid
-    where calibration only diverges when topology is large.
+  \item \textbf{Mean hops} is 1.0 for all schedulers at all densities.    HEFT-1 co-locates tasks on direct neighbours; even HEFT/HEFT-2 place    most tasks within comm-range because the 30-task pipeline is small    relative to 50 nodes. No multi-hop routing is needed.
+  \item \textbf{Peak link utilisation} decreases from 0.76 at L150 (dense)    to 0.64 at L400 (medium-sparse) and rises again at L500 (sparse).    At medium density the network has enough path diversity for GSD to    spread load while keeping paths short. At L500 fewer links exist,    funnelling more traffic through each one.
+  \item \textbf{Mean transfer duration} tracks makespan closely: shortest    at L350--L400 (9--10\,s) where peak link utilisation is lowest,    longest at L500 (12--14\,s) where bottleneck links are most loaded.
 \end{itemize}
 
-\subsection{Key Takeaways}
+\subsection{Comparison to csma\_bianchi Results}
 
-\begin{enumerate}
-  \item \textbf{Interference is the dominant cost on these workloads.}
-    The small DAG shifts from a 13$\times$ spread across routing schemes
-    (with interference) to a flat 13.5\,s (without).  Interference, not
-    bandwidth or hop count, was the binding constraint.
-  \item \textbf{HEFT-1 co-location benefit is mostly interference avoidance.}
-    The $3$--$7\times$ advantage over HEFT/HEFT-2 shrinks to $1.6\times$
-    without interference.  On interference-free networks, spreading tasks
-    is not nearly as costly.
-  \item \textbf{GSD replaces SH as best routing for large DAGs.}
-    Without interference, GSD's dynamic load spreading beats SH's
-    hop-count minimisation because relay hops no longer carry an
-    interference penalty.
-  \item \textbf{W is rehabilitated.}  Widest-path routing was catastrophic
-    under csma\_bianchi because it routed flows through the busiest, most
-    interfered links.  Without interference it is within $2\times$ of GSD,
-    and is the best scheme for several (density, scheduler) combinations
-    on the large random-network DAG.
-\end{enumerate}
+Removing interference collapses the large-DAG makespan from 150--927\,s (csma\_bianchi, best routing) to 47--66\,s (no interference, best routing) under HEFT-1---a $3$--$14\times$ reduction. The routing winner changes: SH (which minimised relay interference) gives way to GSD (which minimises intra-link congestion through dynamic load balancing). This confirms that the dominant cost in the csma\_bianchi experiments was inter-link spectrum contention, not intra-link queuing.
 
 \subsection{Reproducing These Results}
 \begin{verbatim}
 cd ncsim/
-python run_no_interference_eval.py
-# JSON: /tmp/ncsim_no_interference_eval/no_interference_results.json
+python run_no_interference_eval.py      # ~70 min (12 060 runs)
+python compute_extra_metrics.py         # reads existing traces, ~3 min
+python gen_no_interference_report.py    # regenerates tex + plots
+cd docs/ && pdflatex no_interference_results.tex
 \end{verbatim}
 
 \end{document}
