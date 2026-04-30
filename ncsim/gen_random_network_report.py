@@ -15,6 +15,7 @@ Produces:
 """
 
 import json
+import math
 import statistics
 from pathlib import Path
 
@@ -48,6 +49,13 @@ def best_aug(dl, dag, sched):
     if lb:
         return lb, aug(dl, dag, sched, lb)
     return None, {}
+
+def _ci95(std, n=30):
+    """95% CI half-width: t_{n-1,0.025} * std / sqrt(n)."""
+    if not std or n <= 1:
+        return std or 0.0
+    t = 2.045 if n <= 30 else (2.009 if n <= 60 else 1.96)
+    return t * std / math.sqrt(n)
 
 def fmt(v, d=3):
     return f"{v:.{d}f}" if v is not None else "---"
@@ -119,7 +127,7 @@ def make_plots():
             for dl in DENSITIES:
                 lb, ev = best_aug(dl, dag_label, sched)
                 ys.append(ev.get("mean"))
-                errs.append(ev.get("std"))
+                errs.append(_ci95(ev.get("std", 0)))
             xs    = [x for x, y in zip(degrees, ys) if y is not None]
             ys_p  = [y for y in ys if y is not None]
             err_p = [e for e, y in zip(errs, ys) if y is not None]
@@ -213,7 +221,7 @@ def build_tex():
     ap(r"\bottomrule\end{tabular}")
     ap(r"\caption{Evaluation parameters.}\end{table}")
     ap(r"")
-    ap(r"Values reported as mean $\pm$ std over 30 seeds.")
+    ap(r"Values reported as mean $\pm$ 95\,\% confidence interval over 30 seeds.")
     ap(r"Additional metrics: mean hops (path length), peak link utilization (P-LU),"
        r" mean transfer duration (XD).")
     ap(r"")
@@ -232,7 +240,7 @@ def build_tex():
     # §3 Makespan vs density graphs (with error bars)
     ap(r"\section{Makespan vs.\ Density}")
     ap(r"")
-    ap(r"Each point is the best-routing mean makespan $\pm$ std over 30 seeds.")
+    ap(r"Each point is the best-routing mean makespan $\pm$ 95\,\% CI over 30 seeds ($t_{29}=2.045$).")
     ap(r"")
     for dag_label in RAND_DAGS:
         dag_cap = "Small DAG (8 tasks, fork-join)" if dag_label == "small" \
@@ -240,7 +248,7 @@ def build_tex():
         ap(r"\begin{figure}[H]\centering")
         ap(r"\includegraphics[width=0.88\textwidth]{density_" + dag_label + r".pdf}")
         ap(r"\caption{Best-routing makespan vs.\ avg degree --- " + dag_cap
-           + r". Error bars show $\pm$1\,std over 30 seeds.}")
+           + r". Error bars show 95\,\% CI over 30 seeds.}")
         ap(r"\end{figure}")
         ap(r"")
 
@@ -301,14 +309,14 @@ def build_tex():
                     ms_s = fmt(mn)
                     if gb is not None and mn > 0 and abs(mn - gb) / (gb + 1e-9) < 0.001:
                         ms_s = wc(ms_s)
-                    row.append(f" & {lb} & {ms_s} & {fmt(sd)} & {hops:.1f}/{plu:.2f}")
+                    row.append(f" & {lb} & {ms_s} & {fmt(_ci95(sd))} & {hops:.1f}/{plu:.2f}")
                 else:
                     row.append(" & --- & --- & --- & ---")
             ap("".join(row) + r" \\")
 
         ap(r"\bottomrule\end{tabular}")
         ap(r"\caption{" + dag_cap + r" --- best routing per (density, scheduler)."
-           r" ms = mean $\pm$ std makespan (s); H = mean hops; PLU = peak link util."
+           r" ms = mean $\pm$ 95\,\%\,CI; H = mean hops; PLU = peak link util."
            r" \win{Bold green}: overall best.}")
         ap(r"\end{table}")
         ap(r"")
@@ -316,7 +324,7 @@ def build_tex():
     # §6 Full tables with std dev + extra metrics
     ap(r"\section{Full Results Tables}")
     ap(r"")
-    ap(r"Mean $\pm$ std makespan (s), mean hops, peak link util over 30 seeds."
+    ap(r"Mean $\pm$ 95\,\%\,CI makespan (s), mean hops, peak link util over 30 seeds."
        r" \win{Bold green}: overall best for density+DAG. \bad{Red}: worst per scheduler column.")
     ap(r"")
 
@@ -362,13 +370,13 @@ def build_tex():
                             ms_s = wc(ms_s)
                         elif cw[sched] is not None and abs(mn - cw[sched]) / (cw[sched] + 1e-9) < 0.001:
                             ms_s = bc(ms_s)
-                    cells += [ms_s, fmt(sd), fmt(hops, 1), fmt(plu, 3)]
+                    cells += [ms_s, fmt(_ci95(sd if sd else 0)), fmt(hops, 1), fmt(plu, 3)]
                 ap(f"  {lb} & " + " & ".join(cells) + r" \\")
 
             ap(r"\bottomrule\end{tabular}")
             ap(r"\caption{" + dl + r" ($L=" + str(side)
                + r"$\,m) --- " + dag_cap
-               + r". ms = mean$\pm$std; H = mean hops; PLU = peak link util.}")
+               + r". ms = mean$\pm$95\,\%\,CI; H = mean hops; PLU = peak link util.}")
             ap(r"\end{table}")
             ap(r"")
 

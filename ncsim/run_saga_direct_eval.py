@@ -49,6 +49,11 @@ NUM_SEEDS        = 30
 GRID_REPR_LABEL = "heft_interference_aware_bytes"
 RAND_REPR_LABEL = "heft_interference_aware_dynamic_deferral"
 
+COMM_RANGE = 80    # meters
+NUM_NODES  = 50
+SIDE_LENGTHS = {"L150": 150, "L200": 200, "L250": 250, "L300": 300,
+                "L350": 350, "L400": 400, "L500": 500}
+
 LOCAL_SPEED        = 10_000.0
 DISCONNECTED_SPEED = 0.001
 
@@ -74,6 +79,145 @@ _DEFAULT_RF = RFConfig(
     shadow_fading_sigma=0.0, rts_cts=False,
 )
 _wp = WidestPathRouting()
+
+
+# ── Random network / DAG generators (mirrors run_random_eval.py) ──────────────
+
+import random as _random
+import math as _math2
+
+_COMPUTE_COSTS = [500, 200, 800, 350, 1000, 150, 600, 450, 750, 300,
+                  900, 250, 550, 700, 400, 850]
+_DATA_SIZES    = [10.0, 2.0, 25.0, 5.0, 30.0, 8.0, 15.0, 3.0,
+                  20.0, 6.0, 12.0, 28.0, 4.0, 18.0, 7.0, 22.0]
+_CAPACITIES    = [200, 100, 150, 80, 300, 120, 250, 180, 160, 90,
+                  220, 140, 280, 110, 190, 170]
+
+
+def _gen_random_network(side_length, seed):
+    """Generate a connected random network identical to run_random_eval.py."""
+    rng = _random.Random(seed)
+    pos = [(rng.uniform(0, side_length), rng.uniform(0, side_length))
+           for _ in range(NUM_NODES)]
+
+    def dist(i, j):
+        return _math2.sqrt((pos[i][0]-pos[j][0])**2 + (pos[i][1]-pos[j][1])**2)
+
+    pairs = {(min(i, j), max(i, j))
+             for i in range(NUM_NODES) for j in range(i+1, NUM_NODES)
+             if dist(i, j) <= COMM_RANGE}
+
+    def component(start, edge_set):
+        adj = {i: set() for i in range(NUM_NODES)}
+        for a, b in edge_set:
+            adj[a].add(b); adj[b].add(a)
+        seen, q = set(), [start]
+        while q:
+            n = q.pop()
+            if n in seen: continue
+            seen.add(n); q.extend(adj[n] - seen)
+        return seen
+
+    while True:
+        comp = component(0, pairs)
+        if len(comp) == NUM_NODES:
+            break
+        outside = set(range(NUM_NODES)) - comp
+        best = min(((dist(a, b), (min(a, b), max(a, b)))
+                    for a in comp for b in outside))[1]
+        pairs.add(best)
+
+    nodes_data = [{"id": f"n{i}",
+                   "compute_capacity": _CAPACITIES[i % len(_CAPACITIES)],
+                   "x": round(pos[i][0], 1), "y": round(pos[i][1], 1)}
+                  for i in range(NUM_NODES)]
+    links_data = []
+    for a, b in sorted(pairs):
+        na, nb = f"n{a}", f"n{b}"
+        links_data.append({"id": f"l_{na}_{nb}", "from": na, "to": nb})
+        links_data.append({"id": f"l_{nb}_{na}", "from": nb, "to": na})
+    return nodes_data, links_data
+
+
+def _make_dag_small():
+    np_ = 6
+    tasks = [{"id": "T0", "compute_cost": _COMPUTE_COSTS[0]}]
+    for i in range(1, np_+1):
+        tasks.append({"id": f"T{i}", "compute_cost": _COMPUTE_COSTS[i % len(_COMPUTE_COSTS)]})
+    tasks.append({"id": f"T{np_+1}", "compute_cost": _COMPUTE_COSTS[(np_+1) % len(_COMPUTE_COSTS)]})
+    sink = f"T{np_+1}"
+    edges, ei = [], 0
+    for i in range(1, np_+1):
+        edges.append({"from": "T0",    "to": f"T{i}", "data_size": _DATA_SIZES[ei % len(_DATA_SIZES)]}); ei += 1
+        edges.append({"from": f"T{i}", "to": sink,    "data_size": _DATA_SIZES[ei % len(_DATA_SIZES)]}); ei += 1
+    return tasks, edges
+
+
+def _make_dag_large():
+    tasks = [{"id": f"T{i}", "compute_cost": _COMPUTE_COSTS[i % len(_COMPUTE_COSTS)]}
+             for i in range(30)]
+    edges, ei = [], 0
+    for i in range(1, 7):
+        edges.append({"from": "T0", "to": f"T{i}", "data_size": _DATA_SIZES[ei % len(_DATA_SIZES)]}); ei += 1
+    s1, s2, s3, s4 = range(1,7), range(7,15), range(15,23), range(23,29)
+    for i, src in enumerate(s1):
+        for j in range(2):
+            edges.append({"from": f"T{src}", "to": f"T{s2[(i*2+j)%len(s2)]}",
+                          "data_size": _DATA_SIZES[ei % len(_DATA_SIZES)]}); ei += 1
+    for i, src in enumerate(s2):
+        for j in range(2):
+            edges.append({"from": f"T{src}", "to": f"T{s3[(i*2+j)%len(s3)]}",
+                          "data_size": _DATA_SIZES[ei % len(_DATA_SIZES)]}); ei += 1
+    for i, src in enumerate(s3):
+        edges.append({"from": f"T{src}", "to": f"T{s4[i % len(s4)]}",
+                      "data_size": _DATA_SIZES[ei % len(_DATA_SIZES)]}); ei += 1
+    for src in s4:
+        edges.append({"from": f"T{src}", "to": "T29",
+                      "data_size": _DATA_SIZES[ei % len(_DATA_SIZES)]}); ei += 1
+    return tasks, edges
+
+
+_DAG_MAKERS = {"small": _make_dag_small, "large": _make_dag_large}
+
+
+def _build_sc_direct(nodes_data, links_data, tasks, edges):
+    """Build a minimal scenario dict matching what _task_costs/_dag_edges expect."""
+    return {
+        "scenario": {
+            "network": {
+                "nodes": [{"id": n["id"], "compute_capacity": n["compute_capacity"],
+                            "position": {"x": n["x"], "y": n["y"]}}
+                           for n in nodes_data],
+                "links": [{"id": lk["id"], "from": lk["from"], "to": lk["to"],
+                            "bandwidth": 1.0, "latency": 0.001}
+                           for lk in links_data],
+            },
+            "dags": [{"id": "dag_1", "inject_at": 0.0, "tasks": tasks, "edges": edges}],
+        }
+    }
+
+
+def _build_ncsim_network_direct(nodes_data, links_data, seed):
+    """Build ncsim Network from node/link dicts and apply PHY rates."""
+    nodes = {}
+    for nd in nodes_data:
+        nodes[nd["id"]] = Node(
+            id=nd["id"],
+            compute_capacity=float(nd["compute_capacity"]),
+            position=Position(float(nd["x"]), float(nd["y"])),
+        )
+    links = {}
+    for ld in links_data:
+        links[ld["id"]] = Link(
+            id=ld["id"], from_node=ld["from"], to_node=ld["to"],
+            bandwidth=1.0, latency=0.001,
+        )
+    net = Network(nodes=nodes, links=links)
+    shadow_map = generate_shadow_fading_map(net, _DEFAULT_RF.shadow_fading_sigma, seed)
+    phy_rates  = compute_link_phy_rates(net, _DEFAULT_RF, shadow_map)
+    for lid, link in net.links.items():
+        link.bandwidth = max(phy_rates.get(lid, 0.001), 0.001)
+    return net
 
 
 # ── Network / taskgraph builders ──────────────────────────────────────────────
@@ -329,18 +473,19 @@ def evaluate_random() -> dict:
     results = {}
     for dl in DENSITIES:
         results[dl] = {}
+        side = SIDE_LENGTHS[dl]
+        tasks_small, edges_small = _make_dag_small()
+        tasks_large, edges_large = _make_dag_large()
+        dag_data = {"small": (tasks_small, edges_small),
+                    "large": (tasks_large, edges_large)}
         for dag in RAND_DAGS:
             runs = {s: {k: [] for k in METRIC_KEYS} for s in ("heft", "heft1", "heft2")}
             n_found = 0
+            tasks, edges = dag_data[dag]
             for seed in range(1, NUM_SEEDS + 1):
-                yaml_path = (RAND_INPUTS
-                             / f"{dl}_{dag}_{RAND_REPR_LABEL}_s{seed}"
-                             / "scenario.yaml")
-                if not yaml_path.exists():
-                    continue
-                with open(yaml_path) as f:
-                    sc = yaml.safe_load(f)
-                net = _build_ncsim_network(sc, seed=seed)
+                nodes_data, links_data = _gen_random_network(side, seed)
+                sc  = _build_sc_direct(nodes_data, links_data, tasks, edges)
+                net = _build_ncsim_network_direct(nodes_data, links_data, seed)
                 per_sched = _run_all(sc, net)
                 n_found += 1
                 for s in ("heft", "heft1", "heft2"):
@@ -384,13 +529,24 @@ MARKERS     = {"heft": "o",       "heft1": "s",       "heft2": "^"}
 EFMT        = dict(capsize=3, capthick=0.8, elinewidth=0.8, alpha=0.5)
 DEGREES     = [int(dl[1:]) for dl in DENSITIES]   # side lengths as x-axis
 
+import math as _math
+def _ci95(std, n):
+    """95% CI half-width: t_{n-1, 0.025} * std / sqrt(n).
+    Uses t=2.045 for n=30; falls back to z=1.96 for n>=120."""
+    if n <= 1:
+        return std
+    t = 2.045 if n <= 30 else (2.009 if n <= 60 else 1.96)
+    return t * std / _math.sqrt(n)
+
 
 def _line_plot(ax, rand_res, dag, metric_key, ylabel, title):
     for sched in ("heft", "heft1", "heft2"):
         ys   = [rand_res[dl][dag].get(sched, {}).get(f"{metric_key}_mean", 0)
                 for dl in DENSITIES]
-        errs = [rand_res[dl][dag].get(sched, {}).get(f"{metric_key}_std", 0)
+        stds = [rand_res[dl][dag].get(sched, {}).get(f"{metric_key}_std", 0)
                 for dl in DENSITIES]
+        n    = rand_res[DENSITIES[0]][dag].get(sched, {}).get("n", 30)
+        errs = [_ci95(s, n) for s in stds]
         ax.errorbar(DEGREES, ys, yerr=errs,
                     color=COLORS[sched], marker=MARKERS[sched],
                     linewidth=1.8, markersize=5, linestyle="-",
@@ -482,25 +638,36 @@ def make_plots(grid_res: dict, rand_res: dict, ncsim_grid: dict, ncsim_rand: dic
         plt.close()
         print(f"  {fname.name}")
 
-    # ── 4. Random: SAGA predicted vs NCSIM best (solid vs dashed) ─────────────
+    # ── 4. Random: SAGA predicted vs NCSIM best, both with 95% CI ────────────
     for dag in RAND_DAGS:
         fig, ax = plt.subplots(figsize=(6.5, 3.8))
         for sched in ("heft", "heft1", "heft2"):
-            saga_ys = [rand_res[dl][dag].get(sched, {}).get("makespan_mean", 0)
-                       for dl in DENSITIES]
-            ncsim_ys = []
+            n = rand_res[DENSITIES[0]][dag].get(sched, {}).get("n", 30)
+            saga_ys   = [rand_res[dl][dag].get(sched, {}).get("makespan_mean", 0)
+                         for dl in DENSITIES]
+            saga_errs = [_ci95(rand_res[dl][dag].get(sched, {}).get("makespan_std", 0), n)
+                         for dl in DENSITIES]
+            # NCSIM: best routing per sched+density, with its CI
+            ncsim_ys, ncsim_errs = [], []
             for dl in DENSITIES:
-                best = min(
-                    (ncsim_rand.get(f"{dl}|{dag}|{sched}|{lb}", {}).get("mean") or float("inf"))
-                    for lb in ["W","S","SH","GO","GS","GSD","GSD-D"]
-                )
-                ncsim_ys.append(0 if best == float("inf") else best)
-            ax.plot(DEGREES, saga_ys, color=COLORS[sched], marker=MARKERS[sched],
-                    linewidth=1.8, markersize=5, linestyle="-",
-                    label=f"{SCHED_NAMES[sched]} (SAGA)")
-            ax.plot(DEGREES, ncsim_ys, color=COLORS[sched], marker=MARKERS[sched],
-                    linewidth=1.4, markersize=4, linestyle="--",
-                    label=f"{SCHED_NAMES[sched]} (NCSIM)", alpha=0.65)
+                best_ms, best_ci = 0, 0
+                for lb in ["W","S","SH","GO","GS","GSD","GSD-D"]:
+                    entry = ncsim_rand.get(f"{dl}|{dag}|{sched}|{lb}", {})
+                    ms = entry.get("mean")
+                    if ms and (best_ms == 0 or ms < best_ms):
+                        best_ms = ms
+                        best_ci = _ci95(entry.get("std", 0), 30)
+                ncsim_ys.append(best_ms)
+                ncsim_errs.append(best_ci)
+            ax.errorbar(DEGREES, saga_ys, yerr=saga_errs,
+                        color=COLORS[sched], marker=MARKERS[sched],
+                        linewidth=1.8, markersize=5, linestyle="-",
+                        label=f"{SCHED_NAMES[sched]} (SAGA)", **EFMT)
+            efmt_ncsim = {k: v for k, v in EFMT.items() if k != "alpha"}
+            ax.errorbar(DEGREES, ncsim_ys, yerr=ncsim_errs,
+                        color=COLORS[sched], marker=MARKERS[sched],
+                        linewidth=1.4, markersize=4, linestyle="--",
+                        label=f"{SCHED_NAMES[sched]} (NCSIM)", alpha=0.65, **efmt_ncsim)
         ax.set_xlabel("Area side length (m)", fontsize=10)
         ax.set_ylabel("Makespan (s)", fontsize=10)
         ax.set_title(f"Random — {dag.capitalize()} DAG — SAGA vs NCSIM", fontsize=10)
