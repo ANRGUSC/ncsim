@@ -435,7 +435,6 @@ def _gen_density_plots(rand_best, rand_topo, docs_dir):
             ax.plot(xs_plot, ys_plot, label=NAMES[sched], **STYLES[sched])
 
         ax.set_yscale("log")
-        ax.invert_xaxis()
         ax.set_xlabel("Average node degree (higher = denser)", fontsize=11)
         ax.set_ylabel("Best mean makespan (s, log scale)", fontsize=11)
         dag_title = "Small DAG (8 tasks, fork-join)" if dag_label == "small" \

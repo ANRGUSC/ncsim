@@ -101,7 +101,6 @@ def make_plots():
                 ax.plot(xs, ys_p, label=SCHED_NAMES[sched], color=color, **st)
         if log:
             ax.set_yscale("log")
-        ax.invert_xaxis()
         ax.set_xlabel("Average node degree (higher = denser)", fontsize=11)
         ax.set_ylabel(ylabel, fontsize=11)
         ax.set_title(title, fontsize=12, pad=8)
@@ -136,7 +135,6 @@ def make_plots():
             ax.errorbar(xs, ys_p, yerr=err_p, label=SCHED_NAMES[sched],
                         color=color, **st, **EFMT)
         ax.set_yscale("log")
-        ax.invert_xaxis()
         ax.set_xlabel("Average node degree (higher = denser)", fontsize=11)
         ax.set_ylabel("Best mean makespan (s, log scale)", fontsize=11)
         ax.set_title(dag_cap, fontsize=12, pad=8)

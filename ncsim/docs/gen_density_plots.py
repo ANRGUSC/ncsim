@@ -34,7 +34,6 @@ def make_plot(data, title, outfile):
         ax.plot(DEGREES, vals, label=label, **STYLES[label])
 
     ax.set_yscale("log")
-    ax.invert_xaxis()          # denser on the left (higher degree)
     ax.set_xlabel("Average node degree (higher = denser)", fontsize=11)
     ax.set_ylabel("Mean makespan (s, log scale)", fontsize=11)
     ax.set_title(title, fontsize=12, pad=8)
