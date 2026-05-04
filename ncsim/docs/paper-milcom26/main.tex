@@ -16,8 +16,8 @@
 
 \hypersetup{colorlinks=true, linkcolor=blue!50!black, citecolor=blue!50!black, urlcolor=blue!50!black}
 
-\newcommand{\heftone}{HEFT\nobreakdash-1}
-\newcommand{\hefttwo}{HEFT\nobreakdash-2}
+\newcommand{\heftone}{HEFT-1}
+\newcommand{\hefttwo}{HEFT-2}
 
 \begin{document}
 
@@ -52,7 +52,7 @@ throughput of every other concurrently transmitting link. We show, through
 discrete-event simulation under an 802.11ax CSMA/CA interference model, that
 classical HEFT placements driven by widest-path bandwidth estimates spread
 tasks across the network and incur catastrophic multi-hop transfer costs that
-the scheduler's analytic estimate fails to anticipate---in some cases the
+the scheduler's analytic estimate fails to anticipate; in some cases the
 actual makespan is two orders of magnitude worse than the prediction.
 A modified bandwidth matrix that imposes a heavy penalty on non-adjacent task
 pairs (\heftone{}) restores good performance by encouraging co-location and
@@ -85,7 +85,7 @@ list-scheduling heuristic for this setting and underpins many open
 implementations~\cite{coleman2024saga}.
 
 HEFT and its variants assume that the available bandwidth between any two
-nodes is a static scalar---a single number that depends only on the
+nodes is a static scalar: a single number that depends only on the
 endpoints, not on what other transfers happen to be in flight at the same
 time. On wired clusters this is a serviceable approximation. On a shared
 wireless medium it is not: every active link consumes spectrum, and so the
@@ -109,7 +109,7 @@ analytic estimate (Section~\ref{sec:results-heft}).
 
 \item We show that a bandwidth matrix that heavily penalizes non-adjacent
 task pairs (\heftone{}) drives HEFT toward co-location and adjacent placement,
-recovering most of the lost performance---between $1.7\times$ and $4\times$
+recovering most of the lost performance: between $1.7\times$ and $4\times$
 better than \hefttwo{} on the configurations we study.
 
 \item Among nine routing schemes spanning three baselines, four static greedy
@@ -119,8 +119,8 @@ configurations. Deferred dynamic routing (GSD-D) adds further gains on sparse
 networks where there are no good alternative paths
 (Section~\ref{sec:results-routing}).
 
-\item We report auxiliary metrics---mean hop count, peak tasks per node, and
-peak link utilization---that explain \emph{why} each combination wins
+\item We report auxiliary metrics (mean hop count, peak tasks per node, and
+peak link utilization) that explain \emph{why} each combination wins
 (Section~\ref{sec:results-metrics}).
 
 \item We confirm via a no-interference baseline
@@ -354,7 +354,7 @@ predicts a $168$--$727\times$ \heftone{} disadvantage.
 \caption{HEFT analytic prediction (blue) vs.\ ncsim simulated makespan with
 SH routing (orange) for the four grid configurations of
 Table~\ref{tab:heft-vs-sim}. Each panel uses its own $y$-axis scale; the
-prediction--simulation gap inverts the $\heftone$/$\hefttwo$ ranking on
+prediction--simulation gap inverts the \heftone{}/\hefttwo{} ranking on
 both large-DAG cases.}
 \label{fig:saga-grid}
 \end{figure}
@@ -432,7 +432,7 @@ Three observations follow.
 \paragraph{Dense networks: SH dominates and interference-aware greedy fails
 catastrophically.} On L150, SH wins at every DAG size from 16 tasks onward
 (S edges out SH at 8 tasks). The four static greedy schemes are an order
-of magnitude worse---4{,}500--5{,}000\,s at 60 tasks against SH's $\sim$412\,s.
+of magnitude worse: 4{,}500--5{,}000\,s at 60 tasks against SH's $\sim$412\,s.
 Path diversity is the cause: on a graph with average degree 24 there are
 many alternative routes, and the greedy schemes choose paths that minimize
 \emph{predicted} interference. That prediction is built from HEFT's
@@ -520,7 +520,7 @@ L500 (sparse)& \hefttwo{} & GSD-D & 5.3 & 0.01 & 5{,}068.6 \\
 
 Table~\ref{tab:auxmetrics} and Figs.~\ref{fig:hops}--\ref{fig:plu} make the
 mechanism quantitative. Across all densities, \heftone{} drives the mean
-hop count to one---essentially every transfer either vanishes into a
+hop count to one; essentially every transfer either vanishes into a
 co-located edge (zero hops) or traverses a single direct wireless link.
 \hefttwo{}, which considers any pair of nodes as roughly bandwidth-equivalent,
 ends up routing flows over 1.2--5.3 hops on average. The peak link
@@ -553,7 +553,7 @@ density sweep with the interference model disabled (i.e., with
 $f_\ell\equiv 1$ in Eq.~\ref{eq:bweff} but with intra-link fair sharing
 preserved). Fig.~\ref{fig:noint} shows the result. With interference off,
 \heftone{}'s makespan stays in the 47--62\,s range across all densities and
-\hefttwo{}'s is in the 70--145\,s range---a $\sim 2\times$ gap rather than
+\hefttwo{}'s is in the 70--145\,s range, a $\sim 2\times$ gap rather than
 the $\sim 100\times$ gap of the interference case. The
 routing-scheme spread shrinks similarly. We conclude that
 inter-link interference is responsible for the headline effects of this
@@ -565,41 +565,48 @@ paper, not any bandwidth-modeling or hop-count artifact.
 
 HEFT~\cite{topcuoglu2002heft} and its many variants
 (CPOP, lookahead-HEFT, etc.) form the dominant family of heuristics for
-DAG scheduling on heterogeneous platforms. The SAGA
+DAG scheduling on heterogeneous platforms, and the SAGA
 framework~\cite{coleman2024saga} provides reference implementations for
-benchmarking. These works adopt a static pairwise-bandwidth model that does
-not capture interference.
+benchmarking. However, these works adopt a static pairwise-bandwidth
+model that does not capture interference, and so the placements they
+produce are calibrated to a quantity that does not exist in a real
+wireless edge.
 
 The wireless networking literature characterizes 802.11 CSMA/CA contention
 in detail; the closed-form Bianchi model~\cite{bianchi2000performance}
-remains the standard analytical baseline. Interference-aware routing in ad
-hoc networks is a long-standing topic, but the schedulers it supplies
-typically optimize a single point-to-point flow rather than the
-joint placement-and-routing problem of a DAG workload.
-
-To our knowledge, the systematic evaluation we present here---HEFT
-bandwidth-matrix variants combined with an inventory of routing schemes,
-under a realistic CSMA/CA interference model and across a range of
-topologies and DAG sizes---has not previously appeared in the literature.
+remains the standard analytical baseline. Interference-aware routing in
+ad hoc networks is a long-standing topic. However, the schedulers it
+supplies typically optimize a single point-to-point flow rather than the
+joint placement-and-routing problem of a DAG workload, and the
+interaction between placement and routing under interference has, to our
+knowledge, not been systematically evaluated for the HEFT family on
+representative wireless edge topologies and DAG sizes.
 
 %======================================================================
 \section{Conclusion}
 \label{sec:conclusion}
 
-Wireless interference inverts the intuition that interference-oblivious
-HEFT scheduling rests on: a placement that looks well load-balanced under a
-widest-path bandwidth model produces simultaneously active links whose
-mutual interference dominates the makespan. A simple modification---a
-heavy bandwidth penalty on non-adjacent task pairs (\heftone{})---restores
-performance by encouraging single-hop placement. Among nine routing
-schemes, the simplest interference-unaware shortest-by-hop rule wins
-broadly; deferred dynamic routing (GSD-D) provides additional gains where
-sparse topologies leave no good alternative paths and the only useful lever
-is timing.
+In this paper, we have shown that wireless interference inverts the
+intuition on which interference-oblivious HEFT scheduling rests: a
+placement that looks well load-balanced under a widest-path bandwidth
+model produces simultaneously active links whose mutual interference
+governs the makespan. A simple modification, a heavy bandwidth penalty on
+non-adjacent task pairs (\heftone{}), restores performance by encouraging
+single-hop placement. Among the nine routing schemes we evaluated, the
+simplest interference-unaware shortest-by-hop rule wins broadly;
+deferred dynamic routing (GSD-D) provides additional gains where sparse
+topologies leave no good alternative paths and the only useful lever is
+timing. From a system-design standpoint, these findings argue against
+investing in elaborate interference-aware routing on dense wireless edge
+deployments, where the bigger lever is to keep flows short and few.
 
-Future work will extend the evaluation to mobility (where the topology
-itself changes during execution) and to multi-DAG workloads with online
-scheduling decisions.
+In future work, we plan to extend the evaluation in three directions.
+First, we will model mobility, where the link set evolves during DAG
+execution and routing decisions must adapt online. Second, we will
+consider multi-DAG workloads in which placement and routing decisions
+must trade off across concurrent jobs. Third, we will compare the
+implicit co-location bias of \heftone{} against placement heuristics
+that model interference explicitly inside the EFT computation.
 
 %======================================================================
 \bibliographystyle{IEEEtran}
