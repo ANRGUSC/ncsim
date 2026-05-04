@@ -1,0 +1,608 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{textcomp}
+\usepackage{hyperref}
+\usepackage{microtype}
+
+\graphicspath{{../}}
+
+\hypersetup{colorlinks=true, linkcolor=blue!50!black, citecolor=blue!50!black, urlcolor=blue!50!black}
+
+\newcommand{\heftone}{HEFT\nobreakdash-1}
+\newcommand{\hefttwo}{HEFT\nobreakdash-2}
+
+\begin{document}
+
+\title{Scheduling Edge Computing\\in the Presence of Wireless Interference}
+
+\author{%
+\IEEEauthorblockN{Maya Gutierrez}
+\IEEEauthorblockA{Autonomous Networks Research Group\\
+University of Southern California\\
+Los Angeles, CA, USA}
+\and
+\IEEEauthorblockN{Jared Coleman}
+\IEEEauthorblockA{Department of Computer Science\\
+Loyola Marymount University\\
+Los Angeles, CA, USA}
+\and
+\IEEEauthorblockN{Bhaskar Krishnamachari}
+\IEEEauthorblockA{Autonomous Networks Research Group\\
+University of Southern California\\
+Los Angeles, CA, USA}
+}
+
+\maketitle
+
+\begin{abstract}
+Task-graph schedulers for heterogeneous edge computing, such as the
+Heterogeneous Earliest Finish Time (HEFT) algorithm, were developed under the
+assumption that link bandwidth is a static, decoupled property of each network
+edge. Wireless edge networks violate this assumption: simultaneously active
+links contend for spectrum, so each additional flow degrades the effective
+throughput of every other concurrently transmitting link. We show, through
+discrete-event simulation under an 802.11ax CSMA/CA interference model, that
+classical HEFT placements driven by widest-path bandwidth estimates spread
+tasks across the network and incur catastrophic multi-hop transfer costs that
+the scheduler's analytic estimate fails to anticipate---in some cases the
+actual makespan is two orders of magnitude worse than the prediction.
+A modified bandwidth matrix that imposes a heavy penalty on non-adjacent task
+pairs (\heftone{}) restores good performance by encouraging co-location and
+single-hop placement. Among nine routing schemes (three baselines, four static
+greedy, two dynamic), simple shortest-by-hop routing is the most robust winner
+across topologies and DAG sizes, with deferred dynamic routing (GSD-D)
+providing additional gains on sparse networks where bottleneck links must be
+time-shared rather than re-routed.
+\end{abstract}
+
+\begin{IEEEkeywords}
+edge computing, DAG scheduling, HEFT, wireless interference, CSMA/CA, routing,
+discrete-event simulation
+\end{IEEEkeywords}
+
+%======================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Tactical and Internet-of-Battlefield-Things (IoBT) deployments increasingly
+push compute workloads onto wireless edge devices that are connected via
+multi-hop ad-hoc links rather than wired infrastructure
+\cite{kott2016iobt,satyanarayanan2017edge}. Many of these workloads admit a
+natural representation as a directed acyclic graph (DAG) of compute tasks with
+data dependencies, and the question of how to assign tasks to nodes and route
+the inter-task data flows is the classical problem of \emph{DAG scheduling on
+heterogeneous platforms}. The Heterogeneous Earliest Finish Time (HEFT)
+algorithm of Topcuoglu et al.~\cite{topcuoglu2002heft} remains the dominant
+list-scheduling heuristic for this setting and underpins many open
+implementations~\cite{coleman2024saga}.
+
+HEFT and its variants assume that the available bandwidth between any two
+nodes is a static scalar---a single number that depends only on the
+endpoints, not on what other transfers happen to be in flight at the same
+time. On wired clusters this is a serviceable approximation. On a shared
+wireless medium it is not: every active link consumes spectrum, and so the
+effective throughput of any one transfer collapses with the number of
+simultaneously active links in its neighborhood. Long multi-hop routes are
+particularly costly because each relay introduces an additional transmitter
+that interferes with all other concurrent flows.
+
+This paper investigates how scheduler design must change when interference is
+modeled faithfully. We evaluate a discrete-event simulator (ncsim) of an
+802.11ax wireless edge network using the closed-form Bianchi
+model~\cite{bianchi2000performance} for CSMA/CA contention, and compare two
+HEFT variants and nine routing schemes across grids and random geometric
+graphs at multiple densities and DAG sizes. Our contributions are:
+
+\begin{enumerate}
+\item We show that an interference-oblivious bandwidth matrix
+(\hefttwo{}, widest-path between every pair) leads HEFT to spread tasks
+broadly, producing simulated makespans up to $727\times$ worse than its own
+analytic estimate (Section~\ref{sec:results-heft}).
+
+\item We show that a bandwidth matrix that heavily penalizes non-adjacent
+task pairs (\heftone{}) drives HEFT toward co-location and adjacent placement,
+recovering most of the lost performance---between $1.7\times$ and $4\times$
+better than \hefttwo{} on the configurations we study.
+
+\item Among nine routing schemes spanning three baselines, four static greedy
+variants, and two dynamic variants, the simplest interference-unaware
+shortest-by-hop (SH) rule wins the largest number of (network, DAG-size)
+configurations. Deferred dynamic routing (GSD-D) adds further gains on sparse
+networks where there are no good alternative paths
+(Section~\ref{sec:results-routing}).
+
+\item We report auxiliary metrics---mean hop count, peak tasks per node, and
+peak link utilization---that explain \emph{why} each combination wins
+(Section~\ref{sec:results-metrics}).
+
+\item We confirm via a no-interference baseline
+(Section~\ref{sec:results-noint}) that the headline effects collapse when
+interference is removed, isolating CSMA/CA contention as the mechanism
+behind the observations.
+\end{enumerate}
+
+%======================================================================
+\section{System Model}
+\label{sec:model}
+
+\subsection{Network and DAG}
+
+A network is a set of compute nodes $\mathcal{N}$ and a set of wireless links
+$\mathcal{L}\subseteq\mathcal{N}\times\mathcal{N}$. Each node $n\in\mathcal{N}$
+has a compute capacity $C_n$ in compute-units per second; each link
+$\ell=(u,v)$ has a nominal bandwidth $b_\ell$ (MB/s) and propagation latency
+$\delta_\ell$ (s). A workload is a DAG $G=(T,E)$: tasks $t\in T$ have compute
+cost $w_t$ (compute-units) and edges $(t,t')\in E$ carry data of size
+$d_{t,t'}$ (MB). When a task $t$ runs on node $n$ its execution time is
+$w_t/C_n$. When the data $d_{t,t'}$ traverses link $\ell$ alone it takes
+$d_{t,t'}/b_\ell + \delta_\ell$ seconds.
+
+\subsection{Bandwidth sharing and interference}
+
+Two effects modulate the nominal link bandwidth $b_\ell$ at runtime. First,
+\emph{intra-link fair sharing}: if $k$ flows traverse the same link, each
+receives a $1/k$ share of the link's bandwidth. Second, \emph{inter-link
+interference}: simultaneously active links in the same neighborhood share the
+shared wireless medium. We use the closed-form Bianchi
+model~\cite{bianchi2000performance} for IEEE 802.11ax DCF (5\,GHz, 20\,MHz
+channel, $P_{\text{tx}}=20$\,dBm) which yields, for each link $\ell$ and a set
+$\mathcal{A}$ of currently active links, an interference factor
+$f_\ell(\mathcal{A})\in(0,1]$. Composing the two effects, the effective
+per-flow throughput on link $\ell$ is
+\begin{equation}
+b_\ell^{\text{eff}}
+\;=\;\frac{b_\ell\,f_\ell(\mathcal{A})}{k_\ell},
+\label{eq:bweff}
+\end{equation}
+where $k_\ell$ is the number of flows on $\ell$. As flows start and finish,
+the simulator updates $\mathcal{A}$ and recomputes $b_\ell^{\text{eff}}$ for
+all affected links.
+
+\subsection{HEFT and its bandwidth matrix}
+
+HEFT~\cite{topcuoglu2002heft} computes a placement and an estimated finish
+time for each task by, at each step, placing the highest-upward-rank ready
+task on the node that minimizes its earliest finish time:
+\begin{equation}
+\mathrm{EFT}(t,n) = \mathrm{EST}(t,n) + \frac{w_t}{C_n},
+\label{eq:eft}
+\end{equation}
+\begin{multline}
+\mathrm{EST}(t,n) = \max\!\Bigl( a_n,\\
+\max_{p\in\mathrm{pred}(t)}\!\bigl[\mathrm{EFT}(p,n_p) + d_{p,t}/R(n_p,n)\bigr]\Bigr),
+\label{eq:est}
+\end{multline}
+where $a_n$ is when node $n$ next becomes available and $R(n_p,n)$ is the
+\emph{pairwise bandwidth} HEFT assumes between nodes $n_p$ and $n$. The
+function $R(\cdot,\cdot)$ is a static bandwidth matrix supplied to HEFT at
+the start of scheduling; the algorithm is unaware of any runtime contention.
+
+The choice of $R(\cdot,\cdot)$ is a modeling decision, not part of the HEFT
+algorithm itself. We compare two reasonable choices, summarized in
+Table~\ref{tab:heftvariants}.
+
+\begin{table}[t]
+\centering
+\caption{The two HEFT bandwidth-matrix variants compared in this paper.}
+\label{tab:heftvariants}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Variant} & \textbf{Adjacent} $(u,v)\in\mathcal{L}$ & \textbf{Non-adjacent} \\
+\midrule
+\hefttwo{} & widest-path PHY rate & widest-path PHY rate \\
+\heftone{} & direct-link PHY rate & $0.001$\,MB/s penalty \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\hefttwo{} is the natural choice when one assumes multi-hop routes work
+roughly as efficiently as the widest available path. \heftone{} encodes the
+prior that non-adjacent placement is essentially never desirable: the heavy
+penalty causes HEFT to co-locate or adjacent-place every communicating task
+pair.
+
+%======================================================================
+\section{Routing schemes}
+\label{sec:routing}
+
+The scheduler decides \emph{where} each task runs; a separate routing
+component decides \emph{which links} carry each inter-task data flow. We
+compare nine schemes, listed in Table~\ref{tab:schemes}. Three are baselines
+that ignore interference; four are static greedy schemes that pick paths to
+maximize total system throughput under HEFT's predicted concurrency; two are
+dynamic schemes that recompute paths at flow start time using the simulator's
+actual active-link state.
+
+\begin{table}[t]
+\centering
+\caption{Routing schemes compared. Static schemes plan all routes once at DAG
+injection. Dynamic schemes recompute the path at every transfer-start event.}
+\label{tab:schemes}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Code} & \textbf{Class} & \textbf{Objective} \\
+\midrule
+W   & baseline    & widest-path: max $\min_\ell b_\ell$ \\
+S   & baseline    & shortest-path: min $\sum_\ell 1/b_\ell$ \\
+SH  & baseline    & shortest-hop, tie-break $\sum_\ell 1/b_\ell$ \\
+\midrule
+GS  & stat.\ greedy & order flows by start time \\
+GC  & stat.\ greedy & order flows by upward-rank (ranku) \\
+GB  & stat.\ greedy & order flows by data size (largest first) \\
+GO  & stat.\ greedy & order flows by total temporal overlap \\
+\midrule
+GSD    & dynamic       & score $\min_\ell b_\ell f_\ell/(k_\ell+1)$ \\
+GSD-D  & dyn.\ + defer & GSD; defer if eff./uncong.\ $<0.3$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The four static greedy schemes share the same scoring function, evaluated
+when each candidate path is considered:
+\begin{equation}
+\mathrm{score}(\text{path}) \;=\; \sum_{f\in\mathcal{F}_t}\,\min_{\ell\in\text{path}(f)} b_\ell^{\text{eff}},
+\label{eq:greedy}
+\end{equation}
+where $\mathcal{F}_t$ is the set of flows whose HEFT-predicted time windows
+overlap with the candidate's. The four variants differ only in the order in
+which flows are presented to the greedy planner.
+
+The dynamic schemes (GSD, GSD-D) recompute the path inside the
+\texttt{transfer\_start} event handler, using the actual set of currently
+active links and per-link transfer counts from the simulator. GSD picks the
+single path that maximizes its own bottleneck throughput
+(Eq.~\ref{eq:bweff}), ignoring siblings. GSD-D extends GSD with a deferral
+mechanism: if the newly chosen path's effective bottleneck bandwidth is below
+30\% of its uncongested value, the flow is postponed to the next
+\texttt{transfer\_complete} event (with a starvation-prevention cap of
+three deferrals).
+
+%======================================================================
+\section{Experimental setup}
+\label{sec:setup}
+
+\paragraph{Simulator.} We use ncsim, an open-source headless discrete-event
+simulator that implements the model of Section~\ref{sec:model} with
+microsecond event-time precision and the
+Bianchi-CSMA/CA interference model.\footnote{ncsim source and the scenarios
+used in this paper are available at \url{https://github.com/ANRGUSC/iobt-ncsim}.}
+
+\paragraph{Topologies.} We evaluate three classes of network. Two regular
+grids ($4\times4$ and $7\times7$) with $40$\,m node spacing serve as
+controlled topologies. We also generate random geometric graphs of
+$50$ nodes placed uniformly in an $L\times L$ square with communication range
+$R=80$\,m, varying $L$ from $150$\,m (avg.\ degree $24.0$, dense) through
+$500$\,m (avg.\ degree $3.7$, sparse). Topology seeds are fixed per density
+level; only DAG / scheduler state randomization varies across replications.
+
+\paragraph{DAG workloads.} For grid experiments we use a small DAG (8 tasks,
+fork-join) and a large DAG (30 tasks, 5-stage pipeline). For DAG-scaling
+experiments we vary task count from 8 to 60 (fork-join, 3-, 4-, 5-, and
+6-stage pipelines). Compute costs are heterogeneous in $[150,1000]$ cu, data
+sizes in $[2,30]$\,MB, node capacities in $[80,300]$ cu/s.
+
+\paragraph{Replication.} Mean makespan is reported with 95\% confidence
+intervals over 20--30 random seeds per (topology, DAG, scheduler, routing)
+configuration.
+
+%======================================================================
+\section{Results}
+\label{sec:results}
+
+\subsection{Scheduler choice: \heftone{} vs.\ \hefttwo{} under interference}
+\label{sec:results-heft}
+
+\begin{table}[t]
+\centering
+\caption{HEFT-predicted (analytic) vs.\ ncsim-simulated makespan in seconds,
+fixed shortest-hop (SH) routing, mean of 30 seeds. ``S''~=~small DAG (8
+tasks), ``L''~=~large DAG (30 tasks). The HEFT prediction is computed
+without an interference term.}
+\label{tab:heft-vs-sim}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l r r r r}
+\toprule
+\textbf{Topology}
+  & \multicolumn{2}{c}{\textbf{\heftone{}}}
+  & \multicolumn{2}{c}{\textbf{\hefttwo{}}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+  & predicted & ncsim & predicted & ncsim \\
+\midrule
+$4\times4$ S & 11.0    & 18.3   & 10.6 & 93.9   \\
+$4\times4$ L & 4{,}021.9  & 292.4  & 23.9 & 1{,}071.7 \\
+$7\times7$ S & 10.9    & 20.3   & 10.2 & 93.8   \\
+$7\times7$ L & 18{,}039.0 & 614.2  & 24.8 & 2{,}492.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:heft-vs-sim} compares the makespan HEFT \emph{predicts} from
+its bandwidth matrix against the makespan ncsim actually \emph{measures} when
+the same placement is executed under CSMA/CA interference and shortest-hop
+routing. Two facts stand out. First, \hefttwo{}'s prediction (10--25\,s) is
+systematically optimistic: simulation produces $4\times$--$100\times$ larger
+makespans because \hefttwo{} assumes multi-hop routes are as efficient as the
+widest path, ignoring that each new active link reduces the effective
+throughput of every other simultaneously active link. Second, \heftone{}'s
+prediction is wildly \emph{pessimistic} on the large DAGs (4022\,s for
+$4\times4$\,L; 18039\,s for $7\times7$\,L) because the
+$0.001$\,MB/s non-adjacent penalty makes any multi-hop alternative look
+disastrous, forcing co-location and yielding what HEFT thinks is a severe
+compute-queuing bottleneck. In simulation, however, the compute bottleneck
+is a fraction of what HEFT estimates: tasks queue on a few high-capacity
+nodes but never compete for the wireless medium. The result is the rank
+inversion that drives this paper: \heftone{} actually wins by
+$1.7$--$4\times$ on the very experiments where \hefttwo{}'s analytic estimate
+predicts a $168$--$727\times$ \heftone{} disadvantage.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{saga_grid_vs_ncsim.pdf}
+\caption{HEFT analytic prediction (blue) vs.\ ncsim simulated makespan with
+SH routing (orange) for the four grid configurations of
+Table~\ref{tab:heft-vs-sim}. Each panel uses its own $y$-axis scale; the
+prediction--simulation gap inverts the $\heftone$/$\hefttwo$ ranking on
+both large-DAG cases.}
+\label{fig:saga-grid}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{saga_rand_large_vs_ncsim.pdf}
+\caption{Predicted (solid) vs.\ ncsim with SH routing (dashed) makespan as
+network density varies, large DAG, random geometric graphs. \hefttwo{}'s
+prediction stays low at every density; the simulated values are an order of
+magnitude higher and grow as the network sparsens. \heftone{}'s analytic
+estimate is more pessimistic but tracks the simulation more faithfully.}
+\label{fig:saga-rand}
+\end{figure}
+
+The same effect is visible across the random-network density sweep
+(Fig.~\ref{fig:saga-rand}): \hefttwo{}'s analytic estimate is essentially
+flat at all densities while the simulated makespan rises sharply as the
+graph sparsens and HEFT-2's preferred multi-hop routes lengthen.
+
+\paragraph{Mechanism.} \hefttwo{} produces well load-balanced placements
+because widest-path bandwidth makes ``put this task on a far node'' look
+cheap; the resulting placement has many cross-node edges and thus many
+simultaneously active wireless links. Each of those links degrades every
+other link's effective bandwidth, and the global makespan is driven by the
+slowest of the resulting flows. \heftone{}'s heavy non-adjacent penalty
+removes the ``put it far away'' option from the placement search, eliminating
+most cross-node data movement and the interference it would have generated.
+
+\subsection{Routing scheme comparison}
+\label{sec:results-routing}
+
+Having fixed \heftone{} as the placement strategy, we now ask which routing
+scheme to pair it with. We sweep DAG size from 8 to 60 tasks on three
+representative networks (L150 dense, L500 sparse, $7\times7$ grid) and report
+mean makespan over 20 seeds for each of the nine schemes. Per-network curves
+are shown in Fig.~\ref{fig:dag-scaling}; aggregate win counts across all 18
+(network, DAG-size) cells appear in Table~\ref{tab:wincounts}.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.32\textwidth]{dag_scaling_L150.pdf}\hfill
+\includegraphics[width=0.32\textwidth]{dag_scaling_L500.pdf}\hfill
+\includegraphics[width=0.32\textwidth]{dag_scaling_7x7.pdf}
+\caption{Mean makespan (log scale) vs.\ DAG size for nine routing schemes,
+\heftone{} scheduler, csma\_bianchi interference. Left: dense random L150
+(50 nodes, avg.\ degree 24.0). Middle: sparse random L500 (50 nodes, avg.\
+degree 3.7). Right: regular $7\times7$ grid. Means over 20 seeds.}
+\label{fig:dag-scaling}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\caption{Number of (network, DAG-size) cells in which each routing scheme
+achieves the lowest mean makespan, out of 18 cells total
+(3 networks $\times$ 6 DAG sizes). \heftone{} fixed.}
+\label{tab:wincounts}
+\small
+\begin{tabular}{l c c c c}
+\toprule
+\textbf{Routing} & \textbf{Total} & \textbf{L150} & \textbf{L500} & \textbf{$7\times7$} \\
+\midrule
+\textbf{SH}    & \textbf{6} & 5 & 0 & 1 \\
+S              & 5          & 1 & 1 & 3 \\
+GSD\nobreakdash-D & 4       & 0 & 3 & 1 \\
+GB             & 2          & 0 & 1 & 1 \\
+GS             & 1          & 0 & 1 & 0 \\
+W, GC, GO, GSD & 0          & 0 & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three observations follow.
+
+\paragraph{Dense networks: SH dominates and interference-aware greedy fails
+catastrophically.} On L150, SH wins at every DAG size from 16 tasks onward
+(S edges out SH at 8 tasks). The four static greedy schemes are an order
+of magnitude worse---4{,}500--5{,}000\,s at 60 tasks against SH's $\sim$412\,s.
+Path diversity is the cause: on a graph with average degree 24 there are
+many alternative routes, and the greedy schemes choose paths that minimize
+\emph{predicted} interference. That prediction is built from HEFT's
+already-stale concurrency assumptions; in execution the chosen paths trigger
+cascading recalculations that amplify actual interference. SH avoids this
+trap by simply minimizing the number of relay hops, which is by far the
+most important determinant of how many simultaneously active links the
+schedule produces.
+
+\paragraph{Sparse networks: deferral wins.} On L500 (avg.\ degree 3.7),
+GSD-D wins three of six DAG sizes. With so few path alternatives, the choice
+of \emph{path} is largely determined; the lever GSD-D pulls is \emph{when}
+each flow runs. By postponing a flow whose effective throughput is severely
+degraded by current contention, GSD-D avoids double-booking the few
+bottleneck links and the additional makespan cost from the deferral itself
+is paid back several times over. Variance is high on L500 at the largest
+DAG sizes ($\sigma>\mu$ at 45--60 tasks), reflecting bimodal seed-to-seed
+behavior depending on whether HEFT placed any tasks across a bridge link.
+
+\paragraph{Regular grid: shortest-path leads.} On the $7\times7$ grid,
+S leads at small to medium DAG sizes; SH and S are essentially tied on
+large DAGs. The grid has uniform link bandwidths, so the secondary
+$\sum 1/b_\ell$ tiebreaker that distinguishes S and SH rarely matters; what
+distinguishes both from the greedy schemes is again that they minimize the
+number of active links rather than try to predict interference. GSD
+(dynamic, no deferral) is the worst scheme on the grid, behind even the
+static greedy variants: per-flow path recomputation imposes overhead that
+degrades the very concurrency model it tries to optimize.
+
+\paragraph{W is uniformly worst.} Widest-path routing wins zero of the 18
+cells. Maximizing the bottleneck bandwidth pushes every flow toward the
+same handful of high-capacity links, inflating both the hop count of each
+route and the contention on those links. Both effects compound under
+CSMA/CA.
+
+\subsection{Auxiliary metrics: explaining \emph{why} each combination wins}
+\label{sec:results-metrics}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{density_hops_large.pdf}
+\caption{Mean number of hops per inter-task transfer, large DAG, best
+routing scheme per (density, scheduler) cell. \heftone{} stays at one hop
+across the entire density sweep; \hefttwo{} and the calibrated HEFT
+baseline grow steeply as the graph sparsens and adjacent placement becomes
+less feasible.}
+\label{fig:hops}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{density_plu_large.pdf}
+\caption{Peak link utilization, large DAG, same configurations as
+Fig.~\ref{fig:hops}. \heftone{} keeps peak utilization low because most
+data transfers are eliminated by co-location, not because each link is
+underused.}
+\label{fig:plu}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Auxiliary metrics for the large DAG (30 tasks) on representative
+random geometric graphs (50 nodes), at the best routing scheme per
+(density, scheduler) cell. ``Hops'' is the mean hop count per inter-task
+transfer; ``PLU'' is the peak link utilization; ``Makespan'' is in
+seconds (mean over 30 seeds).}
+\label{tab:auxmetrics}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l l l r r r}
+\toprule
+\textbf{Network} & \textbf{Sched.} & \textbf{Routing} & \textbf{Hops} & \textbf{PLU} & \textbf{Makespan (s)} \\
+\midrule
+L150 (dense) & \heftone{} & SH    & 1.0 & 0.05 & 149.9 \\
+L150 (dense) & \hefttwo{} & SH    & 1.2 & 0.04 & 308.5 \\
+\midrule
+L300 (med.)  & \heftone{} & SH    & 1.0 & 0.04 & 405.3 \\
+L300 (med.)  & \hefttwo{} & SH    & 2.2 & 0.01 & 2{,}140.4 \\
+\midrule
+L500 (sparse)& \heftone{} & GSD-D & 1.3 & 0.09 & 694.2 \\
+L500 (sparse)& \hefttwo{} & GSD-D & 5.3 & 0.01 & 5{,}068.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:auxmetrics} and Figs.~\ref{fig:hops}--\ref{fig:plu} make the
+mechanism quantitative. Across all densities, \heftone{} drives the mean
+hop count to one---essentially every transfer either vanishes into a
+co-located edge (zero hops) or traverses a single direct wireless link.
+\hefttwo{}, which considers any pair of nodes as roughly bandwidth-equivalent,
+ends up routing flows over 1.2--5.3 hops on average. The peak link
+utilization tells the same story from a different angle: PLU is \emph{lower}
+under \heftone{} only because the schedule simply does not produce that many
+concurrent flows. Under \hefttwo{} the few links that do see traffic see a
+lot of it, but the total number of active links is so much higher that the
+aggregate interference is severe even though no individual link is heavily
+loaded by its own flow alone. In other words, the relevant quantity is not
+``how busy is the busiest link'' but ``how many links are simultaneously
+busy.''
+
+\subsection{No-interference baseline}
+\label{sec:results-noint}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{noint_density_large.pdf}
+\caption{Best-routing makespan vs.\ avg.\ degree, large DAG, with the
+inter-link interference model disabled (intra-link fair sharing only). The
+\heftone{}/\hefttwo{} gap collapses from $\sim 100\times$ to roughly
+$2\times$, confirming that CSMA/CA contention is the mechanism behind the
+headline effects.}
+\label{fig:noint}
+\end{figure}
+
+To verify that the effects above are caused by inter-link interference
+rather than by raw bandwidth or hop count, we re-ran the random-network
+density sweep with the interference model disabled (i.e., with
+$f_\ell\equiv 1$ in Eq.~\ref{eq:bweff} but with intra-link fair sharing
+preserved). Fig.~\ref{fig:noint} shows the result. With interference off,
+\heftone{}'s makespan stays in the 47--62\,s range across all densities and
+\hefttwo{}'s is in the 70--145\,s range---a $\sim 2\times$ gap rather than
+the $\sim 100\times$ gap of the interference case. The
+routing-scheme spread shrinks similarly. We conclude that
+inter-link interference is responsible for the headline effects of this
+paper, not any bandwidth-modeling or hop-count artifact.
+
+%======================================================================
+\section{Related work}
+\label{sec:related}
+
+HEFT~\cite{topcuoglu2002heft} and its many variants
+(CPOP, lookahead-HEFT, etc.) form the dominant family of heuristics for
+DAG scheduling on heterogeneous platforms. The SAGA
+framework~\cite{coleman2024saga} provides reference implementations for
+benchmarking. These works adopt a static pairwise-bandwidth model that does
+not capture interference.
+
+The wireless networking literature characterizes 802.11 CSMA/CA contention
+in detail; the closed-form Bianchi model~\cite{bianchi2000performance}
+remains the standard analytical baseline. Interference-aware routing in ad
+hoc networks is a long-standing topic, but the schedulers it supplies
+typically optimize a single point-to-point flow rather than the
+joint placement-and-routing problem of a DAG workload.
+
+To our knowledge, the systematic evaluation we present here---HEFT
+bandwidth-matrix variants combined with an inventory of routing schemes,
+under a realistic CSMA/CA interference model and across a range of
+topologies and DAG sizes---has not previously appeared in the literature.
+
+%======================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+Wireless interference inverts the intuition that interference-oblivious
+HEFT scheduling rests on: a placement that looks well load-balanced under a
+widest-path bandwidth model produces simultaneously active links whose
+mutual interference dominates the makespan. A simple modification---a
+heavy bandwidth penalty on non-adjacent task pairs (\heftone{})---restores
+performance by encouraging single-hop placement. Among nine routing
+schemes, the simplest interference-unaware shortest-by-hop rule wins
+broadly; deferred dynamic routing (GSD-D) provides additional gains where
+sparse topologies leave no good alternative paths and the only useful lever
+is timing.
+
+Future work will extend the evaluation to mobility (where the topology
+itself changes during execution) and to multi-DAG workloads with online
+scheduling decisions.
+
+%======================================================================
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
