@@ -432,7 +432,7 @@ def _run_all(sc: dict, net: Network) -> dict:
     tg = _build_taskgraph(sc)
 
     results = {}
-    for label, sn in [("heft", sn2), ("heft1", sn1), ("heft2", sn2)]:
+    for label, sn in [("heft1", sn1), ("heft2", sn2)]:
         sched = _heft.schedule(sn, tg)
         results[label] = _schedule_metrics(sched, sn, net, sc, node_idx_to_id)
     return results
@@ -440,22 +440,147 @@ def _run_all(sc: dict, net: Network) -> dict:
 
 # ── Grid evaluation ────────────────────────────────────────────────────────────
 
+_GRID_COMPUTE_COSTS = [500, 200, 800, 350, 1000, 150, 600, 450, 750, 300,
+                       900, 250, 550, 700, 400, 850]
+_GRID_DATA_SIZES    = [10.0, 2.0, 25.0, 5.0, 30.0, 8.0, 15.0, 3.0,
+                       20.0, 6.0, 12.0, 28.0, 4.0, 18.0, 7.0, 22.0]
+_GRID_CAPACITIES    = [200, 100, 150, 80, 300, 120, 250, 180, 160, 90,
+                       220, 140, 280, 110, 190, 170]
+_GRID_SPACING = 40
+
+
+def _gen_grid_sc(grid_size: int, tasks: list, edges: list) -> dict:
+    n = grid_size
+    nodes_data = []
+    for row in range(n):
+        for col in range(n):
+            idx = row * n + col
+            nodes_data.append({
+                "id": f"n{idx}",
+                "compute_capacity": _GRID_CAPACITIES[idx % len(_GRID_CAPACITIES)],
+                "position": {"x": col * _GRID_SPACING, "y": row * _GRID_SPACING},
+            })
+    pairs = set()
+
+    def add_pair(r1, c1, r2, c2):
+        if 0 <= r2 < n and 0 <= c2 < n:
+            a, b = r1 * n + c1, r2 * n + c2
+            pairs.add((min(a, b), max(a, b)))
+
+    for row in range(n):
+        for col in range(n):
+            add_pair(row, col, row, col + 1)
+            add_pair(row, col, row + 1, col)
+            if (row + col) % 2 == 0:
+                add_pair(row, col, row + 1, col + 1)
+            else:
+                add_pair(row, col, row + 1, col - 1)
+
+    links_data = []
+    for a, b in sorted(pairs):
+        na, nb = f"n{a}", f"n{b}"
+        links_data.append({"id": f"l_{na}_{nb}", "from": na, "to": nb,
+                            "bandwidth": 1.0, "latency": 0.001})
+        links_data.append({"id": f"l_{nb}_{na}", "from": nb, "to": na,
+                            "bandwidth": 1.0, "latency": 0.001})
+    return {
+        "scenario": {
+            "network": {"nodes": nodes_data, "links": links_data},
+            "dags": [{"id": "dag_1", "inject_at": 0.0,
+                      "tasks": tasks, "edges": edges}],
+        }
+    }
+
+
+def _make_grid_dag_small():
+    np_ = 6
+    tasks = [{"id": "T0", "compute_cost": _GRID_COMPUTE_COSTS[0]}]
+    for i in range(1, np_ + 1):
+        tasks.append({"id": f"T{i}", "compute_cost": _GRID_COMPUTE_COSTS[i % len(_GRID_COMPUTE_COSTS)]})
+    tasks.append({"id": f"T{np_+1}", "compute_cost": _GRID_COMPUTE_COSTS[(np_+1) % len(_GRID_COMPUTE_COSTS)]})
+    sink = f"T{np_+1}"
+    edges, ei = [], 0
+    for i in range(1, np_ + 1):
+        edges.append({"from": "T0", "to": f"T{i}",
+                      "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+        edges.append({"from": f"T{i}", "to": sink,
+                      "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    return tasks, edges
+
+
+def _make_grid_dag_large_4x4():
+    tasks = [{"id": f"T{i}", "compute_cost": _GRID_COMPUTE_COSTS[i % len(_GRID_COMPUTE_COSTS)]}
+             for i in range(30)]
+    edges, ei = [], 0
+    for i in range(1, 7):
+        edges.append({"from": "T0", "to": f"T{i}",
+                      "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    s1, s2, s3, s4 = range(1, 7), range(7, 15), range(15, 23), range(23, 29)
+    for i, src in enumerate(s1):
+        for j in range(2):
+            edges.append({"from": f"T{src}", "to": f"T{list(s2)[(i*2+j)%8]}",
+                          "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    for i, src in enumerate(s2):
+        for j in range(2):
+            edges.append({"from": f"T{src}", "to": f"T{list(s3)[(i*2+j)%8]}",
+                          "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    for i, src in enumerate(s3):
+        edges.append({"from": f"T{src}", "to": f"T{list(s4)[i%6]}",
+                      "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    for src in s4:
+        edges.append({"from": f"T{src}", "to": "T29",
+                      "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    return tasks, edges
+
+
+def _make_grid_dag_large_7x7():
+    tasks = [{"id": f"T{i}", "compute_cost": _GRID_COMPUTE_COSTS[i % len(_GRID_COMPUTE_COSTS)]}
+             for i in range(60)]
+    edges, ei = [], 0
+    s1 = list(range(1, 11)); s2 = list(range(11, 25))
+    s3 = list(range(25, 39)); s4 = list(range(39, 49)); s5 = list(range(49, 59))
+    for i in s1:
+        edges.append({"from": "T0", "to": f"T{i}",
+                      "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    for i, src in enumerate(s1):
+        for j in range(3):
+            edges.append({"from": f"T{src}", "to": f"T{s2[(i*3+j)%14]}",
+                          "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    for i, src in enumerate(s2):
+        for j in range(2):
+            edges.append({"from": f"T{src}", "to": f"T{s3[(i*2+j)%14]}",
+                          "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    for i, src in enumerate(s3):
+        edges.append({"from": f"T{src}", "to": f"T{s4[i%10]}",
+                      "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    for i, src in enumerate(s4):
+        edges.append({"from": f"T{src}", "to": f"T{s5[i%10]}",
+                      "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    for src in s5:
+        edges.append({"from": f"T{src}", "to": "T59",
+                      "data_size": _GRID_DATA_SIZES[ei % len(_GRID_DATA_SIZES)]}); ei += 1
+    return tasks, edges
+
+
+_GRID_SC_MAKERS = {
+    "4x4_small": lambda: _gen_grid_sc(4, *_make_grid_dag_small()),
+    "4x4_large": lambda: _gen_grid_sc(4, *_make_grid_dag_large_4x4()),
+    "7x7_small": lambda: _gen_grid_sc(7, *_make_grid_dag_small()),
+    "7x7_large": lambda: _gen_grid_sc(7, *_make_grid_dag_large_7x7()),
+}
+
+
 def evaluate_grid() -> dict:
     print("  Grid scenarios ...")
     results = {}
     for exp in GRID_EXPERIMENTS:
-        yaml_path = GRID_INPUTS / f"{exp}_{GRID_REPR_LABEL}_s1" / "scenario.yaml"
-        if not yaml_path.exists():
-            print(f"    WARN: {yaml_path} not found, skipping {exp}")
-            continue
-        with open(yaml_path) as f:
-            sc = yaml.safe_load(f)
+        sc = _GRID_SC_MAKERS[exp]()
         net = _build_ncsim_network(sc, seed=1)
         results[exp] = _run_all(sc, net)
-        ms = {s: results[exp][s]["makespan"] for s in ("heft", "heft1", "heft2")}
-        fc = {s: results[exp][s]["frac_coloc"] for s in ("heft", "heft1", "heft2")}
-        print(f"    {exp}: ms=({ms['heft']:.1f}/{ms['heft1']:.1f}/{ms['heft2']:.1f})  "
-              f"coloc=({fc['heft']:.2f}/{fc['heft1']:.2f}/{fc['heft2']:.2f})")
+        ms = {s: results[exp][s]["makespan"] for s in ("heft1", "heft2")}
+        fc = {s: results[exp][s]["frac_coloc"] for s in ("heft1", "heft2")}
+        print(f"    {exp}: ms=({ms['heft1']:.1f}/{ms['heft2']:.1f})  "
+              f"coloc=({fc['heft1']:.2f}/{fc['heft2']:.2f})")
     return results
 
 
@@ -479,7 +604,7 @@ def evaluate_random() -> dict:
         dag_data = {"small": (tasks_small, edges_small),
                     "large": (tasks_large, edges_large)}
         for dag in RAND_DAGS:
-            runs = {s: {k: [] for k in METRIC_KEYS} for s in ("heft", "heft1", "heft2")}
+            runs = {s: {k: [] for k in METRIC_KEYS} for s in ("heft1", "heft2")}
             n_found = 0
             tasks, edges = dag_data[dag]
             for seed in range(1, NUM_SEEDS + 1):
@@ -488,12 +613,12 @@ def evaluate_random() -> dict:
                 net = _build_ncsim_network_direct(nodes_data, links_data, seed)
                 per_sched = _run_all(sc, net)
                 n_found += 1
-                for s in ("heft", "heft1", "heft2"):
+                for s in ("heft1", "heft2"):
                     for k in METRIC_KEYS:
                         runs[s][k].append(per_sched[s].get(k, 0))
 
             entry = {}
-            for s in ("heft", "heft1", "heft2"):
+            for s in ("heft1", "heft2"):
                 if not runs[s]["makespan"]:
                     continue
                 sm = {}
@@ -508,10 +633,8 @@ def evaluate_random() -> dict:
             if entry:
                 ms = {s: entry[s].get("makespan_mean", 0) for s in entry}
                 fc = {s: entry[s].get("frac_coloc_mean", 0) for s in entry}
-                print(f"    {dl}/{dag}: ms=({ms.get('heft',0):.1f}/"
-                      f"{ms.get('heft1',0):.1f}/{ms.get('heft2',0):.1f})  "
-                      f"coloc=({fc.get('heft',0):.2f}/"
-                      f"{fc.get('heft1',0):.2f}/{fc.get('heft2',0):.2f})")
+                print(f"    {dl}/{dag}: ms=({ms.get('heft1',0):.1f}/{ms.get('heft2',0):.1f})  "
+                      f"coloc=({fc.get('heft1',0):.2f}/{fc.get('heft2',0):.2f})")
     return results
 
 
@@ -523,9 +646,9 @@ import matplotlib.pyplot as plt
 
 EXP_SHORT   = {"4x4_small": r"$4\times4$ S", "4x4_large": r"$4\times4$ L",
                "7x7_small": r"$7\times7$ S", "7x7_large": r"$7\times7$ L"}
-SCHED_NAMES = {"heft": "HEFT", "heft1": "HEFT-1", "heft2": "HEFT-2"}
-COLORS      = {"heft": "#2166ac", "heft1": "#1a9641", "heft2": "#d7191c"}
-MARKERS     = {"heft": "o",       "heft1": "s",       "heft2": "^"}
+SCHED_NAMES = {"heft1": "HEFT-1", "heft2": "HEFT-2"}
+COLORS      = {"heft1": "#1a9641", "heft2": "#d7191c"}
+MARKERS     = {"heft1": "s",       "heft2": "^"}
 EFMT        = dict(capsize=3, capthick=0.8, elinewidth=0.8, alpha=0.5)
 DEGREES     = [int(dl[1:]) for dl in DENSITIES]   # side lengths as x-axis
 
@@ -540,7 +663,7 @@ def _ci95(std, n):
 
 
 def _line_plot(ax, rand_res, dag, metric_key, ylabel, title):
-    for sched in ("heft", "heft1", "heft2"):
+    for sched in ("heft1", "heft2"):
         ys   = [rand_res[dl][dag].get(sched, {}).get(f"{metric_key}_mean", 0)
                 for dl in DENSITIES]
         stds = [rand_res[dl][dag].get(sched, {}).get(f"{metric_key}_std", 0)
@@ -564,26 +687,20 @@ def make_plots(grid_res: dict, rand_res: dict, ncsim_grid: dict, ncsim_rand: dic
     fig, axes = plt.subplots(2, 2, figsize=(11, 8))
     for idx, exp in enumerate(GRID_EXPERIMENTS):
         ax = axes[idx // 2][idx % 2]
-        scheds = ["heft", "heft1", "heft2"]
-        saga_vals  = [grid_res.get(exp, {}).get(s, {}).get("makespan", 0) for s in scheds]
-        ncsim_best = []
-        for s in scheds:
-            best = min(
-                (ncsim_grid.get(f"{exp}|{s}|{lb}", {}).get("mean") or float("inf"))
-                for lb in ["W","S","SH","GS","GC","GB","GO","GSD","GSD-D"]
-            )
-            ncsim_best.append(0 if best == float("inf") else best)
+        scheds = ["heft1", "heft2"]
+        saga_vals = [grid_res.get(exp, {}).get(s, {}).get("makespan", 0) for s in scheds]
+        ncsim_sh  = [ncsim_grid.get(f"{exp}|{s}|SH", {}).get("mean") or 0 for s in scheds]
         x = range(len(scheds))
         w = 0.35
-        ax.bar([xi - w/2 for xi in x], saga_vals,  width=w, color="#5aafe6", alpha=0.9, label="SAGA predicted")
-        ax.bar([xi + w/2 for xi in x], ncsim_best, width=w, color="#e07b39", alpha=0.9, label="NCSIM best")
+        ax.bar([xi - w/2 for xi in x], saga_vals, width=w, color="#5aafe6", alpha=0.9, label="SAGA predicted")
+        ax.bar([xi + w/2 for xi in x], ncsim_sh,  width=w, color="#e07b39", alpha=0.9, label="NCSIM (SH routing)")
         ax.set_xticks(list(x))
-        ax.set_xticklabels(["HEFT", "HEFT-1", "HEFT-2"], fontsize=9)
+        ax.set_xticklabels(["HEFT-1", "HEFT-2"], fontsize=9)
         ax.set_title(EXP_SHORT[exp], fontsize=10)
         ax.set_ylabel("Makespan (s)")
         ax.legend(fontsize=8)
         ax.grid(axis="y", alpha=0.3)
-    plt.suptitle("SAGA prediction vs NCSIM best (grid experiments)", fontsize=11, y=1.01)
+    plt.suptitle("SAGA prediction vs NCSIM (SH routing) — grid experiments", fontsize=11, y=1.01)
     plt.tight_layout()
     plt.savefig(DOCS / "saga_grid_vs_ncsim.pdf")
     plt.close()
@@ -597,15 +714,15 @@ def make_plots(grid_res: dict, rand_res: dict, ncsim_grid: dict, ncsim_rand: dic
         ("link_usage_frac", "Fraction of links used"),
     ]
     fig, axes = plt.subplots(2, 2, figsize=(11, 7))
-    scheds = ["heft", "heft1", "heft2"]
+    scheds = ["heft1", "heft2"]
     x = range(len(GRID_EXPERIMENTS))
-    w = 0.25
+    w = 0.35
     for mi, (mkey, mlabel) in enumerate(metrics_bar):
         ax = axes[mi // 2][mi % 2]
         for si, sched in enumerate(scheds):
             vals = [grid_res.get(exp, {}).get(sched, {}).get(mkey, 0)
                     for exp in GRID_EXPERIMENTS]
-            ax.bar([xi + (si - 1) * w for xi in x], vals, width=w,
+            ax.bar([xi + (si - 0.5) * w for xi in x], vals, width=w,
                    color=COLORS[sched], alpha=0.85, label=SCHED_NAMES[sched])
         ax.set_xticks(list(x))
         ax.set_xticklabels([EXP_SHORT[e] for e in GRID_EXPERIMENTS], fontsize=8)
@@ -641,24 +758,20 @@ def make_plots(grid_res: dict, rand_res: dict, ncsim_grid: dict, ncsim_rand: dic
     # ── 4. Random: SAGA predicted vs NCSIM best, both with 95% CI ────────────
     for dag in RAND_DAGS:
         fig, ax = plt.subplots(figsize=(6.5, 3.8))
-        for sched in ("heft", "heft1", "heft2"):
+        for sched in ("heft1", "heft2"):
             n = rand_res[DENSITIES[0]][dag].get(sched, {}).get("n", 30)
             saga_ys   = [rand_res[dl][dag].get(sched, {}).get("makespan_mean", 0)
                          for dl in DENSITIES]
             saga_errs = [_ci95(rand_res[dl][dag].get(sched, {}).get("makespan_std", 0), n)
                          for dl in DENSITIES]
-            # NCSIM: best routing per sched+density, with its CI
+            # NCSIM: SH routing per sched+density
             ncsim_ys, ncsim_errs = [], []
             for dl in DENSITIES:
-                best_ms, best_ci = 0, 0
-                for lb in ["W","S","SH","GO","GS","GSD","GSD-D"]:
-                    entry = ncsim_rand.get(f"{dl}|{dag}|{sched}|{lb}", {})
-                    ms = entry.get("mean")
-                    if ms and (best_ms == 0 or ms < best_ms):
-                        best_ms = ms
-                        best_ci = _ci95(entry.get("std", 0), 30)
-                ncsim_ys.append(best_ms)
-                ncsim_errs.append(best_ci)
+                entry = ncsim_rand.get(f"{dl}|{dag}|{sched}|SH", {})
+                sh_ms = entry.get("mean") or 0
+                sh_ci = _ci95(entry.get("std", 0), entry.get("n", 30))
+                ncsim_ys.append(sh_ms)
+                ncsim_errs.append(sh_ci)
             ax.errorbar(DEGREES, saga_ys, yerr=saga_errs,
                         color=COLORS[sched], marker=MARKERS[sched],
                         linewidth=1.8, markersize=5, linestyle="-",
@@ -667,10 +780,10 @@ def make_plots(grid_res: dict, rand_res: dict, ncsim_grid: dict, ncsim_rand: dic
             ax.errorbar(DEGREES, ncsim_ys, yerr=ncsim_errs,
                         color=COLORS[sched], marker=MARKERS[sched],
                         linewidth=1.4, markersize=4, linestyle="--",
-                        label=f"{SCHED_NAMES[sched]} (NCSIM)", alpha=0.65, **efmt_ncsim)
+                        label=f"{SCHED_NAMES[sched]} (NCSIM SH)", alpha=0.65, **efmt_ncsim)
         ax.set_xlabel("Area side length (m)", fontsize=10)
         ax.set_ylabel("Makespan (s)", fontsize=10)
-        ax.set_title(f"Random — {dag.capitalize()} DAG — SAGA vs NCSIM", fontsize=10)
+        ax.set_title(f"Random — {dag.capitalize()} DAG — SAGA vs NCSIM (SH)", fontsize=10)
         ax.legend(fontsize=7, ncol=2)
         ax.grid(alpha=0.3)
         plt.tight_layout()
@@ -720,7 +833,7 @@ def build_tex(grid_res: dict, rand_res: dict,
 \newcommand{\win}[1]{\textcolor{green!50!black}{\textbf{#1}}}
 \newcommand{\bad}[1]{\textcolor{red!70!black}{#1}}
 
-\title{Scheduler Comparison: SAGA Predicted vs NCSIM Simulated\\
+\title{Scheduler Comparison: SAGA Predicted vs NCSIM Simulated (SH Routing)\\
 {\large Makespan, Hops, Co-location, Load Balance, and Transfer Volume}}
 \author{Autonomous Networks Research Group (ANRG)\\University of Southern California}
 \date{}
@@ -740,7 +853,7 @@ def build_tex(grid_res: dict, rand_res: dict,
 
 HEFT (Heterogeneous Earliest Finish Time) estimates a schedule's makespan
 before any simulation using a static bandwidth model.
-The three scheduler variants differ only in their pairwise bandwidth matrix:
+The two scheduler variants differ only in their pairwise bandwidth matrix:
 
 \begin{table}[H]
 \centering
@@ -748,11 +861,11 @@ The three scheduler variants differ only in their pairwise bandwidth matrix:
 \toprule
 \textbf{Scheduler} & \textbf{Adjacent pair BW} & \textbf{Non-adjacent BW} \\
 \midrule
-HEFT / HEFT-2 & widest-path PHY rate & widest-path PHY rate \\
-HEFT-1        & direct-link PHY rate & \textbf{0.001 MB/s (heavy penalty)} \\
+HEFT-2 & widest-path PHY rate & widest-path PHY rate \\
+HEFT-1 & direct-link PHY rate & \textbf{0.001 MB/s (heavy penalty)} \\
 \bottomrule
 \end{tabular}
-\caption{Pairwise BW matrices. HEFT and HEFT-2 are identical in this context.}
+\caption{Pairwise BW matrices used by each scheduler variant.}
 \end{table}
 
 \subsection{Extra Metrics Computed from SAGA Schedules}
@@ -818,7 +931,7 @@ Links used \%   & Fraction of all links touched by any cross-node route \\
 
     def _best_ms_in_exp(exp):
         best = float("inf")
-        for s in ("heft","heft1","heft2"):
+        for s in ("heft1","heft2"):
             ms = grid_res.get(exp,{}).get(s,{}).get("makespan", float("inf"))
             if ms < best:
                 best = ms
@@ -827,7 +940,7 @@ Links used \%   & Fraction of all links touched by any cross-node route \\
     for exp in GRID_EXPERIMENTS:
         best_ms = _best_ms_in_exp(exp)
         first = True
-        for s in ("heft", "heft1", "heft2"):
+        for s in ("heft1", "heft2"):
             d = grid_res.get(exp, {}).get(s, {})
             ms = d.get("makespan", 0)
             ms_s = f"{ms:.1f}" if ms else "---"
@@ -871,7 +984,7 @@ Links\% = fraction of network links touched by cross-node routes.}
 
     for exp in GRID_EXPERIMENTS:
         first = True
-        for s in ("heft", "heft1", "heft2"):
+        for s in ("heft1", "heft2"):
             d = grid_res.get(exp, {}).get(s, {})
             row = [
                 EXP_SHORT[exp] if first else "",
@@ -895,48 +1008,43 @@ SAGA xfer est.\ = SAGA's own total estimated cross-node transfer time.}
 """)
 
     # Grid: SAGA vs NCSIM comparison table
-    L.append(r"""\subsection{SAGA Predicted vs NCSIM Best Simulated Makespan}
+    L.append(r"""\subsection{SAGA Predicted vs NCSIM Simulated Makespan (SH Routing)}
 
 \begin{table}[H]
 \centering
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{l r r r r r r}
+\begin{tabular}{l r r r r}
 \toprule
 \textbf{Exp.}
-  & \multicolumn{2}{c}{\textbf{HEFT}}
   & \multicolumn{2}{c}{\textbf{HEFT-1}}
   & \multicolumn{2}{c}{\textbf{HEFT-2}} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
-  & SAGA (s) & NCSIM (s) & SAGA (s) & NCSIM (s) & SAGA (s) & NCSIM (s) \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+  & SAGA (s) & NCSIM (s) & SAGA (s) & NCSIM (s) \\
 \midrule""")
 
     for exp in GRID_EXPERIMENTS:
         row = [EXP_SHORT[exp]]
-        for s in ("heft", "heft1", "heft2"):
+        for s in ("heft1", "heft2"):
             saga_ms = grid_res.get(exp, {}).get(s, {}).get("makespan", 0)
-            best_ncsim = min(
-                (ncsim_grid.get(f"{exp}|{s}|{lb}", {}).get("mean") or float("inf"))
-                for lb in ["W","S","SH","GS","GC","GB","GO","GSD","GSD-D"]
-            )
-            if best_ncsim == float("inf"):
-                best_ncsim = 0
+            sh_ncsim = ncsim_grid.get(f"{exp}|{s}|SH", {}).get("mean") or 0
             row.append(f"{saga_ms:.1f}" if saga_ms else "---")
-            row.append(f"{best_ncsim:.1f}" if best_ncsim else "---")
+            row.append(f"{sh_ncsim:.1f}" if sh_ncsim else "---")
         L.append("  " + " & ".join(row) + r" \\")
 
     L.append(r"""\bottomrule
 \end{tabular}
-\caption{SAGA predicted vs NCSIM best simulated makespan per scheduler.
-NCSIM column = best-routing result for each scheduler across all routing schemes.}
+\caption{SAGA predicted vs NCSIM simulated makespan (SH routing) per scheduler.
+NCSIM column = mean makespan with shortest-hop routing, averaged over 30 seeds.}
 \end{table}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.95\textwidth]{saga_grid_vs_ncsim.pdf}
-\caption{SAGA predicted (blue) vs NCSIM best (orange) makespan for all grid
-experiments. Note the $y$-axis scale per experiment — HEFT-1's SAGA prediction
-can be orders of magnitude higher than HEFT-2's, yet NCSIM shows HEFT-1 winning.}
+\caption{SAGA predicted (blue) vs NCSIM simulated with SH routing (orange) makespan
+for all grid experiments. Note the $y$-axis scale per experiment --- HEFT-1's SAGA
+prediction can be orders of magnitude higher than HEFT-2's, yet NCSIM shows HEFT-1
+winning even with a fixed shortest-hop routing scheme.}
 \end{figure}
 
 \begin{figure}[H]
@@ -975,9 +1083,10 @@ HEFT-2 is more evenly distributed but uses many more wireless hops).}
 \centering
 \includegraphics[width=0.49\textwidth]{saga_rand_small_vs_ncsim.pdf}
 \includegraphics[width=0.49\textwidth]{saga_rand_large_vs_ncsim.pdf}
-\caption{SAGA predicted (solid) vs NCSIM best-routing simulated (dashed) makespan
-vs density. SAGA's HEFT-2 estimate stays low regardless of density; NCSIM shows
-HEFT-2 degrading rapidly at low density (longer paths accumulate more interference).
+\caption{SAGA predicted (solid) vs NCSIM simulated with SH routing (dashed) makespan
+vs density. SAGA's HEFT-2 estimate stays low regardless of density; NCSIM with SH
+routing shows HEFT-2 degrading rapidly at low density (shorter hop paths still
+accumulate interference under dense contention).
 HEFT-1's SAGA estimate is more pessimistic but closer to the actual NCSIM result.}
 \end{figure}
 
@@ -1008,7 +1117,7 @@ Reduced cross-node data is a direct proxy for reduced interference exposure.}
 
     for dl in DENSITIES:
         first = True
-        for s in ("heft", "heft1", "heft2"):
+        for s in ("heft1", "heft2"):
             d = rand_res.get(dl, {}).get("large", {}).get(s, {})
             row = [
                 dl if first else "",
@@ -1103,7 +1212,7 @@ reversing the ranking completely.
 \subsection{Key Takeaways}
 
 \begin{enumerate}
-  \item \textbf{Standard HEFT is blind to interference.}  Its BW matrix assumes
+  \item \textbf{HEFT-2 is blind to interference.}  Its BW matrix assumes
         PHY-rate transfers; csma\_bianchi degrades actual rates by $5\text{--}100\times$
         depending on contention.
   \item \textbf{HEFT-1 works by avoidance, not prediction.}  By co-locating tasks,
@@ -1147,15 +1256,15 @@ def main():
 
     ncsim_grid, ncsim_rand = {}, {}
     try:
-        with open("/tmp/ncsim_full_eval/grid_augmented.json") as f:
+        with open("/tmp/ncsim_full_eval/grid_sh_results.json") as f:
             ncsim_grid = json.load(f)
     except FileNotFoundError:
-        print("  WARN: grid_augmented.json not found")
+        print("  WARN: grid_sh_results.json not found")
     try:
-        with open("/tmp/ncsim_random_eval/random_augmented.json") as f:
+        with open("/tmp/ncsim_random_eval/random_sh_results.json") as f:
             ncsim_rand = json.load(f)
     except FileNotFoundError:
-        print("  WARN: random_augmented.json not found")
+        print("  WARN: random_sh_results.json not found")
 
     print("  Running SAGA evaluations ...")
     grid_res = evaluate_grid()

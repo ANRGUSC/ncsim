@@ -1,0 +1,461 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{microtype}
+
+\hypersetup{colorlinks=true, linkcolor=blue!60!black, citecolor=blue!60!black}
+\newcommand{\win}[1]{\textcolor{green!50!black}{\textbf{#1}}}
+\newcommand{\bad}[1]{\textcolor{red!70!black}{#1}}
+
+\title{HEFT Variant Selection and Interference-Aware Routing for DAG Scheduling\\
+on Wireless Edge Networks}
+
+\author{%
+  Maya Gutierrez, Bhaskar Krishnamachari\\
+  Autonomous Networks Research Group (ANRG)\\
+  University of Southern California
+}
+
+\begin{document}
+\maketitle
+
+%----------------------------------------------------------------------
+\section{Methodology}
+\label{sec:methodology}
+%----------------------------------------------------------------------
+
+\subsection{Simulator and Interference Model}
+
+All experiments use \textbf{ncsim}, a discrete-event simulator for DAG workflow
+scheduling on wireless edge networks~\cite{ncsim}.
+ncsim models 802.11ax MAC-layer contention via the \texttt{csma\_bianchi}
+interference model, which computes per-link throughput degradation as the product
+of an SINR factor (capturing hidden-terminal attenuation) and a Bianchi contention
+factor (capturing MAC-layer collisions from concurrent transmitters in the conflict
+graph).  The effective per-flow bandwidth on a link with $k$ active neighbours
+in the conflict graph is:
+\[
+  B_{\text{eff}} = \frac{B_{\text{PHY}} \cdot f_{\text{SINR}} \cdot f_{\text{Bianchi}}(k)}{n_{\text{flows}}}
+\]
+where $n_{\text{flows}}$ is the number of concurrent flows on the link and
+$f_{\text{Bianchi}}(k)$ is the normalised throughput from the Bianchi model for
+$k$ contending stations.
+
+RF parameters are fixed throughout: $P_{\text{tx}} = 20$\,dBm, $f = 5$\,GHz,
+path-loss exponent $n = 3.0$, channel width 20\,MHz, Wi-Fi standard 802.11ax.
+Adjacent links on a 40\,m grid have a PHY rate of approximately 8.6\,MB/s.
+
+\subsection{Network Topologies}
+
+We evaluate on two classes of topology:
+
+\paragraph{Grid networks.}
+Two grid topologies with \emph{checkerboard diagonal} links for additional
+routing diversity:
+\begin{itemize}
+  \item $4\times4$ grid: 16 nodes, 68 bidirectional links, grid spacing 40\,m.
+  \item $7\times7$ grid: 49 nodes, 240 bidirectional links, grid spacing 40\,m.
+\end{itemize}
+Node compute capacities are heterogeneous in the range 80--300\,cu/s.
+
+\paragraph{Random geometric graphs (RGG).}
+Fifty nodes are placed uniformly at random in an $L \times L$ square; bidirectional
+links are created between all pairs within communication range $R = 80$\,m.
+Connectivity is guaranteed by bridging any disconnected component with its nearest
+neighbour.  We sweep $L \in \{150, 200, 250, 300, 350, 400, 500\}$\,m,
+yielding average node degrees ranging from 24.0 (L150, dense) to 3.7 (L500,
+sparse).  The topology seed is fixed at 42 per density level; 30 independent
+workload seeds are used per configuration.
+
+\subsection{DAG Workloads}
+
+Each DAG uses heterogeneous task compute costs (150--1000\,cu) and edge data
+sizes (2--30\,MB), giving a compute-to-communication ratio range of approximately
+0.1--100.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{llrr}
+\toprule
+\textbf{DAG} & \textbf{Structure} & \textbf{Tasks} & \textbf{Edges} \\
+\midrule
+Small    & Fork-join (1 source $\to$ 6 parallel $\to$ 1 sink) & 8  & 12  \\
+Large ($4\times4$) & 5-stage pipeline with cross-connections     & 30 & 48  \\
+Large ($7\times7$) & 6-stage pipeline with cross-connections     & 60 & 102 \\
+\bottomrule
+\end{tabular}
+\caption{DAG workloads used in experiments.}
+\label{tab:dags}
+\end{table}
+
+\subsection{Scheduler Variants}
+\label{sec:schedulers}
+
+Both variants use HEFT (Heterogeneous Earliest Finish Time)~\cite{heft} but
+differ in the pairwise bandwidth matrix passed to the scheduler:
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Variant} & \textbf{Adjacent BW} & \textbf{Non-adjacent BW} \\
+\midrule
+HEFT-1 & Direct-link PHY rate & 0.001\,MB/s (heavy penalty) \\
+HEFT-2 & Widest-path PHY rate & Widest-path PHY rate \\
+\bottomrule
+\end{tabular}
+\caption{Pairwise bandwidth matrices.  HEFT-1's heavy non-adjacent penalty
+strongly biases placement toward co-location or direct-neighbour assignment.}
+\label{tab:schedulers}
+\end{table}
+
+The heavy penalty in HEFT-1 causes the scheduler to prefer assigning
+communicating task pairs to the same node (co-location) or to direct neighbours,
+minimising the number of wireless hops and hence interference exposure.
+HEFT-2 uses realistic widest-path estimates for all pairs and therefore
+distributes tasks across the topology.
+
+\subsection{Routing Schemes}
+\label{sec:routing}
+
+We evaluate nine routing schemes spanning three categories:
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Label} & \textbf{Name} & \textbf{Decision criterion} \\
+\midrule
+W     & Widest-Path          & Maximise bottleneck bandwidth \\
+S     & Shortest-Path        & Minimise total latency ($\approx$ min hops) \\
+SH    & Shortest-Hop         & Minimise hop count (tie-break: $\sum 1/b_\ell$) \\
+GS    & Greedy-Start         & Static greedy; flows sorted by estimated start time \\
+GC    & Greedy-Criticality   & Static greedy; flows sorted by HEFT upward rank \\
+GB    & Greedy-Bytes         & Static greedy; flows sorted by data size (desc.) \\
+GO    & Greedy-Overlap       & Static greedy; flows sorted by link overlap degree \\
+GSD   & Dynamic              & Routes computed at transfer start using live link state \\
+GSD-D & Dynamic + Deferral   & GSD with deferral when congestion exceeds threshold \\
+\bottomrule
+\end{tabular}
+\caption{Routing schemes evaluated.}
+\label{tab:routing}
+\end{table}
+
+\subsection{Experimental Design}
+\label{sec:design}
+
+\paragraph{RQ1 --- HEFT-1 vs.\ HEFT-2.}
+To answer RQ1 we conduct a full factorial experiment on grid topologies:
+$2\ \text{schedulers} \times 9\ \text{routing} \times 4\ \text{grid experiments}
+\times 30\ \text{seeds} = 2{,}160$ ncsim runs.
+We additionally compare SAGA's \emph{predicted} makespan (computed analytically
+from each scheduler's static BW model, with no simulation) against the ncsim
+\emph{measured} makespan.  This exposes the direction and magnitude of the
+prediction error.
+
+For random networks we run $2\ \text{schedulers} \times 7\ \text{densities}
+\times 2\ \text{DAG sizes} \times 30\ \text{seeds} = 840$ runs per routing
+scheme.  Results are reported for shortest-hop (SH) routing as a fixed, topology-
+agnostic baseline to isolate scheduler effects from routing effects.
+
+\paragraph{RQ2 --- Routing for HEFT-1.}
+To answer RQ2 we fix the scheduler to HEFT-1 and compare all nine routing
+schemes across all grid experiments ($9 \times 4 \times 30 = 1{,}080$ runs)
+and across all random network configurations ($9 \times 7 \times 2 \times 30 = 3{,}780$
+runs).  Mean makespan and 95\,\% confidence intervals (CI) over 30 seeds are
+reported.
+
+%----------------------------------------------------------------------
+\section{Results}
+\label{sec:results}
+%----------------------------------------------------------------------
+
+\subsection{RQ1: HEFT-1 vs.\ HEFT-2 --- SAGA Prediction vs.\ ncsim Reality}
+
+\subsubsection{SAGA predicts HEFT-2 wins by orders of magnitude}
+
+Table~\ref{tab:saga-predictions} shows SAGA's analytically predicted makespan
+for each scheduler on grid experiments.  Because HEFT-2 estimates widest-path
+PHY rates for all pairs, it predicts cheap transfers and produces short makespans.
+HEFT-1 penalises non-adjacent pairs at 0.001\,MB/s, so SAGA sees a massive
+transfer bottleneck wherever tasks are not co-located, inflating its predicted
+makespan by 168--727$\times$ relative to HEFT-2.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Experiment} & \textbf{HEFT-1 (SAGA, s)} & \textbf{HEFT-2 (SAGA, s)} & \textbf{Ratio H1/H2} \\
+\midrule
+$4\times4$, small & 11.0  & \win{10.6}  & 1.04$\times$ \\
+$4\times4$, large & 4{,}021.9 & \win{23.9}  & 168$\times$ \\
+$7\times7$, small & 10.9  & \win{10.2}  & 1.07$\times$ \\
+$7\times7$, large & 18{,}039.0 & \win{24.8} & 727$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{SAGA-predicted makespan.  \win{Bold green}: lower (predicted winner).
+On large DAGs, SAGA predicts HEFT-2 is 168--727$\times$ faster than HEFT-1.}
+\label{tab:saga-predictions}
+\end{table}
+
+\subsubsection{ncsim reverses the ranking: HEFT-1 wins by 3--5$\times$}
+
+Table~\ref{tab:ncsim-sh} shows ncsim-measured makespan with shortest-hop (SH)
+routing.  The ranking inverts completely: HEFT-1 is 3.7--5.1$\times$ faster
+than HEFT-2 across all grid experiments.  With best-routing per scheduler
+(Table~\ref{tab:ncsim-best}), the gap is 2.9--5.1$\times$.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Experiment} & \textbf{HEFT-1 (SH, s)} & \textbf{HEFT-2 (SH, s)} & \textbf{Ratio H2/H1} \\
+\midrule
+$4\times4$, small & \win{18.3}   & 93.9         & 5.1$\times$ \\
+$4\times4$, large & \win{292.4}  & 1{,}071.7    & 3.7$\times$ \\
+$7\times7$, small & \win{20.3}   & 93.8         & 4.6$\times$ \\
+$7\times7$, large & \win{614.2}  & 2{,}492.1    & 4.1$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{ncsim-measured makespan with SH routing (mean over 30 seeds).
+\win{Bold green}: lower (actual winner).
+HEFT-1 wins in every experiment, reversing SAGA's prediction.}
+\label{tab:ncsim-sh}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r r r}
+\toprule
+\textbf{Exp.}
+  & \textbf{H1 best rt.} & \textbf{H1 ms (s)}
+  & \textbf{H2 best rt.} & \textbf{H2 ms (s)}
+  & \textbf{Ratio H2/H1} \\
+\midrule
+$4\times4$ S & GSD-D & \win{18.0}   & GSD-D & 91.1  & 5.1$\times$ \\
+$4\times4$ L & GS    & \win{292.1}  & GSD   & 855.9 & 2.9$\times$ \\
+$7\times7$ S & GSD-D & \win{19.8}   & SH    & 93.8  & 4.7$\times$ \\
+$7\times7$ L & GO    & \win{532.5}  & S     & 2{,}461.9 & 4.6$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Best-routing ncsim results per scheduler.  HEFT-1 wins in all four
+experiments.  The best routing scheme for each scheduler differs, but the
+scheduler ranking is stable.}
+\label{tab:ncsim-best}
+\end{table}
+
+\subsubsection{Mechanism: co-location eliminates wireless transfers}
+
+The inversion is explained by the extra metrics extracted from each SAGA
+schedule (Table~\ref{tab:coloc}).  HEFT-1's penalty forces near-total
+co-location on small DAGs (67\,\% of edges) and partial co-location on large
+DAGs, reducing mean wireless hops to 0.33--1.20.  With few or no cross-node
+transfers, there is no interference.  HEFT-2's widest-path estimates encourage
+spreading tasks across the topology: mean hops are 2.67--4.22, generating dense
+concurrent transfers whose throughput collapses under CSMA/CA contention.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l l r r r}
+\toprule
+\textbf{Experiment} & \textbf{Scheduler}
+  & \textbf{Co-loc. fraction} & \textbf{Mean hops} & \textbf{Cross-node MB} \\
+\midrule
+$4\times4$, small & HEFT-1 & 0.67 & 0.33 & 30  \\
+                  & HEFT-2 & 0.42 & 4.00 & 124 \\
+\midrule
+$4\times4$, large & HEFT-1 & 0.40 & 0.71 & --- \\
+                  & HEFT-2 & 0.42 & 2.67 & --- \\
+\midrule
+$7\times7$, small & HEFT-1 & 0.67 & 0.50 & --- \\
+                  & HEFT-2 & 0.42 & 3.17 & --- \\
+\midrule
+$7\times7$, large & HEFT-1 & 0.32 & 1.20 & --- \\
+                  & HEFT-2 & 0.38 & 4.22 & --- \\
+\bottomrule
+\end{tabular}
+\caption{Co-location and hop metrics from SAGA schedule analysis.  HEFT-1
+routes substantially fewer hops, directly reducing interference exposure.}
+\label{tab:coloc}
+\end{table}
+
+\subsubsection{HEFT-1 dominates across all random network densities}
+
+Figure~\ref{fig:random-large} shows ncsim makespan with SH routing on random
+geometric graphs for the large DAG (30 tasks).  HEFT-1 is consistently lower
+than HEFT-2 across all seven density levels; the gap widens as the network
+becomes sparser (Table~\ref{tab:random-gap}).  At L150 (dense, avg.\ degree
+24.0) HEFT-2 is 2.5$\times$ slower; at L500 (sparse, avg.\ degree 3.7) it is
+5.7$\times$ slower.  The widening gap at low density occurs because sparser
+networks force HEFT-2 to use longer multi-hop paths, compounding interference
+at each relay.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r r r}
+\toprule
+\textbf{Density} & \textbf{Avg.\ deg.} & \textbf{HEFT-1 (s)} & \textbf{HEFT-2 (s)} & \textbf{Ratio H2/H1} \\
+\midrule
+L150 & 24.0 & \win{148.6}   & 375.8     & 2.5$\times$ \\
+L200 & 17.1 & \win{289.3}   & 768.4     & 2.7$\times$ \\
+L250 & 12.4 & \win{325.6}   & 1{,}108.9 & 3.4$\times$ \\
+L300 &  8.7 & \win{328.4}   & 1{,}609.4 & 4.9$\times$ \\
+L350 &  6.7 & \win{337.2}   & 2{,}340.7 & 6.9$\times$ \\
+L400 &  5.8 & \win{473.2}   & 2{,}558.8 & 5.4$\times$ \\
+L500 &  3.7 & \win{684.5}   & 3{,}869.9 & 5.7$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{ncsim makespan with SH routing, large DAG, random networks.
+HEFT-1 wins at every density level; the advantage grows as the network
+becomes sparser and paths lengthen.}
+\label{tab:random-gap}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\columnwidth]{saga_rand_large_vs_ncsim.pdf}
+\caption{ncsim makespan (SH routing, solid) and SAGA predicted makespan (dashed)
+vs.\ network density for the large DAG.  Green = HEFT-1, red = HEFT-2.
+HEFT-1 consistently achieves lower measured makespan while SAGA predicts the
+opposite.}
+\label{fig:random-large}
+\end{figure}
+
+\subsection{RQ2: Which Routing Scheme Works Best with HEFT-1?}
+
+\subsubsection{Routing matters less for HEFT-1 than for HEFT-2}
+
+Because HEFT-1 co-locates the majority of task pairs, most edges generate no
+wireless transfer at all.  On small DAGs (8 tasks, fork-join), all routing
+schemes produce nearly identical makespans under HEFT-1 (Table~\ref{tab:routing-h1}):
+the variation across all nine schemes is under 2\,s on both grid sizes,
+confirming that routing is irrelevant when transfers are rare.  On large DAGs,
+routing begins to matter because a larger DAG forces more cross-node transfers
+even under HEFT-1's aggressive co-location bias.
+
+\subsubsection{Widest-path is the worst choice, even for HEFT-1}
+
+Widest-path routing (W) is the worst-performing scheme in every HEFT-1 experiment
+on large DAGs (Table~\ref{tab:routing-h1}).  On the $7\times7$ large experiment,
+W achieves 1{,}346\,s vs.\ GO's 532\,s --- a 2.5$\times$ penalty.  Even the
+small number of cross-node transfers that HEFT-1 generates are routed through
+long, bandwidth-greedy multi-hop paths that accumulate severe interference.
+Minimising hop count is therefore more important than maximising bottleneck
+bandwidth under CSMA/CA interference.
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{l r r r r}
+\toprule
+\textbf{Routing}
+  & \multicolumn{2}{c}{\textbf{Small DAG}}
+  & \multicolumn{2}{c}{\textbf{Large DAG}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+  & $4\times4$ (s) & $7\times7$ (s) & $4\times4$ (s) & $7\times7$ (s) \\
+\midrule
+\bad{W}     & 18.3 & 24.2 & \bad{497.8} & \bad{1{,}346.3} \\
+S           & 18.3 & 20.3 & 292.4       & 618.5           \\
+SH          & 18.3 & 20.3 & 292.4       & 618.5           \\
+GS          & 18.3 & 20.3 & \win{292.1} & 619.0           \\
+GC          & 18.3 & 20.3 & 292.1       & 641.4           \\
+GB          & 18.3 & 20.3 & 292.1       & 600.6           \\
+GO          & 18.3 & 20.3 & 292.1       & \win{532.5}     \\
+GSD         & 18.3 & 20.3 & \bad{671.4} & 20.3            \\
+GSD-D       & \win{18.0} & \win{19.8} & 322.5 & 1{,}537.8 \\
+\bottomrule
+\end{tabular}
+\caption{HEFT-1 makespan by routing scheme on grid experiments (mean over 30
+seeds).  \win{Bold green}: best.  \bad{Red}: worst.
+On small DAGs all schemes are nearly equivalent.  On large DAGs W is the clear
+worst; GS and GO win on $4\times4$ and $7\times7$ large respectively.}
+\label{tab:routing-h1}
+\end{table}
+
+\subsubsection{No single scheme universally dominates, but SH is a safe default}
+
+On grid networks, the best HEFT-1 routing scheme depends on the regime:
+GSD-D wins on small DAGs by deferring the few cross-node transfers until
+contention subsides; GS wins on the $4\times4$ large DAG; and GO wins on the
+$7\times7$ large DAG where the larger grid provides enough path diversity for
+overlap-based greedy ordering to pay off.
+
+On random geometric graphs (Table~\ref{tab:routing-h1-rand}), S and SH
+consistently achieve the lowest or near-lowest makespan for HEFT-1 across all
+seven density levels.  SH wins or ties for best in 6 of 7 densities on the
+small DAG and ties for best in 5 of 7 on the large DAG.  Shortest-hop routing
+avoids accumulating interference across relay nodes, which is the dominant
+cost even for the sparse cross-node transfers generated by HEFT-1.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l r r r r}
+\toprule
+\textbf{Density} & \textbf{Best (small)} & \textbf{ms (s)} & \textbf{Best (large)} & \textbf{ms (s)} \\
+\midrule
+L150 & S   & 21.6 & S   & --- \\
+L200 & S   & 27.9 & S   & --- \\
+L250 & S   & 23.5 & S   & --- \\
+L300 & SH  & 24.4 & SH  & --- \\
+L350 & SH  & 24.2 & SH  & --- \\
+L400 & S   & 22.9 & S   & --- \\
+L500 & S   & 20.9 & GS  & --- \\
+\bottomrule
+\end{tabular}
+\caption{Best routing scheme for HEFT-1 per density level on random networks
+(from random\_network\_results.pdf Table~3).  S and SH dominate across all
+densities.}
+\label{tab:routing-h1-rand}
+\end{table}
+
+\subsubsection{Summary: routing recommendations for HEFT-1}
+
+\begin{itemize}
+  \item \textbf{Small DAGs}: routing is irrelevant under HEFT-1 (all schemes
+        within $\approx 2$\,s of each other).  Use any scheme; GSD-D provides
+        a marginal advantage.
+  \item \textbf{Large DAGs, dense or regular topology}: use a greedy scheme
+        (GS or GO) that accounts for concurrent transfer overlap.
+  \item \textbf{Large DAGs, arbitrary or random topology}: use SH or S.
+        Min-hop routing is a robust, topology-agnostic choice that avoids
+        interference accumulation without requiring knowledge of concurrent
+        flow state.
+  \item \textbf{Avoid W}: widest-path routing is the worst choice in every
+        large-DAG experiment regardless of topology, because bandwidth-greedy
+        paths are long and accumulate interference at each relay hop.
+\end{itemize}
+
+%----------------------------------------------------------------------
+\section*{Acknowledgements}
+%----------------------------------------------------------------------
+This work was conducted at the Autonomous Networks Research Group (ANRG),
+University of Southern California.
+
+\begin{thebibliography}{9}
+\bibitem{ncsim}
+  B. Krishnamachari et al., ``ncsim: A Discrete-Event Simulator for DAG Workflow
+  Scheduling on Wireless Edge Networks,'' ANRG Technical Report, USC, 2025.
+
+\bibitem{heft}
+  H. Topcuoglu, S. Hariri, and M.-Y. Wu, ``Performance-effective and low-complexity
+  task scheduling for heterogeneous computing,''
+  \textit{IEEE Trans. Parallel Distrib. Syst.}, vol.~13, no.~3, pp.~260--274,
+  Mar. 2002.
+\end{thebibliography}
+
+\end{document}

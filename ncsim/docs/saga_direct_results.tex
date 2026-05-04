@@ -11,7 +11,7 @@
 \newcommand{\win}[1]{\textcolor{green!50!black}{\textbf{#1}}}
 \newcommand{\bad}[1]{\textcolor{red!70!black}{#1}}
 
-\title{Scheduler Comparison: SAGA Predicted vs NCSIM Simulated\\
+\title{Scheduler Comparison: SAGA Predicted vs NCSIM Simulated (SH Routing)\\
 {\large Makespan, Hops, Co-location, Load Balance, and Transfer Volume}}
 \author{Autonomous Networks Research Group (ANRG)\\University of Southern California}
 \date{}
@@ -29,7 +29,7 @@
 
 HEFT (Heterogeneous Earliest Finish Time) estimates a schedule's makespan
 before any simulation using a static bandwidth model.
-The three scheduler variants differ only in their pairwise bandwidth matrix:
+The two scheduler variants differ only in their pairwise bandwidth matrix:
 
 \begin{table}[H]
 \centering
@@ -37,11 +37,11 @@ The three scheduler variants differ only in their pairwise bandwidth matrix:
 \toprule
 \textbf{Scheduler} & \textbf{Adjacent pair BW} & \textbf{Non-adjacent BW} \\
 \midrule
-HEFT / HEFT-2 & widest-path PHY rate & widest-path PHY rate \\
-HEFT-1        & direct-link PHY rate & \textbf{0.001 MB/s (heavy penalty)} \\
+HEFT-2 & widest-path PHY rate & widest-path PHY rate \\
+HEFT-1 & direct-link PHY rate & \textbf{0.001 MB/s (heavy penalty)} \\
 \bottomrule
 \end{tabular}
-\caption{Pairwise BW matrices. HEFT and HEFT-2 are identical in this context.}
+\caption{Pairwise BW matrices used by each scheduler variant.}
 \end{table}
 
 \subsection{Extra Metrics Computed from SAGA Schedules}
@@ -102,21 +102,17 @@ Links used \%   & Fraction of all links touched by any cross-node route \\
 \cmidrule(lr){4-5}
  &  &  & mean & max &  &  &  & \\
 \midrule
-  $4\times4$ S & HEFT & \win{10.6} & 4.00 & 8 & 42\% & 124.0 & 0.668 & 12\% \\
-   & HEFT-1 & 11.0 & 0.33 & 1 & 67\% & 30.0 & 1.007 & 6\% \\
+  $4\times4$ S & HEFT-1 & 11.0 & 0.33 & 1 & 67\% & 30.0 & 1.007 & 6\% \\
    & HEFT-2 & \win{10.6} & 4.00 & 8 & 42\% & 124.0 & 0.668 & 12\% \\
   \midrule
-  $4\times4$ L & HEFT & \win{23.9} & 2.67 & 8 & 42\% & 290.0 & 0.786 & 24\% \\
-   & HEFT-1 & 4021.9 & 0.71 & 2 & 40\% & 352.0 & 0.781 & 24\% \\
+  $4\times4$ L & HEFT-1 & 4021.9 & 0.71 & 2 & 40\% & 352.0 & 0.781 & 24\% \\
    & HEFT-2 & \win{23.9} & 2.67 & 8 & 42\% & 290.0 & 0.786 & 24\% \\
   \midrule
-  $7\times7$ S & HEFT & \win{10.2} & 5.17 & 10 & 42\% & 124.0 & 0.668 & 5\% \\
-   & HEFT-1 & 10.9 & 0.50 & 2 & 67\% & 30.0 & 1.007 & 2\% \\
-   & HEFT-2 & \win{10.2} & 5.17 & 10 & 42\% & 124.0 & 0.668 & 5\% \\
+  $7\times7$ S & HEFT-1 & 10.9 & 0.50 & 2 & 67\% & 30.0 & 1.007 & 2\% \\
+   & HEFT-2 & \win{10.2} & 3.17 & 10 & 42\% & 124.0 & 0.668 & 8\% \\
   \midrule
-  $7\times7$ L & HEFT & \win{24.8} & 4.18 & 10 & 38\% & 735.0 & 0.489 & 24\% \\
-   & HEFT-1 & 18036.7 & 1.18 & 9 & 33\% & 898.0 & 0.709 & 10\% \\
-   & HEFT-2 & \win{24.8} & 4.18 & 10 & 38\% & 735.0 & 0.489 & 24\% \\
+  $7\times7$ L & HEFT-1 & 18039.0 & 1.20 & 8 & 32\% & 858.0 & 1.132 & 9\% \\
+   & HEFT-2 & \win{24.8} & 4.22 & 10 & 38\% & 735.0 & 0.489 & 26\% \\
   \bottomrule
 \end{tabular}
 \caption{Per-scheduler metrics on grid experiments.
@@ -136,20 +132,16 @@ Links\% = fraction of network links touched by cross-node routes.}
   & \textbf{Nodes used} & \textbf{Peak tasks/node}
   & \textbf{Peak CU/node} & \textbf{SAGA xfer est. (s)} \\
 \midrule
-  $4\times4$ S & HEFT & 3 & 4 & 2100 & 19.2 \\
-   & HEFT-1 & 3 & 6 & 2850 & 4.7 \\
+  $4\times4$ S & HEFT-1 & 3 & 6 & 2850 & 4.7 \\
    & HEFT-2 & 3 & 4 & 2100 & 19.2 \\
   \midrule
-  $4\times4$ L & HEFT & 6 & 11 & 6050 & 45.0 \\
-   & HEFT-1 & 6 & 13 & 6900 & 4056.7 \\
+  $4\times4$ L & HEFT-1 & 6 & 13 & 6900 & 4056.7 \\
    & HEFT-2 & 6 & 11 & 6050 & 45.0 \\
   \midrule
-  $7\times7$ S & HEFT & 3 & 4 & 2100 & 19.2 \\
-   & HEFT-1 & 3 & 6 & 2850 & 6.0 \\
+  $7\times7$ S & HEFT-1 & 3 & 6 & 2850 & 6.0 \\
    & HEFT-2 & 3 & 4 & 2100 & 19.2 \\
   \midrule
-  $7\times7$ L & HEFT & 9 & 10 & 5550 & 114.0 \\
-   & HEFT-1 & 7 & 19 & 10500 & 27164.0 \\
+  $7\times7$ L & HEFT-1 & 9 & 18 & 11700 & 34144.6 \\
    & HEFT-2 & 9 & 10 & 5550 & 114.0 \\
   \bottomrule
 \end{tabular}
@@ -160,37 +152,37 @@ Peak CU = max total compute cost (compute units) assigned to any node.
 SAGA xfer est.\ = SAGA's own total estimated cross-node transfer time.}
 \end{table}
 
-\subsection{SAGA Predicted vs NCSIM Best Simulated Makespan}
+\subsection{SAGA Predicted vs NCSIM Simulated Makespan (SH Routing)}
 
 \begin{table}[H]
 \centering
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{l r r r r r r}
+\begin{tabular}{l r r r r}
 \toprule
 \textbf{Exp.}
-  & \multicolumn{2}{c}{\textbf{HEFT}}
   & \multicolumn{2}{c}{\textbf{HEFT-1}}
   & \multicolumn{2}{c}{\textbf{HEFT-2}} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
-  & SAGA (s) & NCSIM (s) & SAGA (s) & NCSIM (s) & SAGA (s) & NCSIM (s) \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+  & SAGA (s) & NCSIM (s) & SAGA (s) & NCSIM (s) \\
 \midrule
-  $4\times4$ S & 10.6 & 91.1 & 11.0 & 18.0 & 10.6 & 91.1 \\
-  $4\times4$ L & 23.9 & 855.9 & 4021.9 & 292.1 & 23.9 & 855.9 \\
-  $7\times7$ S & 10.2 & 93.7 & 10.9 & 19.8 & 10.2 & 93.8 \\
-  $7\times7$ L & 24.8 & 2461.9 & 18036.7 & 532.5 & 24.8 & 2542.2 \\
+  $4\times4$ S & 11.0 & 18.3 & 10.6 & 93.9 \\
+  $4\times4$ L & 4021.9 & 292.4 & 23.9 & 1071.7 \\
+  $7\times7$ S & 10.9 & 20.3 & 10.2 & 93.8 \\
+  $7\times7$ L & 18039.0 & 614.2 & 24.8 & 2492.1 \\
 \bottomrule
 \end{tabular}
-\caption{SAGA predicted vs NCSIM best simulated makespan per scheduler.
-NCSIM column = best-routing result for each scheduler across all routing schemes.}
+\caption{SAGA predicted vs NCSIM simulated makespan (SH routing) per scheduler.
+NCSIM column = mean makespan with shortest-hop routing, averaged over 30 seeds.}
 \end{table}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.95\textwidth]{saga_grid_vs_ncsim.pdf}
-\caption{SAGA predicted (blue) vs NCSIM best (orange) makespan for all grid
-experiments. Note the $y$-axis scale per experiment — HEFT-1's SAGA prediction
-can be orders of magnitude higher than HEFT-2's, yet NCSIM shows HEFT-1 winning.}
+\caption{SAGA predicted (blue) vs NCSIM simulated with SH routing (orange) makespan
+for all grid experiments. Note the $y$-axis scale per experiment --- HEFT-1's SAGA
+prediction can be orders of magnitude higher than HEFT-2's, yet NCSIM shows HEFT-1
+winning even with a fixed shortest-hop routing scheme.}
 \end{figure}
 
 \begin{figure}[H]
@@ -227,9 +219,10 @@ HEFT-2 is more evenly distributed but uses many more wireless hops).}
 \centering
 \includegraphics[width=0.49\textwidth]{saga_rand_small_vs_ncsim.pdf}
 \includegraphics[width=0.49\textwidth]{saga_rand_large_vs_ncsim.pdf}
-\caption{SAGA predicted (solid) vs NCSIM best-routing simulated (dashed) makespan
-vs density. SAGA's HEFT-2 estimate stays low regardless of density; NCSIM shows
-HEFT-2 degrading rapidly at low density (longer paths accumulate more interference).
+\caption{SAGA predicted (solid) vs NCSIM simulated with SH routing (dashed) makespan
+vs density. SAGA's HEFT-2 estimate stays low regardless of density; NCSIM with SH
+routing shows HEFT-2 degrading rapidly at low density (shorter hop paths still
+accumulate interference under dense contention).
 HEFT-1's SAGA estimate is more pessimistic but closer to the actual NCSIM result.}
 \end{figure}
 
@@ -255,33 +248,26 @@ Reduced cross-node data is a direct proxy for reduced interference exposure.}
   & \textbf{Coloc\%} & \textbf{Cross-MB}
   & \textbf{CV} & \textbf{Links\%} \\
 \midrule
-  L150 & HEFT & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 5\% \\
-   & HEFT-1 & 22.4 & 3.84 & 37\% & 365.6 & 0.739 & 4\% \\
-   & HEFT-2 & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 5\% \\
+  L150 & HEFT-1 & 22.6 & 3.86 & 37\% & 363.1 & 0.780 & 4\% \\
+   & HEFT-2 & 21.9 & 4.23 & 40\% & 317.0 & 0.804 & 5\% \\
   \midrule
-  L200 & HEFT & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 7\% \\
-   & HEFT-1 & 24.7 & 3.99 & 36\% & 377.7 & 0.772 & 6\% \\
-   & HEFT-2 & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 7\% \\
+  L200 & HEFT-1 & 24.7 & 3.89 & 36\% & 374.8 & 0.827 & 5\% \\
+   & HEFT-2 & 21.9 & 4.23 & 40\% & 317.0 & 0.804 & 7\% \\
   \midrule
-  L250 & HEFT & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 11\% \\
-   & HEFT-1 & 993.3 & 3.90 & 35\% & 383.5 & 0.808 & 8\% \\
-   & HEFT-2 & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 11\% \\
+  L250 & HEFT-1 & 325.3 & 3.81 & 36\% & 370.2 & 0.818 & 7\% \\
+   & HEFT-2 & 21.9 & 4.23 & 40\% & 317.0 & 0.804 & 11\% \\
   \midrule
-  L300 & HEFT & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 14\% \\
-   & HEFT-1 & 1194.9 & 3.67 & 40\% & 349.9 & 0.767 & 9\% \\
-   & HEFT-2 & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 14\% \\
+  L300 & HEFT-1 & 1426.4 & 3.85 & 37\% & 369.8 & 0.820 & 9\% \\
+   & HEFT-2 & 21.9 & 4.23 & 40\% & 317.0 & 0.804 & 14\% \\
   \midrule
-  L350 & HEFT & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 19\% \\
-   & HEFT-1 & 1828.7 & 3.68 & 41\% & 352.4 & 0.786 & 11\% \\
-   & HEFT-2 & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 19\% \\
+  L350 & HEFT-1 & 2128.2 & 3.44 & 41\% & 337.4 & 0.861 & 11\% \\
+   & HEFT-2 & 21.9 & 4.23 & 40\% & 317.0 & 0.804 & 19\% \\
   \midrule
-  L400 & HEFT & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 24\% \\
-   & HEFT-1 & 2197.9 & 3.61 & 44\% & 332.0 & 0.801 & 12\% \\
-   & HEFT-2 & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 24\% \\
+  L400 & HEFT-1 & 763.7 & 3.48 & 42\% & 334.9 & 0.843 & 13\% \\
+   & HEFT-2 & 21.9 & 4.23 & 40\% & 317.0 & 0.804 & 24\% \\
   \midrule
-  L500 & HEFT & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 34\% \\
-   & HEFT-1 & 2565.6 & 3.40 & 48\% & 297.3 & 0.798 & 16\% \\
-   & HEFT-2 & 21.9 & 3.71 & 40\% & 317.0 & 0.804 & 34\% \\
+  L500 & HEFT-1 & 633.2 & 3.31 & 45\% & 323.7 & 0.864 & 15\% \\
+   & HEFT-2 & 21.9 & 4.23 & 40\% & 317.0 & 0.804 & 34\% \\
   \bottomrule
 \end{tabular}
 \caption{Mean metrics over 30 seeds for the large DAG on random networks.
@@ -360,7 +346,7 @@ reversing the ranking completely.
 \subsection{Key Takeaways}
 
 \begin{enumerate}
-  \item \textbf{Standard HEFT is blind to interference.}  Its BW matrix assumes
+  \item \textbf{HEFT-2 is blind to interference.}  Its BW matrix assumes
         PHY-rate transfers; csma\_bianchi degrades actual rates by $5\text{--}100\times$
         depending on contention.
   \item \textbf{HEFT-1 works by avoidance, not prediction.}  By co-locating tasks,
