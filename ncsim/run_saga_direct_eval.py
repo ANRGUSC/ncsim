@@ -69,7 +69,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from ncsim.models.wifi import (
     RFConfig, compute_link_phy_rates, generate_shadow_fading_map,
 )
-from ncsim.models.routing import WidestPathRouting
+from ncsim.models.routing import WidestPathRouting, ShortestHopRouting
 from ncsim.models.network import Network, Node, Link, Position
 
 _DEFAULT_RF = RFConfig(
@@ -79,6 +79,7 @@ _DEFAULT_RF = RFConfig(
     shadow_fading_sigma=0.0, rts_cts=False,
 )
 _wp = WidestPathRouting()
+_sh = ShortestHopRouting()
 
 
 # ── Random network / DAG generators (mirrors run_random_eval.py) ──────────────
@@ -357,8 +358,8 @@ def _schedule_metrics(schedule, saga_net: SagaNetwork,
             hops_per_edge.append(0)
             coloc_count += 1
         else:
-            # Actual route length via widest-path
-            path = _wp.get_path(src_node, dst_node, net)
+            # Actual route length via shortest-hop (matches simulation routing)
+            path = _sh.get_path(src_node, dst_node, net)
             h = len(path) if path else 1
             hops_per_edge.append(h)
             cross_data += data_size
@@ -404,7 +405,7 @@ def _schedule_metrics(schedule, saga_net: SagaNetwork,
         sn = assignment.get(e["from"])
         dn = assignment.get(e["to"])
         if sn and dn and sn != dn:
-            path = _wp.get_path(sn, dn, net)
+            path = _sh.get_path(sn, dn, net)
             if path:
                 used_links.update(path)
 
