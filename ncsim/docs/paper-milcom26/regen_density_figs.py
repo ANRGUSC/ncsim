@@ -45,6 +45,14 @@ NOINT_LARGE = {
     "HEFT-2":        [121.6, 121.6, 120.3, 66.8, 78.0, 102.0, 102.0],
 }
 
+# 95% CI half-widths for NOINT_LARGE (no-interference, n=30 seeds).
+# Source: no_interference_results.tex best-routing-summary table.
+NOINT_LARGE_CI95 = {
+    "HEFT (calib.)": [4.881, 4.407, 4.821, 5.958, 8.323, 0.000, 0.000],
+    "HEFT-1":        [2.433, 0.485, 0.477, 4.227, 0.992, 0.000, 0.000],
+    "HEFT-2":        [4.585, 5.206, 5.098, 6.055, 8.457, 0.000, 0.000],
+}
+
 STYLES = {
     "HEFT (calib.)": dict(color="#2166ac", marker="o", linestyle="-",
                           linewidth=1.8, markersize=6),
@@ -55,10 +63,15 @@ STYLES = {
 }
 
 
-def make_plot(data, ylabel, title, outfile, log=False, legend_loc="best"):
+def make_plot(data, ylabel, title, outfile, log=False, legend_loc="best",
+              errors=None):
     fig, ax = plt.subplots(figsize=(6.5, 3.8))
     for label, vals in data.items():
-        ax.plot(DEGREES, vals, label=label, **STYLES[label])
+        if errors and label in errors:
+            ax.errorbar(DEGREES, vals, yerr=errors[label], label=label,
+                        capsize=3, elinewidth=1.0, **STYLES[label])
+        else:
+            ax.plot(DEGREES, vals, label=label, **STYLES[label])
 
     if log:
         ax.set_yscale("log")
@@ -102,4 +115,5 @@ make_plot(
     outfile=os.path.join(OUT, "noint_density_large.pdf"),
     log=True,
     legend_loc="upper right",
+    errors=NOINT_LARGE_CI95,
 )
