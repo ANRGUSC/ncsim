@@ -26,40 +26,34 @@ DEGREES = [3.7, 5.8, 6.7, 8.7, 12.4, 17.1, 24.0]
 
 # Mean hops per inter-task transfer, large DAG, best routing per cell.
 HOPS_LARGE = {
-    "HEFT (calib.)": [5.2, 2.6, 2.7, 2.6, 1.9, 1.3, 1.2],
-    "HEFT-1":        [1.3, 1.3, 1.1, 1.0, 1.1, 1.0, 1.0],
-    "HEFT-2":        [5.3, 2.6, 2.7, 2.2, 2.1, 1.3, 1.2],
+    "HEFT-1": [1.3, 1.3, 1.1, 1.0, 1.1, 1.0, 1.0],
+    "HEFT-2": [5.3, 2.6, 2.7, 2.2, 2.1, 1.3, 1.2],
 }
 
 # Peak link utilization, large DAG, best routing per cell.
 PLU_LARGE = {
-    "HEFT (calib.)": [0.01, 0.01, 0.01, 0.01, 0.01, 0.03, 0.04],
-    "HEFT-1":        [0.09, 0.09, 0.09, 0.04, 0.06, 0.03, 0.05],
-    "HEFT-2":        [0.01, 0.02, 0.01, 0.01, 0.01, 0.03, 0.04],
+    "HEFT-1": [0.09, 0.09, 0.09, 0.04, 0.06, 0.03, 0.05],
+    "HEFT-2": [0.01, 0.02, 0.01, 0.01, 0.01, 0.03, 0.04],
 }
 
 # No-interference baseline: best-routing mean makespan, large DAG.
 NOINT_LARGE = {
-    "HEFT (calib.)": [120.6, 121.1, 120.4, 67.4, 85.0, 102.0, 102.0],
-    "HEFT-1":        [ 57.1,  47.5,  47.5, 65.7, 55.3,  61.7,  61.7],
-    "HEFT-2":        [121.6, 121.6, 120.3, 66.8, 78.0, 102.0, 102.0],
+    "HEFT-1": [ 57.1,  47.5,  47.5, 65.7, 55.3,  61.7,  61.7],
+    "HEFT-2": [121.6, 121.6, 120.3, 66.8, 78.0, 102.0, 102.0],
 }
 
 # 95% CI half-widths for NOINT_LARGE (no-interference, n=30 seeds).
 # Source: no_interference_results.tex best-routing-summary table.
 NOINT_LARGE_CI95 = {
-    "HEFT (calib.)": [4.881, 4.407, 4.821, 5.958, 8.323, 0.000, 0.000],
-    "HEFT-1":        [2.433, 0.485, 0.477, 4.227, 0.992, 0.000, 0.000],
-    "HEFT-2":        [4.585, 5.206, 5.098, 6.055, 8.457, 0.000, 0.000],
+    "HEFT-1": [2.433, 0.485, 0.477, 4.227, 0.992, 0.000, 0.000],
+    "HEFT-2": [4.585, 5.206, 5.098, 6.055, 8.457, 0.000, 0.000],
 }
 
 STYLES = {
-    "HEFT (calib.)": dict(color="#2166ac", marker="o", linestyle="-",
-                          linewidth=1.8, markersize=6),
-    "HEFT-1":        dict(color="#1a9641", marker="s", linestyle="-",
-                          linewidth=1.8, markersize=6),
-    "HEFT-2":        dict(color="#d7191c", marker="^", linestyle="-",
-                          linewidth=1.8, markersize=6),
+    "HEFT-1": dict(color="#1a9641", marker="s", linestyle="-",
+                   linewidth=1.8, markersize=6),
+    "HEFT-2": dict(color="#d7191c", marker="^", linestyle="-",
+                   linewidth=1.8, markersize=6),
 }
 
 

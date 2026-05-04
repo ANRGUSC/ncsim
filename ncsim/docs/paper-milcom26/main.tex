@@ -476,9 +476,8 @@ CSMA/CA.
 \includegraphics[width=\columnwidth]{density_hops_large.pdf}
 \caption{Mean number of hops per inter-task transfer, large DAG, best
 routing scheme per (density, scheduler) cell. \heftone{} stays at one hop
-across the entire density sweep; \hefttwo{} and the calibrated HEFT
-baseline grow steeply as the graph sparsens and adjacent placement becomes
-less feasible.}
+across the entire density sweep; \hefttwo{} grows steeply as the graph
+sparsens and adjacent placement becomes less feasible.}
 \label{fig:hops}
 \end{figure}
 
@@ -569,7 +568,7 @@ DAG scheduling on heterogeneous platforms, and the SAGA
 framework~\cite{coleman2024saga} provides reference implementations for
 benchmarking. However, these works adopt a static pairwise-bandwidth
 model that does not capture interference, and so the placements they
-produce are calibrated to a quantity that does not exist in a real
+produce are tuned to a quantity that does not exist in a real
 wireless edge.
 
 The wireless networking literature characterizes 802.11 CSMA/CA contention
