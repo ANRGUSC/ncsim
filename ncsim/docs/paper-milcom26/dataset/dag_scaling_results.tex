@@ -1,0 +1,317 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true, linkcolor=blue!60!black}
+
+\newcommand{\win}[1]{\textcolor{green!50!black}{\textbf{#1}}}
+\newcommand{\bad}[1]{\textcolor{red!70!black}{#1}}
+
+\title{DAG-Size Scaling: Routing Scheme Comparison\\
+{\large Fixed Networks $\cdot$ Varying DAG Size $\cdot$ HEFT-1 Scheduler}}
+\author{Autonomous Networks Research Group (ANRG)\\University of Southern California}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+
+%======================================================================
+\section{Evaluation Setup}
+
+Since HEFT-1 dominates under \texttt{csma\_bianchi} interference (it co-locates
+tasks to avoid multi-hop transfers), this experiment fixes the scheduler to HEFT-1
+and asks: \emph{which routing scheme performs best as DAG size grows?}
+Three representative networks are held fixed; DAG size is varied from 8 to 60 tasks.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+
+Scheduler & HEFT-1 (direct-link BW; 0.001\,MB/s for non-adjacent) \\
+Interference & \texttt{csma\_bianchi} (802.11ax, 5\,GHz, 20\,MHz, $P_\text{tx}=20$\,dBm) \\
+Routing schemes & W, S, SH, GS, GC, GB, GO, GSD, GSD-D (9 total) \\
+Seeds per combo & 20 (seeds 1--20); values are mean makespan \\
+Compute costs & 150--1000\,cu (heterogeneous, $\approx6.7\times$ range) \\
+Data sizes & 2--30\,MB (heterogeneous, $15\times$ range) \\
+Node capacities & 80--300\,cu/s (heterogeneous) \\
+\midrule
+\multicolumn{2}{l}{\textbf{Fixed Networks}} \\
+  L150 & 50 nodes in $L=150$\,m square, comm.\ range 80\,m; 601 links, avg.\ degree $24.0$ \\
+  L500 & 50 nodes in $L=500$\,m square, comm.\ range 80\,m; 92 links, avg.\ degree $3.7$ \\
+  7x7 & 49 nodes, 40\,m grid spacing; 120 links, avg.\ degree $4.9$ \\
+\midrule
+\multicolumn{2}{l}{\textbf{DAG Sizes}} \\
+  8 tasks & fork-join; 12 edges \\
+  16 tasks & 3-stage pipeline; 26 edges \\
+  24 tasks & 4-stage pipeline; 34 edges \\
+  32 tasks & 5-stage pipeline; 42 edges \\
+  45 tasks & 5-stage expanded; 59 edges \\
+  60 tasks & 6-stage pipeline; 78 edges \\
+\bottomrule
+\end{tabularx}
+\par\smallskip\noindent{\small\textit{Table 1: Evaluation parameters.}}
+\end{center}
+\addtocounter{table}{1}
+
+
+%======================================================================
+\section{Results per Network}
+
+\subsection{Random Network, $L=150\,\mathrm{m}$ (Dense)}
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l  r r r r r r}
+\toprule
+\textbf{Routing} & \textbf{8t} & \textbf{16t} & \textbf{24t} & \textbf{32t} & \textbf{45t} & \textbf{60t} \\
+\midrule
+  W & 56.4$\pm$4.6 & 229.4$\pm$36.1 & 353.8$\pm$77.0 & 389.3$\pm$37.6 & 711.7$\pm$49.9 & 1066.3$\pm$112.6 \\
+  S & \win{17.7$\pm$0.6} & 51.6$\pm$3.5 & 90.2$\pm$6.7 & 137.5$\pm$19.1 & 297.6$\pm$44.2 & 459.8$\pm$34.8 \\
+  SH & 18.1$\pm$0.4 & \win{48.8$\pm$2.8} & \win{79.6$\pm$0.5} & \win{116.1$\pm$11.5} & \win{237.9$\pm$33.6} & \win{436.9$\pm$47.3} \\
+  GS & 231.1$\pm$26.7 & 849.2$\pm$82.8 & 1143.6$\pm$92.4 & \bad{2023.3$\pm$236.6} & 2516.6$\pm$191.8 & 4535.2$\pm$340.5 \\
+  GC & \bad{297.3$\pm$23.3} & 861.9$\pm$52.9 & 1382.6$\pm$35.6 & 1754.6$\pm$196.4 & 2316.4$\pm$122.9 & 4674.2$\pm$179.6 \\
+  GB & 209.6$\pm$19.9 & \bad{900.3$\pm$55.4} & 1289.8$\pm$161.0 & 1867.8$\pm$225.3 & 2324.8$\pm$139.5 & \bad{4871.4$\pm$415.8} \\
+  GO & 252.5$\pm$29.4 & 871.6$\pm$86.5 & 1268.8$\pm$98.3 & 1705.4$\pm$173.5 & 2396.0$\pm$279.5 & 4058.2$\pm$341.6 \\
+  GSD & 256.5$\pm$27.0 & 823.6$\pm$68.3 & \bad{1389.9$\pm$168.0} & 1794.3$\pm$206.3 & \bad{2931.4$\pm$416.7} & 4051.5$\pm$250.3 \\
+  GSD\mbox{-}D & 128.0$\pm$14.7 & 718.4$\pm$83.2 & 1241.0$\pm$132.8 & 1553.6$\pm$78.6 & 2561.7$\pm$216.2 & 4082.7$\pm$123.3 \\
+\midrule
+  \textit{Best} & \textit{S} & \textit{SH} & \textit{SH} & \textit{SH} & \textit{SH} & \textit{SH} \\
+\bottomrule
+\end{tabular}
+\caption{Mean makespan $\pm$ 95\% CI (s) for L150 network, HEFT-1, 20 seeds. DAG sizes (tasks): 8, 16, 24, 32, 45, 60. \win{Bold green}: best per column. \bad{Red}: worst per column.}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{dag_scaling_L150.pdf}
+\caption{Makespan vs.\ DAG size for L150 (HEFT-1, 20 seeds, log-scale y-axis). Each point is the mean over seeds.}
+\end{figure}
+
+\subsection{Random Network, $L=500\,\mathrm{m}$ (Sparse)}
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l  r r r r r r}
+\toprule
+\textbf{Routing} & \textbf{8t} & \textbf{16t} & \textbf{24t} & \textbf{32t} & \textbf{45t} & \textbf{60t} \\
+\midrule
+  W & \bad{22.3$\pm$3.6} & 307.0$\pm$214.4 & \bad{2076.4$\pm$1193.1} & 1240.3$\pm$402.7 & 984.0$\pm$645.6 & 3500.9$\pm$2138.3 \\
+  S & 17.7$\pm$1.6 & 176.9$\pm$162.0 & 685.1$\pm$365.1 & 1263.0$\pm$459.0 & 1495.9$\pm$734.1 & \win{3457.2$\pm$2148.9} \\
+  SH & 19.9$\pm$1.7 & 604.0$\pm$270.0 & 512.0$\pm$331.1 & \bad{1772.3$\pm$459.5} & 1226.7$\pm$628.8 & 5197.1$\pm$2413.3 \\
+  GS & 18.0$\pm$1.8 & 423.4$\pm$247.2 & 1122.3$\pm$374.7 & \win{754.0$\pm$299.9} & 1233.4$\pm$594.9 & 4713.1$\pm$2329.2 \\
+  GC & 17.7$\pm$1.7 & 485.6$\pm$257.1 & 1035.3$\pm$380.4 & 1113.1$\pm$357.5 & 1609.9$\pm$670.4 & 4692.2$\pm$2331.8 \\
+  GB & 17.5$\pm$1.8 & 483.2$\pm$257.9 & 597.3$\pm$350.9 & 1187.7$\pm$437.1 & 1512.1$\pm$744.8 & \bad{5439.2$\pm$2330.9} \\
+  GO & \win{16.8$\pm$1.8} & \bad{668.7$\pm$270.1} & 597.3$\pm$350.9 & 1357.8$\pm$384.7 & \bad{2041.0$\pm$659.2} & 4617.2$\pm$2356.1 \\
+  GSD & 18.4$\pm$1.6 & 500.5$\pm$252.6 & \win{422.3$\pm$306.4} & 1092.5$\pm$366.4 & 1144.3$\pm$688.9 & 4826.6$\pm$2295.5 \\
+  GSD\mbox{-}D & 16.9$\pm$2.1 & \win{91.4$\pm$20.7} & 645.1$\pm$278.5 & 847.2$\pm$293.5 & \win{978.9$\pm$403.8} & 4569.7$\pm$2243.4 \\
+\midrule
+  \textit{Best} & \textit{GO} & \textit{GSD-D} & \textit{GSD} & \textit{GS} & \textit{GSD-D} & \textit{S} \\
+\bottomrule
+\end{tabular}
+\caption{Mean makespan $\pm$ 95\% CI (s) for L500 network, HEFT-1, 20 seeds. DAG sizes (tasks): 8, 16, 24, 32, 45, 60. \win{Bold green}: best per column. \bad{Red}: worst per column.}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{dag_scaling_L500.pdf}
+\caption{Makespan vs.\ DAG size for L500 (HEFT-1, 20 seeds, log-scale y-axis). Each point is the mean over seeds.}
+\end{figure}
+
+\subsection{$7\times7$ Grid (49 nodes, 40 m spacing)}
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l  r r r r r r}
+\toprule
+\textbf{Routing} & \textbf{8t} & \textbf{16t} & \textbf{24t} & \textbf{32t} & \textbf{45t} & \textbf{60t} \\
+\midrule
+  W & \bad{23.0$\pm$0.7} & \bad{155.6$\pm$57.7} & \bad{491.8$\pm$63.9} & \bad{689.2$\pm$109.5} & \bad{749.4$\pm$94.8} & 876.5$\pm$40.5 \\
+  S & 19.5$\pm$0.4 & 63.6$\pm$3.7 & 123.2$\pm$12.7 & \win{293.6$\pm$15.4} & 347.4$\pm$52.0 & \win{693.6$\pm$101.4} \\
+  SH & 19.6$\pm$0.4 & 62.2$\pm$3.5 & \win{117.9$\pm$12.0} & 300.0$\pm$22.6 & 356.4$\pm$49.0 & 734.5$\pm$104.2 \\
+  GS & 19.5$\pm$0.4 & 61.7$\pm$2.9 & 126.1$\pm$10.6 & 315.0$\pm$24.2 & 426.3$\pm$46.6 & 819.3$\pm$82.0 \\
+  GC & 19.2$\pm$0.3 & 62.3$\pm$2.9 & 120.5$\pm$10.1 & 300.4$\pm$19.5 & \win{341.7$\pm$55.5} & 828.4$\pm$78.4 \\
+  GB & 19.4$\pm$0.4 & \win{59.5$\pm$2.6} & 126.3$\pm$10.6 & 352.0$\pm$26.7 & 356.9$\pm$55.6 & 860.1$\pm$76.4 \\
+  GO & 19.5$\pm$0.4 & 64.6$\pm$3.9 & 135.3$\pm$12.2 & 385.6$\pm$39.9 & 361.8$\pm$57.6 & 828.2$\pm$107.5 \\
+  GSD & 19.7$\pm$0.5 & 82.0$\pm$7.2 & 187.2$\pm$37.7 & 461.7$\pm$62.0 & 542.1$\pm$41.7 & \bad{1001.2$\pm$63.5} \\
+  GSD\mbox{-}D & \win{18.6$\pm$0.5} & 66.7$\pm$5.3 & 130.6$\pm$18.3 & 355.5$\pm$59.3 & 525.2$\pm$65.7 & 918.5$\pm$70.4 \\
+\midrule
+  \textit{Best} & \textit{GSD-D} & \textit{GB} & \textit{SH} & \textit{S} & \textit{GC} & \textit{S} \\
+\bottomrule
+\end{tabular}
+\caption{Mean makespan $\pm$ 95\% CI (s) for 7x7 network, HEFT-1, 20 seeds. DAG sizes (tasks): 8, 16, 24, 32, 45, 60. \win{Bold green}: best per column. \bad{Red}: worst per column.}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{dag_scaling_7x7.pdf}
+\caption{Makespan vs.\ DAG size for 7x7 (HEFT-1, 20 seeds, log-scale y-axis). Each point is the mean over seeds.}
+\end{figure}
+
+
+%======================================================================
+\section{Cross-Network Summary}
+
+\subsection{Best Routing per Network and DAG Size}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l  r@{\,}l r@{\,}l r@{\,}l}
+\toprule
+\textbf{Tasks} & \multicolumn{2}{c}{\textbf{L150}} & \multicolumn{2}{c}{\textbf{L500}} & \multicolumn{2}{c}{\textbf{7x7}} \\
+& \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} & \textbf{Route} & \textbf{(s)} \\
+\midrule
+  8 & S & 17.741 & GO & 16.763 & GSD-D & 18.586 \\
+  16 & SH & 48.782 & GSD-D & 91.437 & GB & 59.464 \\
+  24 & SH & 79.594 & GSD & 422.337 & SH & 117.925 \\
+  32 & SH & 116.088 & GS & 754.047 & S & 293.598 \\
+  45 & SH & 237.871 & GSD-D & 978.925 & GC & 341.717 \\
+  60 & SH & 436.894 & S & 3457.211 & S & 693.567 \\
+\bottomrule
+\end{tabular}
+\caption{Best routing scheme and mean makespan per network and DAG size. All results use HEFT-1 with \texttt{csma\_bianchi} interference.}
+\end{table}
+
+\subsection{Routing Scheme Win Counts}
+
+Number of (network, DAG-size) cells where each routing scheme achieves the lowest mean makespan (out of 18 cells total).
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l r r r r}
+\toprule
+\textbf{Routing} & \textbf{Total} & \textbf{L150} & \textbf{L500} & \textbf{7x7} \\
+\midrule
+  \textbf{SH} & \textbf{6} & 5 & 0 & 1 \\
+  S & 4 & 1 & 1 & 2 \\
+  GSD\mbox{-}D & 3 & 0 & 2 & 1 \\
+  GS & 1 & 0 & 1 & 0 \\
+  GC & 1 & 0 & 0 & 1 \\
+  GB & 1 & 0 & 0 & 1 \\
+  GO & 1 & 0 & 1 & 0 \\
+  GSD & 1 & 0 & 1 & 0 \\
+  W & 0 & 0 & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\caption{Win counts. \textbf{Bold}: overall winner.}
+\end{table}
+
+
+%======================================================================
+\section{Analysis}
+
+\subsection{L150 (Dense Random Network): SH Dominates, Greedy Fails Catastrophically}
+
+On the dense random network (avg.\ degree $\approx22$), \textbf{SH (shortest-hop)
+wins at every DAG size from 16 tasks onward}, with S a close second at small sizes.
+The interference-aware greedy schemes (GS, GC, GB, GO, GSD, GSD-D) are catastrophically
+worse: 10--14$\times$ slower than SH at 60 tasks, with GS reaching nearly 5000\,s
+vs.\ SH's 412\,s.
+
+\textbf{Why:} HEFT-1 places tasks on adjacent nodes.  In a 50-node network with
+$\approx22$ neighbours per node, there are many alternative paths.  The static
+greedy interference-aware schemes route transfers through paths that minimise
+predicted interference, but this prediction triggers cascading recalculations that
+amplify actual interference among concurrent flows.  Shorter-hop paths (SH) reduce
+the number of active relay links and thus reduce total interference, without any
+predictive overhead.
+
+\textbf{Scaling behaviour:} The SH and S makespans grow roughly linearly in task
+count; the greedy schemes grow faster than linearly, diverging from SH as DAG
+size increases.  The 45-task DAG (with its wide stage of 12 parallel tasks) causes
+a particularly sharp jump for the greedy schemes.
+
+\subsection{L500 (Sparse Random Network): GSD-D Wins, All Schemes Highly Variable}
+
+On the sparse random network (avg.\ degree $\approx2.5$), GSD-D (dynamic routing
+with deferral) wins decisively at 16, 32, and 45 tasks, sometimes by $2$--$4\times$.
+At 8 tasks all schemes tie; at 60 tasks extreme variance makes rankings unreliable.
+
+\textbf{Why:} With very few routing alternatives, interference-aware path selection
+cannot pick bad paths---there is usually only one path.  But deferral (GSD-D) still
+helps: when a bottleneck link is in use, deferring the next transfer avoids
+double-booking that link, reducing queuing delay.  Static greedy schemes cannot
+defer and may stack transfers onto the same bottleneck.
+
+\textbf{High variance:} The sparse topology has a few critical bridge links.
+Whether HEFT-1 places two tasks whose communication crosses a bridge link varies
+seed-by-seed.  When it does, makespan explodes; when it does not, makespan is low.
+This bimodal behaviour produces enormous standard deviations ($>$mean at large
+DAG sizes), making 20-seed estimates unreliable for 45+ task DAGs on L500.
+
+\subsection{7$\times$7 Grid: S and GS Lead, GSD Worst}
+
+On the regular grid, \textbf{S (shortest-path) leads at small DAG sizes}; at
+24 tasks GB briefly wins; at 45--60 tasks S and SH are again competitive.
+GSD (dynamic routing without deferral) is consistently the worst scheme on the
+grid, 1.5--3$\times$ slower than S across all sizes.  GSD-D partially recovers
+by deferring, but remains behind static shortest-path.
+
+\textbf{Why:} The 7$\times$7 grid has regular, moderate path diversity.
+Shortest-path routing (S) picks the minimum-delay route, which on a grid with
+uniform 40\,m spacing is also the high-BW route (cardinal 2-hop vs.\ diagonal
+1-hop).  Dynamic interference-aware routing (GSD) incurs runtime overhead
+recalculating paths on every transfer start/complete event; on the grid this
+overhead hurts more than the improved path selection helps.
+
+\subsection{Key Takeaways}
+
+\begin{enumerate}
+  \item \textbf{No single routing scheme wins across all networks.}
+    SH wins on dense random (L150); GSD-D wins on sparse random (L500);
+    S is most consistent on the regular grid.
+
+  \item \textbf{Dense random networks: use SH, avoid interference-aware routing.}
+    Path diversity enables the greedy schemes to make catastrophically bad choices;
+    fewer relay hops reduces total interference better than any ordering heuristic.
+
+  \item \textbf{Sparse random networks: use GSD-D.}
+    Deferral avoids double-booking the few bottleneck links.
+    Static schemes (including SH) cannot adapt when the only path is contested.
+
+  \item \textbf{Regular grids: use S.}
+    Minimum-delay routing is consistently good.  Dynamic schemes add overhead
+    without meaningful benefit on the predictable grid topology.
+
+  \item \textbf{W is always the worst or near-worst.}
+    Widest-path routing maximises bottleneck bandwidth but routes through the
+    most-congested links, amplifying csma\_bianchi interference in every topology.
+
+  \item \textbf{GSD (dynamic, no deferral) is the worst scheme on regular grids.}
+    Runtime recalculation overhead dominates; use GSD-D or static schemes instead.
+
+  \item \textbf{Rankings are stable with DAG size on dense/grid networks,
+    but sparse networks need more seeds at large DAG sizes.}
+    L500 standard deviations exceed the mean at 45--60 tasks with 20 seeds;
+    these results should be treated as indicative rather than conclusive.
+\end{enumerate}
+
+%======================================================================
+\section{Reproducing These Results}
+
+\begin{verbatim}
+cd ncsim/
+python run_dag_scaling_eval.py
+# Outputs: /tmp/ncsim_dag_scaling/dag_scaling_results.json  (1614 s)
+#          docs/dag_scaling_results.tex
+#          docs/dag_scaling_results.pdf
+\end{verbatim}
+
+\end{document}

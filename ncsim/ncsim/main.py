@@ -251,6 +251,18 @@ def main(args: list = None) -> int:
         help="WiFi standard for MCS tables (default: ax)"
     )
     parser.add_argument(
+        "--heft1-penalty",
+        type=float,
+        default=0.001,
+        help="HEFT-1 penalty rate (MB/s) for non-adjacent node pairs (default: 0.001)"
+    )
+    parser.add_argument(
+        "--data-size-scale",
+        type=float,
+        default=1.0,
+        help="Multiplicative scale applied to all DAG edge data_size values after load (default: 1.0)"
+    )
+    parser.add_argument(
         "--rts-cts",
         action="store_true",
         default=False,
@@ -279,6 +291,15 @@ def main(args: list = None) -> int:
                    f"{len(scenario.network.nodes)} nodes, "
                    f"{len(scenario.network.links)} links, "
                    f"{len(scenario.dags)} DAG(s)")
+
+        if parsed.data_size_scale != 1.0:
+            scale = float(parsed.data_size_scale)
+            n_edges = 0
+            for dag in scenario.dags:
+                for edge in dag.edges:
+                    edge.data_size *= scale
+                    n_edges += 1
+            logger.info(f"Scaled data_size of {n_edges} DAG edges by factor {scale}")
 
         # Override config if specified
         seed = parsed.seed if parsed.seed is not None else scenario.config.seed
@@ -363,9 +384,9 @@ def main(args: list = None) -> int:
         # Create scheduler (pass routing model for SAGA bandwidth awareness)
         logger.info(f"Creating scheduler: {scheduler_algo}")
         if routing_type in ("widest_path", "shortest_path", "shortest_hop", "interference_aware", "interference_aware_dynamic", "interference_aware_dynamic_deferral"):
-            scheduler = create_scheduler(scheduler_algo, routing=routing_model)
+            scheduler = create_scheduler(scheduler_algo, routing=routing_model, heft1_penalty=parsed.heft1_penalty)
         else:
-            scheduler = create_scheduler(scheduler_algo)
+            scheduler = create_scheduler(scheduler_algo, heft1_penalty=parsed.heft1_penalty)
 
         # Create DAG source
         if len(scenario.dags) == 1:

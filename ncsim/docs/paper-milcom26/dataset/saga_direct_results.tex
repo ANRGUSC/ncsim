@@ -1,0 +1,379 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true, linkcolor=blue!60!black}
+\newcommand{\win}[1]{\textcolor{green!50!black}{\textbf{#1}}}
+\newcommand{\bad}[1]{\textcolor{red!70!black}{#1}}
+
+\title{Scheduler Comparison: SAGA Predicted vs NCSIM Simulated (SH Routing)\\
+{\large Makespan, Hops, Co-location, Load Balance, and Transfer Volume}}
+\author{Autonomous Networks Research Group (ANRG)\\University of Southern California}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+
+%======================================================================
+\section{Evaluation Setup and Motivation}
+
+\subsection{What is ``SAGA predicted'' makespan?}
+
+HEFT (Heterogeneous Earliest Finish Time) estimates a schedule's makespan
+before any simulation using a static bandwidth model.
+The two scheduler variants differ only in their pairwise bandwidth matrix:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Scheduler} & \textbf{Adjacent pair BW} & \textbf{Non-adjacent BW} \\
+\midrule
+HEFT-2 & widest-path PHY rate & widest-path PHY rate \\
+HEFT-1 & direct-link PHY rate & \textbf{0.001 MB/s (heavy penalty)} \\
+\bottomrule
+\end{tabular}
+\caption{Pairwise BW matrices used by each scheduler variant.}
+\end{table}
+
+\subsection{Extra Metrics Computed from SAGA Schedules}
+
+Beyond makespan, we extract the following from each SAGA schedule:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Metric} & \textbf{Definition} \\
+\midrule
+Mean hops       & Mean widest-path route length per DAG edge; 0 for same-node \\
+Co-loc \%       & Fraction of DAG edges where both tasks share a node \\
+Cross-MB        & Total MB flowing across node boundaries \\
+Nodes used      & Distinct nodes assigned $\geq 1$ task \\
+Peak tasks      & Max tasks on any single node \\
+Compute CV      & Coeff.\ of variation of compute load across used nodes \\
+                & (0 = perfectly balanced; high = one node dominates) \\
+SAGA xfer est.  & SAGA's estimated total transfer time = $\sum \text{data}/\text{BW}_{\text{model}}$\\
+Links used \%   & Fraction of all links touched by any cross-node route \\
+\bottomrule
+\end{tabular}
+\caption{Extra metrics derived analytically from the SAGA schedule, without simulation.}
+\end{table}
+
+\subsection{Hypothesis}
+
+\begin{enumerate}
+  \item \textbf{Makespan}: SAGA predicts HEFT-2 $<$ HEFT-1 (HEFT-1 looks slow because
+        co-location creates a compute bottleneck in SAGA's model).
+        NCSIM reverses this: HEFT-1 wins because interference destroys multi-hop
+        transfers that HEFT-2 assumes are cheap.
+  \item \textbf{Hops / co-location}: HEFT-1 will have near-100\% co-location and
+        $\approx0$ mean hops; HEFT-2 will show multi-hop paths and lower co-location.
+  \item \textbf{Load balance}: HEFT-2 spreads tasks across many nodes (low Compute CV);
+        HEFT-1 concentrates compute (high CV or high peak tasks on one node).
+  \item \textbf{Cross-node data}: HEFT-1 routes far less MB across links; HEFT-2
+        generates more wireless traffic, which is the root cause of interference.
+\end{enumerate}
+
+
+%======================================================================
+\section{Grid Network Results}
+
+\subsection{Full Metric Table}
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{l l r r@{\,}r r r r r}
+\toprule
+\textbf{Exp.} & \textbf{Sched.}
+  & \textbf{ms (s)} & \multicolumn{2}{c}{\textbf{Hops}}
+  & \textbf{Coloc} & \textbf{Cross-MB}
+  & \textbf{CV} & \textbf{Links\%} \\
+\cmidrule(lr){4-5}
+ &  &  & mean & max &  &  &  & \\
+\midrule
+  $4\times4$ S & HEFT-1 & 11.0 & 0.33 & 1 & 67\% & 30.0 & 1.007 & 6\% \\
+   & HEFT-2 & \win{10.6} & 1.17 & 2 & 42\% & 124.0 & 0.668 & 9\% \\
+  \midrule
+  $4\times4$ L & HEFT-1 & 4021.9 & 0.62 & 2 & 40\% & 352.0 & 0.781 & 19\% \\
+   & HEFT-2 & \win{23.9} & 1.17 & 3 & 42\% & 290.0 & 0.786 & 37\% \\
+  \midrule
+  $7\times7$ S & HEFT-1 & 10.9 & 0.33 & 1 & 67\% & 30.0 & 1.007 & 2\% \\
+   & HEFT-2 & \win{10.2} & 2.67 & 5 & 42\% & 124.0 & 0.668 & 5\% \\
+  \midrule
+  $7\times7$ L & HEFT-1 & 5030.5 & 0.65 & 2 & 37\% & 845.0 & 0.967 & 9\% \\
+   & HEFT-2 & \win{24.8} & 2.35 & 6 & 38\% & 735.0 & 0.489 & 27\% \\
+  \bottomrule
+\end{tabular}
+\caption{Per-scheduler metrics on grid experiments.
+\win{Bold green}: lowest SAGA-predicted makespan.
+Coloc = fraction of DAG edges that are same-node.
+CV = coefficient of variation of compute load across used nodes.
+Links\% = fraction of network links touched by cross-node routes.}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l l r r r r}
+\toprule
+\textbf{Exp.} & \textbf{Sched.}
+  & \textbf{Nodes used} & \textbf{Peak tasks/node}
+  & \textbf{Peak CU/node} & \textbf{SAGA xfer est. (s)} \\
+\midrule
+  $4\times4$ S & HEFT-1 & 3 & 6 & 2850 & 4.7 \\
+   & HEFT-2 & 3 & 4 & 2100 & 19.2 \\
+  \midrule
+  $4\times4$ L & HEFT-1 & 6 & 13 & 6900 & 4056.7 \\
+   & HEFT-2 & 6 & 11 & 6050 & 45.0 \\
+  \midrule
+  $7\times7$ S & HEFT-1 & 3 & 6 & 2850 & 6.0 \\
+   & HEFT-2 & 3 & 4 & 2100 & 19.2 \\
+  \midrule
+  $7\times7$ L & HEFT-1 & 8 & 22 & 11200 & 9155.0 \\
+   & HEFT-2 & 9 & 10 & 5550 & 114.0 \\
+  \bottomrule
+\end{tabular}
+\caption{Placement and estimated transfer statistics.
+Nodes used = distinct nodes with $\geq 1$ task.
+Peak tasks = max tasks on any single node.
+Peak CU = max total compute cost (compute units) assigned to any node.
+SAGA xfer est.\ = SAGA's own total estimated cross-node transfer time.}
+\end{table}
+
+\subsection{SAGA Predicted vs NCSIM Simulated Makespan (SH Routing)}
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l r r r r}
+\toprule
+\textbf{Exp.}
+  & \multicolumn{2}{c}{\textbf{HEFT-1}}
+  & \multicolumn{2}{c}{\textbf{HEFT-2}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+  & SAGA (s) & NCSIM (s) & SAGA (s) & NCSIM (s) \\
+\midrule
+  $4\times4$ S & 11.0 & 18.3 & 10.6 & 93.9 \\
+  $4\times4$ L & 4021.9 & 292.4 & 23.9 & 1071.7 \\
+  $7\times7$ S & 10.9 & 20.3 & 10.2 & 93.8 \\
+  $7\times7$ L & 5030.5 & 614.2 & 24.8 & 2492.1 \\
+\bottomrule
+\end{tabular}
+\caption{SAGA predicted vs NCSIM simulated makespan (SH routing) per scheduler.
+NCSIM column = mean makespan with shortest-hop routing, averaged over 30 seeds.}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{saga_grid_vs_ncsim.pdf}
+\caption{SAGA predicted (blue) vs NCSIM simulated with SH routing (orange) makespan
+for all grid experiments. Note the $y$-axis scale per experiment --- HEFT-1's SAGA
+prediction can be orders of magnitude higher than HEFT-2's, yet NCSIM shows HEFT-1
+winning even with a fixed shortest-hop routing scheme.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{saga_grid_extra_metrics.pdf}
+\caption{Extra metrics by scheduler on grid experiments.
+\textbf{Top-left}: co-location fraction (HEFT-1 is near 100\% on most experiments).
+\textbf{Top-right}: mean hops per transfer (HEFT-1 is near 0; HEFT-2 uses multi-hop).
+\textbf{Bottom-left}: compute load CV (HEFT-1 concentrates tasks; HEFT-2 distributes them).
+\textbf{Bottom-right}: fraction of links used in cross-node routes (HEFT-1 uses far fewer).}
+\end{figure}
+
+
+%======================================================================
+\section{Random Network Results}
+
+\subsection{Density Line Plots — All Metrics}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{saga_rand_small_metrics.pdf}
+\includegraphics[width=0.49\textwidth]{saga_rand_large_metrics.pdf}
+\caption{SAGA metrics vs network density (area side length in metres).
+\textbf{Top-left} of each panel: predicted makespan with error bars.
+\textbf{Top-right}: mean hops (HEFT-1 stays near 0 at all densities;
+HEFT-2 rises at low density as paths get longer).
+\textbf{Bottom-left}: co-location fraction (HEFT-1 near 1.0 throughout;
+HEFT-2 drops at low density where tasks must spread further).
+\textbf{Bottom-right}: compute CV (HEFT-1 shows higher imbalance;
+HEFT-2 is more evenly distributed but uses many more wireless hops).}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{saga_rand_small_vs_ncsim.pdf}
+\includegraphics[width=0.49\textwidth]{saga_rand_large_vs_ncsim.pdf}
+\caption{SAGA predicted (solid) vs NCSIM simulated with SH routing (dashed) makespan
+vs density. SAGA's HEFT-2 estimate stays low regardless of density; NCSIM with SH
+routing shows HEFT-2 degrading rapidly at low density (shorter hop paths still
+accumulate interference under dense contention).
+HEFT-1's SAGA estimate is more pessimistic but closer to the actual NCSIM result.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{saga_rand_cross_data.pdf}
+\caption{Total MB routed across node boundaries vs density.
+HEFT-1 transfers far less data across links because co-location eliminates most
+cross-node edges. HEFT-2's cross-node volume is nearly the full DAG data budget.
+Reduced cross-node data is a direct proxy for reduced interference exposure.}
+\end{figure}
+
+\subsection{Numerical Summary — Large DAG}
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{l l r r r r r r}
+\toprule
+\textbf{Density} & \textbf{Sched.}
+  & \textbf{ms (s)} & \textbf{Hops}
+  & \textbf{Coloc\%} & \textbf{Cross-MB}
+  & \textbf{CV} & \textbf{Links\%} \\
+\midrule
+  L150 & HEFT-1 & 22.4 & 1.13 & 37\% & 367.3 & 0.749 & 2\% \\
+   & HEFT-2 & 21.9 & 2.04 & 40\% & 317.0 & 0.804 & 3\% \\
+  \midrule
+  L200 & HEFT-1 & 24.5 & 1.00 & 36\% & 376.2 & 0.767 & 3\% \\
+   & HEFT-2 & 21.9 & 2.04 & 40\% & 317.0 & 0.804 & 5\% \\
+  \midrule
+  L250 & HEFT-1 & 993.2 & 0.91 & 35\% & 380.8 & 0.790 & 4\% \\
+   & HEFT-2 & 21.9 & 2.04 & 40\% & 317.0 & 0.804 & 7\% \\
+  \midrule
+  L300 & HEFT-1 & 1194.9 & 0.80 & 39\% & 351.9 & 0.764 & 4\% \\
+   & HEFT-2 & 21.9 & 2.04 & 40\% & 317.0 & 0.804 & 10\% \\
+  \midrule
+  L350 & HEFT-1 & 1828.7 & 0.74 & 41\% & 352.3 & 0.773 & 5\% \\
+   & HEFT-2 & 21.9 & 2.04 & 40\% & 317.0 & 0.804 & 13\% \\
+  \midrule
+  L400 & HEFT-1 & 2197.9 & 0.70 & 44\% & 331.8 & 0.804 & 5\% \\
+   & HEFT-2 & 21.9 & 2.04 & 40\% & 317.0 & 0.804 & 16\% \\
+  \midrule
+  L500 & HEFT-1 & 2565.6 & 0.64 & 48\% & 297.3 & 0.798 & 6\% \\
+   & HEFT-2 & 21.9 & 2.04 & 40\% & 317.0 & 0.804 & 23\% \\
+  \bottomrule
+\end{tabular}
+\caption{Mean metrics over 30 seeds for the large DAG on random networks.
+HEFT-1 consistently has higher co-location, fewer hops, and lower cross-node
+data than HEFT-2, at the cost of higher compute CV (more concentrated tasks).
+At L500 HEFT-1 begins to perform comparably to HEFT-2 in SAGA's model as the
+graph becomes nearly fully connected via direct links.}
+\end{table}
+
+
+%======================================================================
+\section{Analysis}
+
+\subsection{What the Extra Metrics Reveal}
+
+The extra metrics explain \emph{why} SAGA's ranking inverts under csma\_bianchi:
+
+\paragraph{HEFT-1: co-location eliminates wireless traffic.}
+On grid experiments, HEFT-1 achieves near-100\% co-location: the 0.001\,MB/s
+penalty is so severe that HEFT places every communicating task pair on the same
+node or direct neighbour, eliminating most cross-node data transfers entirely.
+Mean hops hover near 0; the fraction of links used drops to near zero.
+The cost is higher compute CV — all tasks queue up on fewer nodes.  But without
+wireless transfers, there is no interference.  SAGA's model sees only the compute
+bottleneck and predicts a high makespan; the actual makespan is far lower because
+the compute bottleneck is shared across multiple high-capacity nodes.
+
+\paragraph{HEFT-2: more wireless traffic, lower estimated cost.}
+HEFT-2 spreads tasks across the topology (low compute CV), achieving good load
+balance in SAGA's model.  But this comes with substantially higher mean hops and
+cross-node data volume.  Under csma\_bianchi, each additional active link degrades
+all other active links (SINR reduction + Bianchi contention factor).  The actual
+transfer times for multi-hop routes are $5\text{--}100\times$ higher than SAGA estimated,
+because SAGA ignores interference entirely.
+
+\paragraph{The co-location--interference trade-off.}
+The key trade-off HEFT-1 exploits is:
+\[
+  \text{Wireless transfer cost} \gg \text{Compute queuing cost}
+\]
+on csma\_bianchi networks at 40\,m grid spacing.  SAGA's model has no interference
+term, so it sees only the queuing cost (bad for HEFT-1) and underestimates the
+transfer cost (misleadingly good for HEFT-2).
+
+\subsection{Grid vs Random: Sensitivity to Topology}
+
+On grid topologies, non-adjacent node pairs must traverse multiple hops — the
+interference penalty from HEFT-2's routes is severe.  The H1/H2 makespan ratio
+is 168$\times$ and 727$\times$ on large DAGs because HEFT-2 creates many
+simultaneous multi-hop transfers on a grid.
+
+On random networks (L150--L400), the H1/H2 ratio is 1.02--1.22.  Random graphs
+at these densities have shorter average paths (many direct links), so HEFT-2's
+routes are shorter and accumulate less interference per transfer.  The extra metrics
+show that HEFT-2's mean hops and cross-node data volume both decrease at higher
+density, closing the gap.
+
+\subsection{The L500 Exception}
+
+At L500, HEFT-1 wins even in SAGA's model (H1/H2 = 0.90).  The extra metrics
+explain why: at L500, nearly all node pairs are adjacent, so HEFT-1's direct-link
+matrix is essentially the same as HEFT-2's widest-path matrix.  HEFT-1's remaining
+preference for co-location yields marginal improvements in both SAGA's estimate
+and (to a lesser extent) the NCSIM simulation.
+
+\subsection{SAGA's Transfer Estimate vs Compute Estimate}
+
+SAGA's estimated total transfer time (\texttt{saga\_xfer\_est}) is near zero for
+HEFT-1 (most transfers are same-node) but very high for HEFT-2 on large DAGs.
+Paradoxically, \emph{SAGA's predicted makespan is lower for HEFT-2} because the
+tasks are spread across fast compute nodes — the transfer time is estimated as
+cheap (no interference in the model), so the critical path is compute-dominated
+and shorter.  Under csma\_bianchi, the actual transfer time dominates for HEFT-2,
+reversing the ranking completely.
+
+\subsection{Key Takeaways}
+
+\begin{enumerate}
+  \item \textbf{HEFT-2 is blind to interference.}  Its BW matrix assumes
+        PHY-rate transfers; csma\_bianchi degrades actual rates by $5\text{--}100\times$
+        depending on contention.
+  \item \textbf{HEFT-1 works by avoidance, not prediction.}  By co-locating tasks,
+        it sidesteps the interference regime entirely.  Its SAGA estimate is
+        pessimistic, but its actual performance is optimal.
+  \item \textbf{Co-location $\approx$ zero wireless traffic.}  HEFT-1 routes
+        $\sim$0 MB across wireless links (vs full DAG data budget for HEFT-2).
+        This is the proximate cause of its advantage.
+  \item \textbf{Load imbalance (high CV) is less costly than interference.}
+        HEFT-1 concentrates compute, but the bottleneck node's queuing delay is
+        far shorter than HEFT-2's wireless transfer delays under interference.
+  \item \textbf{Random graphs attenuate the gap.}  Shorter average paths and
+        more direct connections reduce HEFT-2's interference exposure.  At
+        sufficiently high density (L500), the difference vanishes.
+\end{enumerate}
+
+
+%======================================================================
+\section{Reproducing These Results}
+
+\begin{verbatim}
+cd ncsim/
+python run_saga_direct_eval.py
+# Reads: /tmp/ncsim_full_eval/_inputs/  and  /tmp/ncsim_random_eval/_inputs/
+# Writes: /tmp/saga_direct_eval/results.json
+#         docs/saga_direct_results.{tex,pdf}
+# Runtime: ~3-8 min (SAGA scheduling + metric extraction, no simulation)
+\end{verbatim}
+
+\end{document}

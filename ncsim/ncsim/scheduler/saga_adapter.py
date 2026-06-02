@@ -316,13 +316,14 @@ class Heft1Scheduler(SagaScheduler):
     CLI/YAML: scheduler: heft1
     """
 
-    def __init__(self, algorithm: str = "heft", routing=None):
+    def __init__(self, algorithm: str = "heft", routing=None, penalty_rate: float = DISCONNECTED_SPEED):
         # Pass routing=None to base: _build_saga_network is overridden below
         # so the base class never uses self.routing anyway.
         super().__init__(algorithm=algorithm, routing=None)
+        self._penalty_rate = float(penalty_rate)
 
     def _build_saga_network(self, snapshot: NetworkSnapshot) -> "SagaNetwork":
-        """HEFT-1 rate matrix: direct-link BW for adjacent pairs, 0.001 for all others."""
+        """HEFT-1 rate matrix: direct-link BW for adjacent pairs, penalty_rate for all others."""
         node_ids = list(snapshot.nodes.keys())
         node_idx = {node_id: i for i, node_id in enumerate(node_ids)}
 
@@ -340,7 +341,7 @@ class Heft1Scheduler(SagaScheduler):
                 elif (src_id, dst_id) in direct_bw:
                     speed_matrix[(src_id, dst_id)] = direct_bw[(src_id, dst_id)]
                 else:
-                    speed_matrix[(src_id, dst_id)] = DISCONNECTED_SPEED
+                    speed_matrix[(src_id, dst_id)] = self._penalty_rate
 
         # Build SAGA nodes and edges
         nodes = set()
@@ -363,7 +364,7 @@ class Heft1Scheduler(SagaScheduler):
         return SagaNetwork(nodes=frozenset(nodes), edges=frozenset(edges))
 
     def __repr__(self) -> str:
-        return f"Heft1Scheduler(algorithm={self.algorithm!r})"
+        return f"Heft1Scheduler(algorithm={self.algorithm!r}, penalty_rate={self._penalty_rate!r})"
 
 
 class Heft2Scheduler(SagaScheduler):
@@ -398,7 +399,8 @@ class Heft2Scheduler(SagaScheduler):
 
 def create_scheduler(
     algorithm: str = "heft",
-    routing=None
+    routing=None,
+    heft1_penalty: float = DISCONNECTED_SPEED,
 ) -> Scheduler:
     """Factory function to create a scheduler.
 
@@ -436,7 +438,7 @@ def create_scheduler(
         return RoundRobinScheduler()
 
     if algorithm == "heft1":
-        return Heft1Scheduler(algorithm="heft", routing=routing)
+        return Heft1Scheduler(algorithm="heft", routing=routing, penalty_rate=heft1_penalty)
 
     if algorithm == "heft2":
         return Heft2Scheduler(algorithm="heft", routing=routing)
