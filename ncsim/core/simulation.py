@@ -65,6 +65,8 @@ class Simulation:
         routing_model: Optional[RoutingModel] = None,
         interference_model: Optional[InterferenceModel] = None,
         disruption_model: Optional[DisruptionModel] = None,
+        repair_cost_base: float = 0.0,
+        repair_cost_per_task: float = 0.0,
         seed: int = 42
     ):
         """Initialize simulation.
@@ -77,6 +79,8 @@ class Simulation:
             routing_model: Routing model for multi-hop paths (default: DirectLinkRouting)
             interference_model: Optional inter-link interference model
             disruption_model: Optional source of link disruption events
+            repair_cost_base: Fixed decision latency charged per repair (seconds)
+            repair_cost_per_task: Additional latency per task a repair plan moves
             seed: Random seed for reproducibility
         """
         self.network = network
@@ -95,7 +99,9 @@ class Simulation:
             scheduler=scheduler,
             event_queue=self.event_queue,
             routing_model=routing_model,
-            interference_model=interference_model
+            interference_model=interference_model,
+            repair_cost_base=repair_cost_base,
+            repair_cost_per_task=repair_cost_per_task,
         )
 
         # Track events for trace
@@ -230,6 +236,11 @@ class Simulation:
             telemetry_metrics = dict(telemetry_metrics)
             telemetry_metrics["disruptions"] = dict(self.engine.disruption_stats)
             telemetry_metrics["unfinished_tasks"] = self.engine.get_unfinished_task_count()
+            # Planner wall-clock: reported for the runtime comparison, never
+            # fed into sim time (that would break same-seed determinism).
+            telemetry_metrics["repair_wall_time_s"] = round(
+                self.engine.repair_wall_time_s, 6
+            )
 
         logger.info(f"Simulation complete: makespan={makespan:.6f}, events={self._events_processed}")
 

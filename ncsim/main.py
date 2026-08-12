@@ -316,6 +316,8 @@ def main(args: list = None) -> int:
             routing_model=routing_model,
             interference_model=interference_model,
             disruption_model=disruption_model,
+            repair_cost_base=scenario.config.repair_cost_base,
+            repair_cost_per_task=scenario.config.repair_cost_per_task,
             seed=seed
         )
 

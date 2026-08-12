@@ -6,6 +6,7 @@ The scheduler decides WHERE tasks run; this engine decides WHEN.
 """
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Callable, Any
 
@@ -153,7 +154,9 @@ class ExecutionEngine:
         scheduler: Scheduler,
         event_queue: EventQueue,
         routing_model: Optional[RoutingModel] = None,
-        interference_model: Optional[InterferenceModel] = None
+        interference_model: Optional[InterferenceModel] = None,
+        repair_cost_base: float = 0.0,
+        repair_cost_per_task: float = 0.0,
     ):
         """Initialize execution engine.
 
@@ -163,12 +166,16 @@ class ExecutionEngine:
             event_queue: Event queue for simulation
             routing_model: Optional routing model (default: DirectLinkRouting)
             interference_model: Optional inter-link interference model
+            repair_cost_base: Fixed decision latency charged per repair (seconds)
+            repair_cost_per_task: Additional latency per task the plan moves
         """
         self.network = network
         self.scheduler = scheduler
         self.event_queue = event_queue
         self.routing_model = routing_model or DirectLinkRouting()
         self.interference_model = interference_model
+        self.repair_cost_base = repair_cost_base
+        self.repair_cost_per_task = repair_cost_per_task
 
         # Initialize node states
         self.node_states: Dict[str, NodeState] = {
@@ -207,7 +214,15 @@ class ExecutionEngine:
             "transfers_stalled": 0,
             "transfers_resumed": 0,
             "tasks_replanned": 0,
+            "repairs_superseded": 0,
         }
+        # Event id of a repair plan awaiting application (decision latency),
+        # so a newer plan can supersede it.
+        self._pending_repair_event_id: Optional[int] = None
+        # Wall-clock spent inside the repair policy. Reported as a metric,
+        # never fed into sim time: sim-time repair cost comes from the
+        # deterministic model above, keeping same-seed runs identical.
+        self.repair_wall_time_s: float = 0.0
 
     def add_listener(self, listener: EventListener) -> None:
         """Add an event listener."""
@@ -338,6 +353,7 @@ class ExecutionEngine:
             EventType.TRANSFER_START: self._handle_transfer_start,
             EventType.TRANSFER_COMPLETE: self._handle_transfer_complete,
             EventType.LINK_STATE_CHANGE: self._handle_link_state_change,
+            EventType.RESCHEDULE_TRIGGER: self._handle_reschedule_trigger,
         }
 
         handler = handlers.get(event.event_type)
@@ -445,6 +461,15 @@ class ExecutionEngine:
         task_state = self.get_task_state(dag_id, task_id)
         if task_state is None:
             logger.error(f"TASK_READY: task state not found for {dag_id}:{task_id}")
+            return
+
+        if task_state.status != TaskStatus.PENDING:
+            # Idempotency guard: a duplicate TASK_READY would queue the task
+            # behind itself and execute it twice.
+            logger.warning(
+                f"TASK_READY for {dag_id}:{task_id} ignored: status is "
+                f"{task_state.status.name}, not PENDING"
+            )
             return
 
         task_state.status = TaskStatus.READY
@@ -1011,14 +1036,57 @@ class ExecutionEngine:
         self._recalculate_interfered_transfers({link_id})
 
         # Give the scheduling policy a chance to repair the placement.
+        wall_start = time.perf_counter()
         plan = self.scheduler.on_network_change(
             change,
             link_id,
             self.get_network_snapshot(),
             network_state=self.get_network_state(),
         )
+        self.repair_wall_time_s += time.perf_counter() - wall_start
         if plan is not None:
-            self._apply_reschedule_plan(plan)
+            self._schedule_repair(plan)
+
+    def _schedule_repair(self, plan) -> None:
+        """Schedule a repair plan's application after its decision latency.
+
+        The plan is computed with time-t knowledge but applied at t + delta,
+        where delta = repair_cost_base + repair_cost_per_task * |plan|. The
+        old schedule keeps executing in the window, and whatever commits
+        meanwhile wins: plan application refuses to move started tasks. A
+        plan that arrives while another is pending supersedes it -- the newer
+        decision has fresher information.
+        """
+        delay = round_time(
+            self.repair_cost_base
+            + self.repair_cost_per_task * len(plan.new_assignments)
+        )
+        if self._pending_repair_event_id is not None:
+            if self.event_queue.cancel(self._pending_repair_event_id):
+                self.disruption_stats["repairs_superseded"] += 1
+                logger.info(
+                    "Pending repair superseded by a newer plan at "
+                    f"t={self.sim_time:.6f}"
+                )
+        self._pending_repair_event_id = self.event_queue.schedule(
+            sim_time=self.sim_time + delay,
+            event_type=EventType.RESCHEDULE_TRIGGER,
+            data={"plan": plan},
+        )
+        logger.info(
+            f"Repair plan ({len(plan.new_assignments)} move(s)) will apply "
+            f"at t={self.sim_time + delay:.6f} (delta={delay:.6f})"
+        )
+
+    def _handle_reschedule_trigger(self, event: Event) -> None:
+        """Apply a repair plan whose decision latency has elapsed."""
+        if event.event_id == self._pending_repair_event_id:
+            self._pending_repair_event_id = None
+        plan = event.data.get("plan")
+        if plan is None:
+            logger.error("RESCHEDULE_TRIGGER event missing 'plan' data")
+            return
+        self._apply_reschedule_plan(plan)
 
     def _resolve_task_key(self, key: str) -> Optional[str]:
         """Resolve a ReschedulePlan task key to a task_states key.
@@ -1109,16 +1177,20 @@ class ExecutionEngine:
                 if not (entry.dag_id == dag_id and entry.edge.to_task == task_id)
             ]
 
-            # Rebuild the input state against the new node.
+            # Rebuild the input state against the new node. Readiness is
+            # driven by the deliveries themselves: a re-issued local hand-off
+            # or transfer marks its predecessor complete and fires TASK_READY
+            # when it was the last one. Only a true DAG root (no predecessors
+            # at all) has no delivery to drive it, so it is fired explicitly.
             dag = self.dags[dag_id]
-            task_state.predecessors_remaining = set(dag.get_predecessors(task_id))
-            for edge in dag.get_incoming_edges(task_id):
-                parent_state = self.get_task_state(dag_id, edge.from_task)
-                if parent_state and parent_state.status == TaskStatus.COMPLETED:
-                    self._schedule_transfer_start(dag_id, edge)
-
-            # A task with no predecessors is ready right away on its new node.
-            if not task_state.predecessors_remaining:
+            predecessors = set(dag.get_predecessors(task_id))
+            task_state.predecessors_remaining = set(predecessors)
+            if predecessors:
+                for edge in dag.get_incoming_edges(task_id):
+                    parent_state = self.get_task_state(dag_id, edge.from_task)
+                    if parent_state and parent_state.status == TaskStatus.COMPLETED:
+                        self._schedule_transfer_start(dag_id, edge)
+            else:
                 self.event_queue.schedule(
                     sim_time=self.sim_time,
                     event_type=EventType.TASK_READY,

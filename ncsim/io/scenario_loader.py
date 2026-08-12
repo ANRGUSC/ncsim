@@ -29,6 +29,8 @@ class ScenarioConfig:
         interference_radius: Radius for proximity interference model
         rf_config: Raw dict of RF parameters for WiFi models (from YAML rf: section)
         repair: Repair scope on link disruptions ("none", "local", or "global")
+        repair_cost_base: Fixed decision latency charged per repair (seconds)
+        repair_cost_per_task: Additional latency per task a repair plan moves
     """
     scheduler: str = "heft"
     seed: int = 42
@@ -37,6 +39,8 @@ class ScenarioConfig:
     interference_radius: float = 15.0
     rf_config: Optional[Dict[str, Any]] = None
     repair: str = "none"
+    repair_cost_base: float = 0.0
+    repair_cost_per_task: float = 0.0
 
 
 @dataclass
@@ -193,6 +197,8 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
         interference_radius=float(config_data.get("interference_radius", 15.0)),
         rf_config=config_data.get("rf"),
         repair=str(config_data.get("repair", "none")),
+        repair_cost_base=float(config_data.get("repair_cost_base", 0.0)),
+        repair_cost_per_task=float(config_data.get("repair_cost_per_task", 0.0)),
     )
 
 

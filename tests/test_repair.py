@@ -90,13 +90,14 @@ def radio_link_down(time: float, i: int, j: int, duration=None) -> list:
     ]
 
 
-def run(scheduler, dag, disruptions, network=None):
+def run(scheduler, dag, disruptions, network=None, **costs):
     sim = Simulation(
         network=network or make_network(),
         scheduler=scheduler,
         dag_source=SingleDAGSource(dag),
         routing_model=DirectLinkRouting(),
         disruption_model=ScheduledDisruptions(disruptions),
+        **costs,
     )
     return sim, sim.run()
 
@@ -289,3 +290,69 @@ class TestRepairPolicies:
     def test_rejects_unknown_scope(self):
         with pytest.raises(ValueError, match="scope"):
             RepairingSagaScheduler(scope="everything")
+
+
+class TestRepairCost:
+    """Decision latency: a plan computed at t applies at t + delta, where
+    delta = repair_cost_base + repair_cost_per_task * |plan|. The old schedule
+    keeps executing in the window and commitments win."""
+
+    @pytest.mark.parametrize(
+        "per_task_cost, expected_node, expected_makespan",
+        [
+            # Applied at 1.5: J is still pending (W2 runs to 2.0), so the
+            # move lands; W2's output crosses l10 (1s) and J runs 3.0->3.1.
+            (0.5, "n0", 3.1),
+            # Applied at 2.5: too late. W2 finished at 2.0 next to J on n1,
+            # J started immediately (committed) and the move is refused.
+            (1.5, "n1", 2.1),
+        ],
+    )
+    def test_per_task_cost_can_flip_the_outcome(
+        self, per_task_cost, expected_node, expected_makespan
+    ):
+        """The identical plan helps or fizzles depending only on how long the
+        decision takes -- the mechanism behind charging repair to makespan."""
+        degrade = DisruptionEvent(
+            time=1.0,
+            target_type="link",
+            target_id="l01",
+            disruption_type=DisruptionType.LINK_DEGRADE,
+            parameters={"bandwidth_factor": 1.0},
+        )
+        sim, result = run(
+            TestPlanApplication.FixedPlanScheduler(),
+            TestPlanApplication.make_join_dag(),
+            [degrade],
+            repair_cost_per_task=per_task_cost,  # plan moves exactly 1 task
+        )
+        j_state = sim.engine.get_task_state("dag_1", "J")
+        assert j_state.status == TaskStatus.COMPLETED
+        assert j_state.assigned_node == expected_node
+        assert result.makespan == pytest.approx(expected_makespan)
+
+    def test_costly_global_repair_still_rescues_but_later(self):
+        """The severed fan-out is still saved, at 4.15 instead of 2.2.
+
+        The plan (computed at 0.05) applies at 3.05. The co-located branch ran
+        meanwhile (0.1->1.1, committed); the stranded branch waits for the
+        repair, runs 3.05->4.05, and the join lands 4.05->4.15. The second
+        failure event of the radio pair supersedes the first plan.
+        """
+        scheduler = RepairingSagaScheduler(algorithm="heft", scope="global")
+        _, result = run(
+            scheduler,
+            make_fan_out_dag(),
+            radio_link_down(0.05, 0, 1),
+            repair_cost_base=3.0,
+        )
+        assert result.metrics["unfinished_tasks"] == 0
+        assert result.makespan == pytest.approx(4.15)
+        assert result.metrics["disruptions"]["repairs_superseded"] == 1
+        assert result.metrics["repair_wall_time_s"] >= 0.0
+
+    def test_zero_cost_is_the_free_repair_baseline(self):
+        """Defaults reproduce the free-repair makespan exactly."""
+        scheduler = RepairingSagaScheduler(algorithm="heft", scope="global")
+        _, result = run(scheduler, make_fan_out_dag(), radio_link_down(0.05, 0, 1))
+        assert result.makespan == pytest.approx(2.2)
