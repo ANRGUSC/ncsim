@@ -289,10 +289,11 @@ def main(args: list = None) -> int:
 
         # Create scheduler (pass routing model for SAGA bandwidth awareness)
         logger.info(f"Creating scheduler: {scheduler_algo}")
+        repair_scope = scenario.config.repair
         if routing_type in ("widest_path", "shortest_path"):
-            scheduler = create_scheduler(scheduler_algo, routing=routing_model)
+            scheduler = create_scheduler(scheduler_algo, routing=routing_model, repair=repair_scope)
         else:
-            scheduler = create_scheduler(scheduler_algo)
+            scheduler = create_scheduler(scheduler_algo, repair=repair_scope)
 
         # Create DAG source
         if len(scenario.dags) == 1:

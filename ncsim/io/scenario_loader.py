@@ -28,6 +28,7 @@ class ScenarioConfig:
         interference: Interference model type ("none", "proximity", "csma_clique", "csma_bianchi")
         interference_radius: Radius for proximity interference model
         rf_config: Raw dict of RF parameters for WiFi models (from YAML rf: section)
+        repair: Repair scope on link disruptions ("none", "local", or "global")
     """
     scheduler: str = "heft"
     seed: int = 42
@@ -35,6 +36,7 @@ class ScenarioConfig:
     interference: str = "proximity"
     interference_radius: float = 15.0
     rf_config: Optional[Dict[str, Any]] = None
+    repair: str = "none"
 
 
 @dataclass
@@ -190,6 +192,7 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
         interference=str(config_data.get("interference", "proximity")),
         interference_radius=float(config_data.get("interference_radius", 15.0)),
         rf_config=config_data.get("rf"),
+        repair=str(config_data.get("repair", "none")),
     )
 
 

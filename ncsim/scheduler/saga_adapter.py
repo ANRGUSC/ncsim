@@ -141,6 +141,9 @@ class SagaScheduler(Scheduler):
                     latency=link_snap.latency
                 )
                 for link_id, link_snap in snapshot.links.items()
+                # A downed link reports 0 bandwidth; it cannot carry data, so
+                # it must not appear in the routing view (Link also rejects 0).
+                if link_snap.bandwidth > 0
             }
             network_for_routing = Network(nodes=nodes, links=links)
 
@@ -161,10 +164,13 @@ class SagaScheduler(Scheduler):
                     else:
                         speed_matrix[(src_id, dst_id)] = DISCONNECTED_SPEED
                 else:
-                    # Check for direct link only
+                    # Check for direct link only. A downed link reports 0
+                    # bandwidth and counts as absent, so the planner prices
+                    # that pair as effectively disconnected.
                     found_link = False
                     for link in snapshot.links.values():
-                        if link.from_node == src_id and link.to_node == dst_id:
+                        if (link.from_node == src_id and link.to_node == dst_id
+                                and link.bandwidth > 0):
                             speed_matrix[(src_id, dst_id)] = link.bandwidth
                             found_link = True
                             break
@@ -279,18 +285,22 @@ class SagaScheduler(Scheduler):
 
 def create_scheduler(
     algorithm: str = "heft",
-    routing: Optional["WidestPathRouting"] = None
+    routing: Optional["WidestPathRouting"] = None,
+    repair: str = "none",
 ) -> Scheduler:
     """Factory function to create a scheduler.
 
     Args:
         algorithm: "heft", "cpop", or "round_robin"
         routing: Optional WidestPathRouting for multi-hop bandwidth calculation
+        repair: Repair scope on link disruptions ("none", "local", "global");
+            non-"none" values wrap the SAGA scheduler in a repairing one
 
     Returns:
         Scheduler instance
     """
     algorithm = algorithm.lower()
+    repair = (repair or "none").lower()
 
     if algorithm == "manual":
         from ncsim.scheduler.base import ManualScheduler
@@ -304,5 +314,9 @@ def create_scheduler(
         logger.warning(f"SAGA not available for {algorithm}, using round-robin")
         from ncsim.scheduler.base import RoundRobinScheduler
         return RoundRobinScheduler()
+
+    if repair != "none":
+        from ncsim.scheduler.repair import RepairingSagaScheduler
+        return RepairingSagaScheduler(algorithm=algorithm, routing=routing, scope=repair)
 
     return SagaScheduler(algorithm=algorithm, routing=routing)

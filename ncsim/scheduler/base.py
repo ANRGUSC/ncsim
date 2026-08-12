@@ -185,17 +185,22 @@ class Scheduler(ABC):
         self,
         change_type: str,
         target_id: str,
-        network_snapshot: NetworkSnapshot
+        network_snapshot: NetworkSnapshot,
+        network_state: Optional[Any] = None,
     ) -> Optional[ReschedulePlan]:
         """Called when network topology changes.
 
-        Override in future schedulers for mobility-aware scheduling.
-        Phase 2: Returns None (static network).
+        Rescheduling policies override this to return a repair plan; the
+        engine then applies it (moving pending/queued tasks and re-issuing
+        their inputs). The default is no repair: transfers stall and retry.
 
         Args:
-            change_type: Type of change ("link_down", "node_down", etc.)
+            change_type: Type of change ("link_down", "link_degrade", "recovery")
             target_id: ID of affected node or link
-            network_snapshot: Current network state
+            network_snapshot: Current network state (disrupted bandwidths)
+            network_state: Engine runtime state (task/node/link states); an
+                ExecutionEngine.NetworkState when called by the engine. Typed
+                loosely to avoid a core->scheduler import cycle.
 
         Returns:
             ReschedulePlan if rescheduling needed, None otherwise

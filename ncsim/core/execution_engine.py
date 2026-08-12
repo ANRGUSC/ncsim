@@ -206,6 +206,7 @@ class ExecutionEngine:
             "transfers_aborted": 0,
             "transfers_stalled": 0,
             "transfers_resumed": 0,
+            "tasks_replanned": 0,
         }
 
     def add_listener(self, listener: EventListener) -> None:
@@ -1011,16 +1012,143 @@ class ExecutionEngine:
 
         # Give the scheduling policy a chance to repair the placement.
         plan = self.scheduler.on_network_change(
-            change, link_id, self.get_network_snapshot()
+            change,
+            link_id,
+            self.get_network_snapshot(),
+            network_state=self.get_network_state(),
         )
         if plan is not None:
-            # TODO(repair): apply ReschedulePlan — move PENDING/QUEUED tasks,
-            # re-issue already-delivered inputs to the new node, abort
-            # in-flight transfers headed to moved tasks. Wired in next.
+            self._apply_reschedule_plan(plan)
+
+    def _resolve_task_key(self, key: str) -> Optional[str]:
+        """Resolve a ReschedulePlan task key to a task_states key.
+
+        Accepts fully qualified "dag_id:task_id" keys, or bare task ids when
+        they are unambiguous across injected DAGs.
+        """
+        if key in self.task_states:
+            return key
+        matches = [k for k in self.task_states if k.split(":", 1)[1] == key]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            logger.error(f"Reschedule key '{key}' is ambiguous across DAGs: {matches}")
+        else:
+            logger.error(f"Reschedule key '{key}' matches no known task")
+        return None
+
+    def _apply_reschedule_plan(self, plan) -> None:
+        """Apply a ReschedulePlan: move pending/queued tasks to new nodes.
+
+        The subtlety is data placement. A transfer delivers a parent's output
+        to the node the child was assigned to *at delivery time*; when the
+        child later moves, that delivery is on the wrong node. So for every
+        moved task:
+
+        1. Tasks that started (READY/RUNNING/COMPLETED) never move.
+        2. A QUEUED task is pulled out of its node's queue first.
+        3. In-flight transfers headed to the task are aborted -- they are
+           delivering to the old node.
+        4. Its predecessor set is rebuilt from the DAG, and for every parent
+           that already COMPLETED the input transfer is re-issued toward the
+           new node (parents retain their outputs). Local hand-offs resolve
+           immediately; parents still running will ship to the new node when
+           they finish, because transfers read assignments at completion time.
+        """
+        if plan.cancel_tasks:
             logger.warning(
-                "Scheduler returned a ReschedulePlan but plan application "
-                "is not implemented yet; ignoring."
+                "ReschedulePlan.cancel_tasks is not supported (no preemption); "
+                f"ignoring {plan.cancel_tasks}"
             )
+
+        for key, new_node in plan.new_assignments.items():
+            task_key = self._resolve_task_key(key)
+            if task_key is None:
+                continue
+            task_state = self.task_states[task_key]
+            dag_id, task_id = task_key.split(":", 1)
+
+            if new_node not in self.node_states:
+                logger.error(f"Reschedule of {task_key}: unknown node {new_node}")
+                continue
+            if task_state.assigned_node == new_node:
+                continue  # Already there
+            if task_state.status not in (TaskStatus.PENDING, TaskStatus.QUEUED):
+                logger.warning(
+                    f"Reschedule of {task_key} ignored: status "
+                    f"{task_state.status.name} is committed"
+                )
+                continue
+
+            old_node = task_state.assigned_node
+            if task_state.status == TaskStatus.QUEUED:
+                removed = self.node_states[old_node].queue.remove(task_state)
+                if not removed:
+                    logger.error(
+                        f"Reschedule of {task_key}: QUEUED but absent from "
+                        f"{old_node}'s queue; not moving"
+                    )
+                    continue
+
+            task_state.assigned_node = new_node
+            task_state.status = TaskStatus.PENDING
+            task_state.queued_at = None
+            self.disruption_stats["tasks_replanned"] += 1
+            logger.info(
+                f"Repair moved {task_key}: {old_node} -> {new_node} "
+                f"at t={self.sim_time:.6f}"
+            )
+
+            # Abort in-flight transfers delivering to the old location.
+            self._abort_transfers_to_task(dag_id, task_id)
+
+            # Drop stalled deliveries; they are re-issued below.
+            self._stalled_transfers = [
+                entry
+                for entry in self._stalled_transfers
+                if not (entry.dag_id == dag_id and entry.edge.to_task == task_id)
+            ]
+
+            # Rebuild the input state against the new node.
+            dag = self.dags[dag_id]
+            task_state.predecessors_remaining = set(dag.get_predecessors(task_id))
+            for edge in dag.get_incoming_edges(task_id):
+                parent_state = self.get_task_state(dag_id, edge.from_task)
+                if parent_state and parent_state.status == TaskStatus.COMPLETED:
+                    self._schedule_transfer_start(dag_id, edge)
+
+            # A task with no predecessors is ready right away on its new node.
+            if not task_state.predecessors_remaining:
+                self.event_queue.schedule(
+                    sim_time=self.sim_time,
+                    event_type=EventType.TASK_READY,
+                    dag_id=dag_id,
+                    task_id=task_id,
+                )
+
+    def _abort_transfers_to_task(self, dag_id: str, task_id: str) -> None:
+        """Cancel in-flight transfers delivering to a task that just moved."""
+        seen: set = set()
+        for link_state in self.link_states.values():
+            for transfer in list(link_state.active_transfers):
+                if transfer.dag_id != dag_id or transfer.to_task != task_id:
+                    continue
+                transfer_key = (transfer.dag_id, transfer.from_task, transfer.to_task)
+                if transfer_key in seen:
+                    continue
+                seen.add(transfer_key)
+                self.event_queue.cancel(transfer.event_id)
+                path = transfer.link_ids if transfer.link_ids else [transfer.link_id]
+                for lid in path:
+                    lid_state = self.link_states.get(lid)
+                    if lid_state and transfer in lid_state.active_transfers:
+                        lid_state.active_transfers.remove(transfer)
+                for lid in path:
+                    self._recalculate_link_transfers(lid)
+                logger.debug(
+                    f"Aborted in-flight transfer {transfer.from_task}->"
+                    f"{transfer.to_task}: destination task moved"
+                )
 
     def _abort_transfers_on_link(self, link_id: str) -> None:
         """Abort every in-flight transfer whose path crosses a downed link.

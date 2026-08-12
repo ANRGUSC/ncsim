@@ -1,0 +1,61 @@
+# Demo: Link Failure with Global Repair
+# Same instance as demo_link_failure.yaml except that placement is by HEFT, the
+# radio link fails in both directions while every heavy task is still pending,
+# and the scheduler repairs the placement (config.repair: global).
+#
+# root fans out to P1/P2 which join; HEFT spreads P1/P2 across the two nodes.
+# The link dies for good at t=0.05, severing the fan-out. Without repair, the
+# branch on the far side never receives root's output (unfinished_tasks: 2).
+# With global repair, every pending task is replanned onto root's node and the
+# workload completes serially: 0.1 + 1 + 1 + 0.1 = 2.2.
+
+scenario:
+  name: "Link Failure with Global Repair"
+
+  network:
+    nodes:
+      - id: n0
+        compute_capacity: 100
+        position: {x: 0, y: 0}
+      - id: n1
+        compute_capacity: 100
+        position: {x: 10, y: 0}
+    links:
+      # ncsim links are directed; a radio link is a pair.
+      - id: l01
+        from: n0
+        to: n1
+        bandwidth: 100
+      - id: l10
+        from: n1
+        to: n0
+        bandwidth: 100
+
+  dags:
+    - id: dag_1
+      inject_at: 0.0
+      tasks:
+        - id: root
+          compute_cost: 10
+        - id: P1
+          compute_cost: 100
+        - id: P2
+          compute_cost: 100
+        - id: join
+          compute_cost: 10
+      edges:
+        - {from: root, to: P1, data_size: 1}
+        - {from: root, to: P2, data_size: 1}
+        - {from: P1, to: join, data_size: 1}
+        - {from: P2, to: join, data_size: 1}
+
+  disruptions:
+    # A wireless link failure takes out both directions.
+    - {time: 0.05, link: l01, type: link_down}
+    - {time: 0.05, link: l10, type: link_down}
+
+  config:
+    scheduler: heft
+    repair: global    # try: none | local | global
+    seed: 42
+    interference: none

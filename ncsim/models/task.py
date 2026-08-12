@@ -183,6 +183,20 @@ class FIFOQueueModel(QueueModel):
         """Remove all tasks from queue."""
         self._queue.clear()
 
+    def remove(self, task_state: TaskState) -> bool:
+        """Remove a specific task from the queue.
+
+        Used when a rescheduling policy moves a queued task to another node.
+
+        Returns:
+            True if the task was in the queue and removed
+        """
+        try:
+            self._queue.remove(task_state)
+            return True
+        except ValueError:
+            return False
+
     def __iter__(self):
         """Iterate over queued tasks."""
         return iter(self._queue)
