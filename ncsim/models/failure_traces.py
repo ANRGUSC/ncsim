@@ -16,12 +16,23 @@ Generators:
 - gilbert_elliott_trace (G2): per-link two-state Markov process with
   exponential up/down times (MTBF/MTTR). Memoryless, independent across
   radio links, no warning before a failure; burstiness comes from short MTTR.
+- mobility_trace (G3): link state follows inter-node distance along node
+  trajectories. Temporally correlated and *trending*: a link degrades before
+  it disconnects, so a failure announces itself -- the property that should
+  favor small repair scopes.
+- jamming_trace (G4): a jammer takes down every radio pair with an endpoint
+  in range for the duration of its activity. Spatially correlated and abrupt:
+  several links fail at the same instant with no warning, and a targeted
+  jammer converts the adversarial-instance methodology into a failure model.
 """
 
+import math
 import random
+from dataclasses import dataclass
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from ncsim.models.disruptions import DisruptionEvent, DisruptionType
+from ncsim.models.mobility import Waypoints, static_trajectory
 from ncsim.models.network import Network
 
 
@@ -164,6 +175,207 @@ def gilbert_elliott_trace(
                 _pair_events(link_ids, t, DisruptionType.LINK_DOWN, duration=outage)
             )
             t += outage + rng.expovariate(1.0 / mtbf)
+
+    events.sort(key=lambda e: (e.time, e.target_id))
+    return events
+
+
+def _quantized_factor(distance: float, r_full: float, r_max: float, levels: int) -> float:
+    """Map an inter-node distance to a quantized bandwidth factor.
+
+    Full bandwidth within r_full, no link beyond r_max, and a linear ramp
+    quantized to `levels` steps in between -- the degradation staircase a
+    receding node walks down before the link disconnects. Quantization keeps
+    the trace to state *changes* instead of an event per sample.
+    """
+    if distance <= r_full:
+        return 1.0
+    if distance >= r_max:
+        return 0.0
+    raw = (r_max - distance) / (r_max - r_full)
+    step = max(1, min(levels - 1, math.ceil(raw * levels)))
+    return step / levels
+
+
+def mobility_trace(
+    network: Network,
+    trajectories: Dict[str, Waypoints],
+    horizon: float,
+    dt: float = 0.1,
+    r_full: float = 10.0,
+    r_max: float = 20.0,
+    levels: int = 4,
+) -> List[DisruptionEvent]:
+    """G3: link state follows inter-node distance along node trajectories.
+
+    Nodes without a trajectory sit at their scenario position. At each sample
+    instant every radio pair's distance maps to a quantized bandwidth factor
+    (full within r_full, dead beyond r_max, a `levels`-step ramp between),
+    and an event is emitted whenever the factor changes. The resulting trace
+    is temporally correlated and trending: degradation precedes
+    disconnection, giving a warning the memoryless generator never gives,
+    and links recover when nodes re-approach.
+
+    Args:
+        network: The topology; define links for every pair that may ever be
+            in range (the trace closes pairs that start out of range at t=0)
+        trajectories: node_id -> trajectory for the mobile nodes
+        horizon: Sample [0, horizon]
+        dt: Sampling interval; transitions resolve to this resolution
+        r_full: Distance up to which the link runs at full bandwidth
+        r_max: Distance beyond which the link is down
+        levels: Quantization steps of the degradation ramp
+    """
+    if r_full <= 0 or r_max <= r_full:
+        raise ValueError("require 0 < r_full < r_max")
+    if dt <= 0 or horizon <= 0 or levels < 2:
+        raise ValueError("require dt > 0, horizon > 0, levels >= 2")
+
+    def trajectory_of(node_id: str) -> Waypoints:
+        if node_id in trajectories:
+            return trajectories[node_id]
+        position = network.nodes[node_id].position
+        return static_trajectory(position.x, position.y)
+
+    events: List[DisruptionEvent] = []
+    for key, link_ids in sorted(radio_pairs(network).items(), key=lambda kv: sorted(kv[0])):
+        endpoints = sorted(key)
+        if len(endpoints) == 1:
+            continue  # Self-loop; distance never changes
+        traj_a, traj_b = trajectory_of(endpoints[0]), trajectory_of(endpoints[1])
+
+        previous = 1.0  # Engine link state starts up at full bandwidth
+        steps = int(horizon / dt) + 1
+        for i in range(steps):
+            t = round(i * dt, 6)
+            ax, ay = traj_a.position(t)
+            bx, by = traj_b.position(t)
+            current = _quantized_factor(
+                math.hypot(ax - bx, ay - by), r_full, r_max, levels
+            )
+            if current == previous:
+                continue
+            if current == 0.0:
+                events.extend(_pair_events(link_ids, t, DisruptionType.LINK_DOWN))
+            else:
+                if previous == 0.0:
+                    # Recovery restores full bandwidth; a same-instant degrade
+                    # then applies the partial factor (insertion order is
+                    # preserved for same-time events).
+                    events.extend(_pair_events(link_ids, t, DisruptionType.RECOVERY))
+                if current < 1.0:
+                    events.extend(
+                        _pair_events(
+                            link_ids,
+                            t,
+                            DisruptionType.LINK_DEGRADE,
+                            parameters={"bandwidth_factor": current},
+                        )
+                    )
+                elif previous != 0.0:
+                    events.extend(_pair_events(link_ids, t, DisruptionType.RECOVERY))
+            previous = current
+
+    events.sort(key=lambda e: e.time)  # Stable: preserves per-instant order
+    return events
+
+
+@dataclass(frozen=True)
+class Jammer:
+    """An area jammer active for a window of time.
+
+    Attributes:
+        x, y: Jammer position
+        radius: Every radio pair with an endpoint within this range is jammed
+        start: Activation time
+        duration: How long the jammer stays active
+    """
+
+    x: float
+    y: float
+    radius: float
+    start: float
+    duration: float
+
+    def __post_init__(self):
+        if self.radius <= 0 or self.duration <= 0:
+            raise ValueError("Jammer radius and duration must be positive")
+
+    @property
+    def end(self) -> float:
+        return self.start + self.duration
+
+
+def jammer_targeting(
+    network: Network, between: Tuple[str, str], radius: float, start: float, duration: float
+) -> Jammer:
+    """Place a jammer at the midpoint of a radio link -- the targeted attack.
+
+    The adversarial variant of the generator: aim at the link the schedule
+    leans on hardest. Nearby links within the radius fall as collateral.
+    """
+    pos_a = network.nodes[between[0]].position
+    pos_b = network.nodes[between[1]].position
+    return Jammer(
+        x=(pos_a.x + pos_b.x) / 2,
+        y=(pos_a.y + pos_b.y) / 2,
+        radius=radius,
+        start=start,
+        duration=duration,
+    )
+
+
+def jamming_trace(network: Network, jammers: List[Jammer]) -> List[DisruptionEvent]:
+    """G4: spatially correlated outages from area jammers.
+
+    A radio pair is jammed while any jammer with an endpoint of the pair in
+    range is active (a jammed receiver kills the inbound direction and CSMA
+    silences the outbound one, so the pair goes down as a unit). Overlapping
+    windows from multiple jammers merge into one outage per pair. Positions
+    are the static scenario positions; composing jamming with mobility needs
+    a position-aware variant.
+
+    The distinguishing structure: several links fail at the same instant with
+    no warning -- the opposite ends of the correlation spectrum from the
+    memoryless and mobility generators.
+
+    Args:
+        network: The topology (node positions locate the endpoints)
+        jammers: Active jammers
+
+    Returns:
+        Time-ordered LINK_DOWN events (both directions per pair) with their
+        outage durations; recovery is automatic
+    """
+    events: List[DisruptionEvent] = []
+    for key, link_ids in sorted(radio_pairs(network).items(), key=lambda kv: sorted(kv[0])):
+        endpoints = sorted(key)
+        if len(endpoints) == 1:
+            continue
+        windows = []
+        for jammer in jammers:
+            for node_id in endpoints:
+                position = network.nodes[node_id].position
+                if math.hypot(position.x - jammer.x, position.y - jammer.y) <= jammer.radius:
+                    windows.append((jammer.start, jammer.end))
+                    break
+        if not windows:
+            continue
+        # Merge overlapping or touching windows into maximal outages.
+        windows.sort()
+        merged = [windows[0]]
+        for start, end in windows[1:]:
+            last_start, last_end = merged[-1]
+            if start <= last_end:
+                merged[-1] = (last_start, max(last_end, end))
+            else:
+                merged.append((start, end))
+        for start, end in merged:
+            events.extend(
+                _pair_events(
+                    link_ids, start, DisruptionType.LINK_DOWN, duration=end - start
+                )
+            )
 
     events.sort(key=lambda e: (e.time, e.target_id))
     return events
