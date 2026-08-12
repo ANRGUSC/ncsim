@@ -57,6 +57,12 @@ def write_results(
     if result.error_message:
         metrics["error_message"] = result.error_message
 
+    # Telemetry metrics carry disruption stats and unfinished-task counts.
+    if result.metrics:
+        for key in ("disruptions", "unfinished_tasks"):
+            if key in result.metrics:
+                metrics[key] = result.metrics[key]
+
     if extra_metrics:
         metrics.update(extra_metrics)
 

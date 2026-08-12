@@ -267,6 +267,19 @@ class TraceWriter:
                 duration=0.0  # Updated below
             )
 
+        elif event.event_type == EventType.LINK_STATE_CHANGE:
+            trace_event: dict = {
+                "sim_time": event.sim_time,
+                "type": "link_state_change",
+                "link_id": event.link_id,
+                "change": event.data.get("change"),
+            }
+            if event.data.get("bandwidth_factor") is not None:
+                trace_event["bandwidth_factor"] = event.data["bandwidth_factor"]
+            if event.data.get("duration") is not None:
+                trace_event["duration"] = event.data["duration"]
+            self._write_event(trace_event)
+
     @property
     def event_count(self) -> int:
         """Number of events written."""
@@ -358,3 +371,8 @@ class TraceEventAdapter:
                 duration=duration,
                 route=path,
             )
+
+        elif event.event_type == EventType.LINK_STATE_CHANGE:
+            # Disruptions and recoveries appear in the trace so a failure is
+            # visible next to the transfers it aborted or stalled.
+            self.trace_writer.on_event(event)

@@ -14,6 +14,7 @@ import yaml
 from ncsim.models.network import Node, Link, Network, Position
 from ncsim.models.task import Task
 from ncsim.models.dag import DAG, Edge
+from ncsim.models.disruptions import DisruptionEvent, DisruptionType
 
 
 @dataclass
@@ -56,6 +57,7 @@ class Scenario:
     file_path: Optional[str] = None
     file_hash: Optional[str] = None
     explicit_bandwidth_links: Set[str] = field(default_factory=set)
+    disruptions: List[DisruptionEvent] = field(default_factory=list)
 
 
 def _compute_file_hash(file_path: Path) -> str:
@@ -191,6 +193,49 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
     )
 
 
+_DISRUPTION_TYPE_BY_NAME = {
+    "link_down": DisruptionType.LINK_DOWN,
+    "link_degrade": DisruptionType.LINK_DEGRADE,
+    "recovery": DisruptionType.RECOVERY,
+}
+
+
+def _parse_disruptions(disruptions_data: List[Dict]) -> List[DisruptionEvent]:
+    """Parse link disruptions from YAML list.
+
+    Each entry:
+        time: when the disruption occurs (seconds)
+        link: ID of the affected link
+        type: link_down | link_degrade | recovery
+        duration: optional; auto-recovers after this many seconds
+        bandwidth_factor: for link_degrade, multiplier on base bandwidth
+    """
+    disruptions = []
+    for entry in disruptions_data:
+        type_name = str(entry.get("type", "link_down"))
+        disruption_type = _DISRUPTION_TYPE_BY_NAME.get(type_name)
+        if disruption_type is None:
+            raise ValueError(
+                f"Unknown disruption type '{type_name}'; expected one of "
+                f"{sorted(_DISRUPTION_TYPE_BY_NAME)}"
+            )
+        parameters = {}
+        if "bandwidth_factor" in entry:
+            parameters["bandwidth_factor"] = float(entry["bandwidth_factor"])
+        duration = entry.get("duration")
+        disruptions.append(
+            DisruptionEvent(
+                time=float(entry["time"]),
+                target_type="link",
+                target_id=str(entry["link"]),
+                disruption_type=disruption_type,
+                duration=float(duration) if duration is not None else None,
+                parameters=parameters,
+            )
+        )
+    return disruptions
+
+
 def load_scenario(file_path: str) -> Scenario:
     """Load a scenario from a YAML file.
 
@@ -240,6 +285,15 @@ def load_scenario(file_path: str) -> Scenario:
     config_data = scenario_data.get("config")
     config = _parse_config(config_data)
 
+    # Parse link disruptions (optional)
+    disruptions = _parse_disruptions(scenario_data.get("disruptions", []))
+    known_links = set(network.links)
+    for disruption in disruptions:
+        if disruption.target_id not in known_links:
+            raise ValueError(
+                f"Disruption references unknown link '{disruption.target_id}'"
+            )
+
     return Scenario(
         name=name,
         network=network,
@@ -248,6 +302,7 @@ def load_scenario(file_path: str) -> Scenario:
         file_path=str(path.absolute()),
         file_hash=file_hash,
         explicit_bandwidth_links=explicit_bw_links,
+        disruptions=disruptions,
     )
 
 

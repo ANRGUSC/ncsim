@@ -44,6 +44,15 @@ class RoutingModel(ABC):
         """
         pass
 
+    def clear_cache(self) -> None:
+        """Drop any cached paths.
+
+        Called by the execution engine when the usable topology changes
+        (e.g. a link goes down or recovers). Cache-less models inherit this
+        no-op; caching models override it.
+        """
+        pass
+
 
 class DirectLinkRouting(RoutingModel):
     """Phase 2 implementation: Direct link or fail.

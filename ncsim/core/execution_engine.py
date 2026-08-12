@@ -86,15 +86,39 @@ class LinkState:
         link_id: Link identifier
         active_transfers: List of transfers currently using this link
         total_data_transferred: Cumulative data transferred
+        up: Whether the link is currently usable (False after LINK_DOWN)
+        bandwidth_factor: Multiplier on base bandwidth (reduced by LINK_DEGRADE)
     """
     link_id: str
     active_transfers: List[ActiveTransfer] = field(default_factory=list)
     total_data_transferred: float = 0.0
+    up: bool = True
+    bandwidth_factor: float = 1.0
 
     @property
     def num_transfers(self) -> int:
         """Number of concurrent transfers on this link."""
         return len(self.active_transfers)
+
+
+@dataclass
+class StalledTransfer:
+    """A transfer that cannot proceed because no usable route exists.
+
+    Held by the engine until a RECOVERY event makes a route available again.
+    An aborted in-flight transfer is retransmitted from scratch (full
+    data_size): the connection died, so partial progress is lost.
+
+    Attributes:
+        dag_id: DAG containing the transfer
+        edge: The DAG edge (from_task, to_task, data_size) to (re)transmit
+        stalled_at: Sim time when the transfer stalled
+        was_in_flight: True if this transfer was aborted mid-flight
+    """
+    dag_id: str
+    edge: Edge
+    stalled_at: float
+    was_in_flight: bool = False
 
 
 @dataclass
@@ -173,9 +197,29 @@ class ExecutionEngine:
         # Simulation time
         self.sim_time = 0.0
 
+        # Link disruption state
+        self._disruptions_enabled = False  # Set when a disruption model is attached
+        self._stalled_transfers: List[StalledTransfer] = []
+        self._routable_network_cache: Optional[Network] = None
+        self.disruption_stats: Dict[str, int] = {
+            "disruptions_applied": 0,
+            "transfers_aborted": 0,
+            "transfers_stalled": 0,
+            "transfers_resumed": 0,
+        }
+
     def add_listener(self, listener: EventListener) -> None:
         """Add an event listener."""
         self._listeners.append(listener)
+
+    def enable_disruptions(self) -> None:
+        """Mark this run as disruption-aware.
+
+        Called by the simulation when a disruption model is attached. Missing
+        routes then stall transfers instead of failing the run, since a route
+        absent now may exist again after a recovery or repair.
+        """
+        self._disruptions_enabled = True
 
     def _notify_listeners(self, event: Event) -> None:
         """Notify all listeners of an event."""
@@ -191,8 +235,52 @@ class ExecutionEngine:
         return self.task_states.get(self._task_key(dag_id, task_id))
 
     def get_network_snapshot(self) -> NetworkSnapshot:
-        """Create a snapshot of current network state for scheduler."""
-        return NetworkSnapshot.from_network(self.network, self.sim_time)
+        """Create a snapshot of current network state for scheduler.
+
+        Link bandwidths reflect the current disruption state: a downed link
+        reports 0.0, a degraded link reports its reduced bandwidth. This is
+        what lets a rescheduling policy see the network it must plan against.
+        """
+        snapshot = NetworkSnapshot.from_network(self.network, self.sim_time)
+        for link_id, link_snap in snapshot.links.items():
+            link_state = self.link_states.get(link_id)
+            if link_state is None:
+                continue
+            if not link_state.up:
+                link_snap.bandwidth = 0.0
+            else:
+                link_snap.bandwidth *= link_state.bandwidth_factor
+            link_snap.active_transfers = link_state.num_transfers
+            link_snap.utilization = self.get_link_utilization(link_id)
+        for node_id, node_snap in snapshot.nodes.items():
+            node_state = self.node_states.get(node_id)
+            if node_state is None:
+                continue
+            if node_state.current_task is not None:
+                node_snap.current_task = node_state.current_task.task_id
+            node_snap.queue_depth = len(node_state.queue)
+            node_snap.utilization = self.get_node_utilization(node_id)
+        return snapshot
+
+    def _routable_network(self) -> Network:
+        """Return the network restricted to links that are currently up.
+
+        Routing models consult this view, so path computation naturally avoids
+        downed links. Cached and invalidated on every link state change.
+        """
+        if not self._disruptions_enabled:
+            return self.network
+        if self._routable_network_cache is None:
+            self._routable_network_cache = Network(
+                nodes=self.network.nodes,
+                links={
+                    link_id: link
+                    for link_id, link in self.network.links.items()
+                    if self.link_states[link_id].up
+                },
+                link_model=self.network.link_model,
+            )
+        return self._routable_network_cache
 
     def get_network_state(self) -> NetworkState:
         """Get complete network state."""
@@ -223,15 +311,19 @@ class ExecutionEngine:
             Effective base bandwidth (before per-link fair sharing)
         """
         link = self.network.links[link_id]
+        link_state = self.link_states[link_id]
+        if not link_state.up:
+            return 0.0
+        base_bandwidth = link.bandwidth * link_state.bandwidth_factor
         if self.interference_model is None:
-            return link.bandwidth
+            return base_bandwidth
         active_links = self._get_active_link_ids()
         if extra_active_links:
             active_links = active_links | extra_active_links
         factor = self.interference_model.get_interference_factor(
             link_id, active_links, self.network
         )
-        return link.bandwidth * factor
+        return base_bandwidth * factor
 
     def handle_event(self, event: Event) -> None:
         """Dispatch event to appropriate handler."""
@@ -244,6 +336,7 @@ class ExecutionEngine:
             EventType.TASK_COMPLETE: self._handle_task_complete,
             EventType.TRANSFER_START: self._handle_transfer_start,
             EventType.TRANSFER_COMPLETE: self._handle_transfer_complete,
+            EventType.LINK_STATE_CHANGE: self._handle_link_state_change,
         }
 
         handler = handlers.get(event.event_type)
@@ -318,13 +411,22 @@ class ExecutionEngine:
                 continue  # Missing assignments caught elsewhere
             if src_node == dst_node:
                 continue  # Local transfer, no routing needed
-            path = self.routing_model.get_path(src_node, dst_node, self.network)
+            path = self.routing_model.get_path(src_node, dst_node, self._routable_network())
             if path is None or len(path) == 0:
                 errors.append(
                     f"  {edge.from_task}({src_node}) -> {edge.to_task}({dst_node}): "
                     f"no route via {type(self.routing_model).__name__}"
                 )
         if errors:
+            if self._disruptions_enabled:
+                # A route missing now may exist after a recovery or repair;
+                # the stall machinery holds the affected transfers meanwhile.
+                logger.warning(
+                    f"Placement plan for DAG {dag.id} has {len(errors)} transfer(s) "
+                    f"with no route under the current (disrupted) topology:\n"
+                    + "\n".join(errors)
+                )
+                return
             raise SimulationError(
                 f"Placement plan for DAG {dag.id} has {len(errors)} unreachable transfer(s):\n"
                 + "\n".join(errors)
@@ -493,10 +595,17 @@ class ExecutionEngine:
             self._complete_local_transfer(dag_id, from_task, to_task)
             return
 
-        # Get path for transfer
-        path = self.routing_model.get_path(src_node, dst_node, self.network)
+        # Get path for transfer. Routing sees only links that are up, so a
+        # transfer naturally routes around downed links when the routing
+        # model supports alternatives.
+        path = self.routing_model.get_path(src_node, dst_node, self._routable_network())
 
         if path is None or len(path) == 0:
+            if self._disruptions_enabled:
+                # No route *right now*; park the transfer until a recovery
+                # (or a repair) makes one available.
+                self._stall_transfer(dag_id, edge)
+                return
             raise SimulationError(
                 f"No route from {src_node} to {dst_node} for transfer "
                 f"{from_task}->{to_task} (routing={type(self.routing_model).__name__}). "
@@ -506,14 +615,18 @@ class ExecutionEngine:
         # Use first link as primary (for trace events), store full path in data
         link_id = path[0]
 
-        # Calculate bottleneck bandwidth and total latency for multi-hop paths
+        # Calculate bottleneck bandwidth and total latency for multi-hop paths.
+        # Bandwidths reflect current degradation factors.
+        def current_bandwidth(lid: str) -> float:
+            return self.network.links[lid].bandwidth * self.link_states[lid].bandwidth_factor
+
         if len(path) == 1:
             # Single-hop: use link's bandwidth and latency directly
-            bottleneck_bw = self.network.links[link_id].bandwidth
+            bottleneck_bw = current_bandwidth(link_id)
             total_latency = self.network.links[link_id].latency
         else:
             # Multi-hop: bottleneck = min bandwidth, latency = sum of all latencies
-            bottleneck_bw = min(self.network.links[lid].bandwidth for lid in path)
+            bottleneck_bw = min(current_bandwidth(lid) for lid in path)
             total_latency = sum(self.network.links[lid].latency for lid in path)
 
         self.event_queue.schedule(
@@ -585,6 +698,15 @@ class ExecutionEngine:
             num_transfers_on_link = link_state.num_transfers + 1
             link_effective_bw = base_bw / num_transfers_on_link
             effective_bw = min(effective_bw, link_effective_bw)
+
+        # A link in the path may have gone down at this very instant
+        # (LINK_STATE_CHANGE sorts after TRANSFER_START at equal times).
+        if effective_bw <= 0:
+            self._stall_transfer(
+                dag_id,
+                Edge(from_task=from_task, to_task=to_task, data_size=data_size),
+            )
+            return
 
         # Calculate completion time: transfer time + total latency
         transfer_time = (data_size / effective_bw) + total_latency
@@ -695,6 +817,27 @@ class ExecutionEngine:
                 data_transferred = old_effective_rate * elapsed
                 transfer.data_remaining = max(0, transfer.data_remaining - data_transferred)
 
+            # Transfers crossing a downed link are aborted before this runs,
+            # so a non-positive bandwidth here means an inconsistent state.
+            if effective_bw <= 0 or effective_bw == float('inf'):
+                logger.error(
+                    f"Recalculation of {transfer.from_task}->{transfer.to_task} "
+                    f"found unusable bandwidth {effective_bw}; aborting transfer"
+                )
+                for lid in path:
+                    lid_state = self.link_states.get(lid)
+                    if lid_state and transfer in lid_state.active_transfers:
+                        lid_state.active_transfers.remove(transfer)
+                self._stall_transfer(
+                    transfer.dag_id,
+                    Edge(
+                        from_task=transfer.from_task,
+                        to_task=transfer.to_task,
+                        data_size=transfer.data_size,
+                    ),
+                )
+                continue
+
             # Update tracked effective rate for next recalculation
             transfer.current_effective_rate = effective_bw
 
@@ -798,6 +941,148 @@ class ExecutionEngine:
                 )
                 logger.debug(f"Task {to_task} now ready (all predecessors complete)")
 
+    def _handle_link_state_change(self, event: Event) -> None:
+        """Handle a link disruption or recovery event.
+
+        Event data:
+            change: "link_down" | "link_degrade" | "recovery"
+            bandwidth_factor: multiplier for link_degrade (default 1.0)
+            duration: if set on link_down/link_degrade, a recovery event is
+                scheduled automatically at sim_time + duration
+
+        Semantics:
+        - link_down: the link becomes unusable. Every in-flight transfer whose
+          path crosses it is aborted; the connection is lost, so the transfer
+          is retransmitted from scratch once a route exists again.
+        - link_degrade: the link stays up at reduced bandwidth; in-flight
+          transfers slow down via the normal recalculation cascade.
+        - recovery: the link returns to full bandwidth and stalled transfers
+          are retried.
+
+        After the state is applied, the scheduler's on_network_change hook is
+        consulted for a repair plan (rescheduling policies plug in there).
+        """
+        link_id = event.link_id
+        change = event.data.get("change")
+        link_state = self.link_states.get(link_id)
+
+        if link_state is None:
+            logger.error(f"LINK_STATE_CHANGE: link {link_id} not found")
+            return
+
+        self._disruptions_enabled = True
+        self._routable_network_cache = None  # Topology view changed
+        self.routing_model.clear_cache()  # Cached paths may cross this link
+        self.disruption_stats["disruptions_applied"] += 1
+
+        if change == "link_down":
+            link_state.up = False
+            logger.info(f"Link {link_id} DOWN at t={self.sim_time:.6f}")
+            self._abort_transfers_on_link(link_id)
+        elif change == "link_degrade":
+            link_state.bandwidth_factor = float(event.data.get("bandwidth_factor", 1.0))
+            logger.info(
+                f"Link {link_id} DEGRADED to factor "
+                f"{link_state.bandwidth_factor} at t={self.sim_time:.6f}"
+            )
+            # In-flight transfers survive but slow down.
+            self._recalculate_link_transfers(link_id)
+        elif change == "recovery":
+            link_state.up = True
+            link_state.bandwidth_factor = 1.0
+            logger.info(f"Link {link_id} RECOVERED at t={self.sim_time:.6f}")
+            self._retry_stalled_transfers()
+        else:
+            logger.error(f"LINK_STATE_CHANGE: unknown change '{change}'")
+            return
+
+        # Auto-schedule recovery for transient disruptions.
+        duration = event.data.get("duration")
+        if duration is not None and change in ("link_down", "link_degrade"):
+            self.event_queue.schedule(
+                sim_time=self.sim_time + float(duration),
+                event_type=EventType.LINK_STATE_CHANGE,
+                link_id=link_id,
+                data={"change": "recovery"},
+            )
+
+        # Cross-link interference may shift when this link's traffic changes.
+        self._recalculate_interfered_transfers({link_id})
+
+        # Give the scheduling policy a chance to repair the placement.
+        plan = self.scheduler.on_network_change(
+            change, link_id, self.get_network_snapshot()
+        )
+        if plan is not None:
+            # TODO(repair): apply ReschedulePlan — move PENDING/QUEUED tasks,
+            # re-issue already-delivered inputs to the new node, abort
+            # in-flight transfers headed to moved tasks. Wired in next.
+            logger.warning(
+                "Scheduler returned a ReschedulePlan but plan application "
+                "is not implemented yet; ignoring."
+            )
+
+    def _abort_transfers_on_link(self, link_id: str) -> None:
+        """Abort every in-flight transfer whose path crosses a downed link.
+
+        A transfer is registered on every link of its path, so scanning the
+        downed link's active list finds all transfers that cross it. Each is
+        cancelled, removed from all its links, and parked as a stalled
+        transfer to be retransmitted in full when a route exists again.
+        """
+        link_state = self.link_states[link_id]
+        # Copy: we mutate active_transfers lists while iterating.
+        for transfer in list(link_state.active_transfers):
+            self.event_queue.cancel(transfer.event_id)
+            path = transfer.link_ids if transfer.link_ids else [transfer.link_id]
+            for lid in path:
+                other_state = self.link_states.get(lid)
+                if other_state and transfer in other_state.active_transfers:
+                    other_state.active_transfers.remove(transfer)
+            self._stalled_transfers.append(
+                StalledTransfer(
+                    dag_id=transfer.dag_id,
+                    edge=Edge(
+                        from_task=transfer.from_task,
+                        to_task=transfer.to_task,
+                        data_size=transfer.data_size,
+                    ),
+                    stalled_at=self.sim_time,
+                    was_in_flight=True,
+                )
+            )
+            self.disruption_stats["transfers_aborted"] += 1
+            logger.info(
+                f"Transfer {transfer.from_task}->{transfer.to_task} aborted "
+                f"(link {link_id} down); will retransmit in full"
+            )
+            # Survivors on the other links of the path get the freed bandwidth.
+            for lid in path:
+                if lid != link_id:
+                    self._recalculate_link_transfers(lid)
+
+    def _stall_transfer(self, dag_id: str, edge: Edge) -> None:
+        """Park a transfer that has no usable route right now."""
+        self._stalled_transfers.append(
+            StalledTransfer(dag_id=dag_id, edge=edge, stalled_at=self.sim_time)
+        )
+        self.disruption_stats["transfers_stalled"] += 1
+        logger.info(
+            f"Transfer {edge.from_task}->{edge.to_task} stalled: no usable "
+            f"route at t={self.sim_time:.6f}"
+        )
+
+    def _retry_stalled_transfers(self) -> None:
+        """Retry every stalled transfer; those still unroutable stall again."""
+        stalled, self._stalled_transfers = self._stalled_transfers, []
+        for entry in stalled:
+            self.disruption_stats["transfers_resumed"] += 1
+            self._schedule_transfer_start(entry.dag_id, entry.edge)
+            # _schedule_transfer_start re-stalls (and re-counts) on failure;
+            # keep resumed/stalled counters consistent for that case.
+            if self._stalled_transfers and self._stalled_transfers[-1].edge is entry.edge:
+                self.disruption_stats["transfers_resumed"] -= 1
+
     def _recalculate_interfered_transfers(self, changed_link_ids: Set[str]) -> None:
         """Recalculate transfers on links affected by interference changes.
 
@@ -821,6 +1106,19 @@ class ExecutionEngine:
             link_state = self.link_states.get(lid)
             if link_state and link_state.active_transfers:
                 self._recalculate_link_transfers(lid)
+
+    def get_unfinished_task_count(self) -> int:
+        """Count tasks that never completed.
+
+        Nonzero after a run means the workload could not finish -- e.g. a
+        permanent link failure left transfers stalled with no route. Surfaced
+        in metrics so an incomplete run is never mistaken for a fast one.
+        """
+        return sum(
+            1
+            for task_state in self.task_states.values()
+            if task_state.status != TaskStatus.COMPLETED
+        )
 
     def get_makespan(self) -> float:
         """Calculate makespan (time of last task completion)."""

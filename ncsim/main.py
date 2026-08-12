@@ -300,6 +300,13 @@ def main(args: list = None) -> int:
         else:
             dag_source = MultiDAGSource(scenario.dags)
 
+        # Create disruption model from scenario (optional)
+        disruption_model = None
+        if scenario.disruptions:
+            from ncsim.models.disruptions import ScheduledDisruptions
+            logger.info(f"Scheduling {len(scenario.disruptions)} link disruption(s)")
+            disruption_model = ScheduledDisruptions(scenario.disruptions)
+
         # Create simulation
         sim = Simulation(
             network=scenario.network,
@@ -307,6 +314,7 @@ def main(args: list = None) -> int:
             dag_source=dag_source,
             routing_model=routing_model,
             interference_model=interference_model,
+            disruption_model=disruption_model,
             seed=seed
         )
 

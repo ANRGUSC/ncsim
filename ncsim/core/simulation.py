@@ -13,9 +13,17 @@ from ncsim.core.execution_engine import ExecutionEngine
 from ncsim.core.telemetry import TelemetryCollector, TraceOnlyCollector
 from ncsim.models.network import Network
 from ncsim.models.dag import DAG, DAGSource, SingleDAGSource
+from ncsim.models.disruptions import DisruptionModel, DisruptionType
 from ncsim.models.routing import RoutingModel
 from ncsim.models.interference import InterferenceModel
 from ncsim.scheduler.base import Scheduler
+
+# DisruptionType -> the change string carried by LINK_STATE_CHANGE events.
+_LINK_CHANGE_BY_TYPE = {
+    DisruptionType.LINK_DOWN: "link_down",
+    DisruptionType.LINK_DEGRADE: "link_degrade",
+    DisruptionType.RECOVERY: "recovery",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +64,7 @@ class Simulation:
         telemetry: Optional[TelemetryCollector] = None,
         routing_model: Optional[RoutingModel] = None,
         interference_model: Optional[InterferenceModel] = None,
+        disruption_model: Optional[DisruptionModel] = None,
         seed: int = 42
     ):
         """Initialize simulation.
@@ -67,6 +76,7 @@ class Simulation:
             telemetry: Telemetry collector (default: TraceOnlyCollector)
             routing_model: Routing model for multi-hop paths (default: DirectLinkRouting)
             interference_model: Optional inter-link interference model
+            disruption_model: Optional source of link disruption events
             seed: Random seed for reproducibility
         """
         self.network = network
@@ -75,6 +85,7 @@ class Simulation:
         self.telemetry = telemetry or TraceOnlyCollector()
         self.routing_model = routing_model
         self.interference_model = interference_model
+        self.disruption_model = disruption_model
         self.seed = seed
 
         # Create event queue and execution engine
@@ -143,6 +154,37 @@ class Simulation:
                 self.inject_dag(dag, inject_time)
                 injection = self.dag_source.get_next_injection(inject_time + 0.000001)
 
+        # Schedule link disruptions from the disruption model
+        if self.disruption_model is not None:
+            self.engine.enable_disruptions()
+            self.disruption_model.reset()
+            disruption = self.disruption_model.get_next_disruption(0.0)
+            while disruption is not None:
+                if disruption.target_type != "link":
+                    raise NotImplementedError(
+                        f"Only link disruptions are supported; got "
+                        f"target_type='{disruption.target_type}' for "
+                        f"{disruption.target_id}"
+                    )
+                change = _LINK_CHANGE_BY_TYPE.get(disruption.disruption_type)
+                if change is None:
+                    raise NotImplementedError(
+                        f"Unsupported disruption type: {disruption.disruption_type}"
+                    )
+                data = {"change": change, "duration": disruption.duration}
+                data.update(disruption.parameters)
+                self.event_queue.schedule(
+                    sim_time=disruption.time,
+                    event_type=EventType.LINK_STATE_CHANGE,
+                    link_id=disruption.target_id,
+                    data=data,
+                )
+                logger.info(
+                    f"Scheduled {change} on link {disruption.target_id} "
+                    f"at t={disruption.time}"
+                )
+                disruption = self.disruption_model.get_next_disruption(disruption.time)
+
         # Process events
         try:
             while not self.event_queue.is_empty():
@@ -180,6 +222,14 @@ class Simulation:
 
         # Finalize telemetry
         telemetry_metrics = self.telemetry.finalize(self.engine)
+
+        # Surface disruption behavior; unfinished_tasks > 0 means the workload
+        # never completed (e.g. permanently severed route), so the makespan
+        # covers only the tasks that did finish.
+        if self.disruption_model is not None:
+            telemetry_metrics = dict(telemetry_metrics)
+            telemetry_metrics["disruptions"] = dict(self.engine.disruption_stats)
+            telemetry_metrics["unfinished_tasks"] = self.engine.get_unfinished_task_count()
 
         logger.info(f"Simulation complete: makespan={makespan:.6f}, events={self._events_processed}")
 

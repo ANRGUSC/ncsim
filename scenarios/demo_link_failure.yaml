@@ -1,0 +1,59 @@
+# Demo: Link Failure Scenario
+# Line topology n0 -- n1 -- n2 plus a task chain whose big transfer crosses l01.
+# The l01 link fails at t=1.5 (mid-transfer) and recovers at t=3.5.
+#
+# Without the failure: T0 runs 0->1, transfer 1->2, T1 runs 2->3 (makespan 3.0).
+# With it: the transfer aborts at t=1.5 (partial progress lost), retransmits in
+# full at recovery (3.5->4.5), T1 runs 4.5->5.5 (makespan 5.5).
+
+scenario:
+  name: "Link Failure Demo"
+
+  network:
+    nodes:
+      - id: n0
+        compute_capacity: 100
+        position: {x: 0, y: 0}
+      - id: n1
+        compute_capacity: 100
+        position: {x: 10, y: 0}
+      - id: n2
+        compute_capacity: 10
+        position: {x: 20, y: 0}
+    links:
+      - id: l01
+        from: n0
+        to: n1
+        bandwidth: 100
+        latency: 0.0
+      - id: l12
+        from: n1
+        to: n2
+        bandwidth: 100
+        latency: 0.0
+
+  dags:
+    - id: dag_1
+      inject_at: 0.0
+      tasks:
+        - id: T0
+          compute_cost: 100
+          pinned_to: n0
+        - id: T1
+          compute_cost: 100
+          pinned_to: n1
+      edges:
+        - from: T0
+          to: T1
+          data_size: 100
+
+  disruptions:
+    - time: 1.5
+      link: l01
+      type: link_down
+      duration: 2.0    # recovers automatically at t=3.5
+
+  config:
+    scheduler: manual
+    seed: 42
+    interference: none
