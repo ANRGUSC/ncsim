@@ -588,9 +588,13 @@ class ExecutionEngine:
         for edge in outgoing_edges:
             self._schedule_transfer_start(dag_id, edge)
 
-        # Start next queued task
+        # Start next queued task. Claim the node NOW, exactly as
+        # _handle_task_ready does: a TASK_READY at this same instant would
+        # otherwise see the node idle and start a second task alongside the
+        # dequeued one.
         if not node_state.queue.is_empty():
             next_task = node_state.queue.dequeue()
+            node_state.current_task = next_task
             self.event_queue.schedule(
                 sim_time=self.sim_time,
                 event_type=EventType.TASK_START,
