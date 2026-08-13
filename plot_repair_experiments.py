@@ -224,8 +224,9 @@ def family_table(records, table, generators, output, summary):
     """Per-workload-family geo-means as a LaTeX table body (family_table.tex).
 
     Rows: family x generator; columns: policies. Values are geo-mean
-    makespan/oracle at zero repair cost. The paper wraps this body in its own
-    tabular environment.
+    makespan/oracle at zero repair cost. Emits the complete tabular
+    environment: an input inside a tabular breaks TeX's alignment scanner, so
+    the paper inputs the whole table instead.
     """
     families = sorted({FAMILY_OF.get(r["structure"], "other") for r in records})
     policies = [p for p in POLICY_STYLE]
@@ -253,8 +254,15 @@ def family_table(records, table, generators, output, summary):
         lines.append(r"\midrule")
     if lines and lines[-1] == r"\midrule":
         lines.pop()
+    header = [
+        r"\begin{tabular}{llcccc}",
+        r"\toprule",
+        r"Family & Disruption & Wait & Reroute & Local & Global \\",
+        r"\midrule",
+    ]
+    footer = [r"\bottomrule", r"\end{tabular}"]
     with open(output / "family_table.tex", "w", encoding="utf-8") as handle:
-        handle.write("\n".join(lines) + "\n")
+        handle.write("\n".join(header + lines + footer) + "\n")
 
 
 def main() -> int:
