@@ -101,11 +101,10 @@ def style_axis(ax):
     ax.set_axisbelow(True)
 
 
-def plot_ladder(table, generators, output, summary):
-    """Grouped bars: normalized makespan by generator x policy."""
+def _draw_ladder(ax, table, generators, summary):
+    """Draw the grouped ladder bars onto ax; used by both ladder figures."""
     policies = [p for p in POLICY_STYLE if any(
         (g, p, 0.0) in table for g in generators)]
-    fig, ax = plt.subplots(figsize=(7.0, 2.25), dpi=200)
     group_width = 0.8
     bar_width = group_width / len(policies)
 
@@ -170,6 +169,12 @@ def plot_ladder(table, generators, output, summary):
     style_axis(ax)
     ax.legend(frameon=False, fontsize=8, loc="upper left", ncols=len(policies),
               handlelength=1.4, columnspacing=1.0)
+
+
+def plot_ladder(table, generators, output, summary):
+    """Grouped bars: normalized makespan by generator x policy."""
+    fig, ax = plt.subplots(figsize=(7.0, 2.25), dpi=200)
+    _draw_ladder(ax, table, generators, summary)
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(output / f"repair_ladder.{ext}")
@@ -224,15 +229,8 @@ def plot_cost_sweep(table, generators, costs, output, summary):
     plt.close(fig)
 
 
-def plot_ccr_trend(records, table, generators, output, summary):
-    """Lines: geo-mean makespan/oracle vs. CCR per policy, per generator."""
-    ccrs = sorted({r.get("ccr", 1.0) for r in records})
-    if len(ccrs) < 2:
-        return
-    fig, axes = plt.subplots(1, len(generators), figsize=(7.0, 1.85),
-                             dpi=200, sharey=True)
-    if len(generators) == 1:
-        axes = [axes]
+def _draw_ccr(axes, ccrs, table, generators, summary, legend=True):
+    """Draw the per-CCR trend panels onto axes; one axis per generator."""
     for ax, generator in zip(axes, generators):
         for policy, style in POLICY_STYLE.items():
             xs, ys = [], []
@@ -257,10 +255,51 @@ def plot_ccr_trend(records, table, generators, output, summary):
         ax.set_xlabel("CCR", fontsize=7.5, color=TEXT_SECONDARY)
         style_axis(ax)
     axes[0].set_ylabel("Makespan / oracle", fontsize=8.5, color=TEXT_PRIMARY)
-    axes[-1].legend(frameon=False, fontsize=7, loc="best", handlelength=1.4)
+    if legend:
+        axes[-1].legend(frameon=False, fontsize=7, loc="best", handlelength=1.4)
+
+
+def plot_ccr_trend(records, table, generators, output, summary):
+    """Lines: geo-mean makespan/oracle vs. CCR per policy, per generator."""
+    ccrs = sorted({r.get("ccr", 1.0) for r in records})
+    if len(ccrs) < 2:
+        return
+    fig, axes = plt.subplots(1, len(generators), figsize=(7.0, 1.85),
+                             dpi=200, sharey=True)
+    if len(generators) == 1:
+        axes = [axes]
+    _draw_ccr(axes, ccrs, table, generators, summary)
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(output / f"ccr_trend.{ext}")
+    plt.close(fig)
+
+
+def plot_ladder_ccr(records, table, generators, output, summary):
+    """Combined figure: ladder bars on top, per-CCR trend panels below.
+
+    One figure and one caption in the paper instead of two; the bars carry
+    the policy legend for both rows.
+    """
+    ccrs = sorted({r.get("ccr", 1.0) for r in records})
+    if len(ccrs) < 2:
+        return
+    fig = plt.figure(figsize=(7.0, 3.3), dpi=200)
+    grid = fig.add_gridspec(2, len(generators), height_ratios=[1.2, 1.0],
+                            hspace=0.5)
+    top = fig.add_subplot(grid[0, :])
+    _draw_ladder(top, table, generators, summary)
+    first = fig.add_subplot(grid[1, 0])
+    bottom = [first] + [
+        fig.add_subplot(grid[1, i], sharey=first)
+        for i in range(1, len(generators))
+    ]
+    for ax in bottom[1:]:
+        plt.setp(ax.get_yticklabels(), visible=False)
+    _draw_ccr(bottom, ccrs, table, generators, summary, legend=False)
+    fig.tight_layout()
+    for ext in ("pdf", "png"):
+        fig.savefig(output / f"ladder_ccr.{ext}")
     plt.close(fig)
 
 
@@ -336,6 +375,7 @@ def main() -> int:
     plot_ladder(table, generators, output, summary)
     plot_cost_sweep(table, generators, costs, output, summary)
     plot_ccr_trend(records, table, generators, output, summary)
+    plot_ladder_ccr(records, table, generators, output, summary)
     family_table(records, table, generators, output, summary)
 
     with open(output / "summary.json", "w", encoding="utf-8") as handle:
