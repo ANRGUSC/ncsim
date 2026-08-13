@@ -101,7 +101,7 @@ def plot_ladder(table, generators, output, summary):
     """Grouped bars: normalized makespan by generator x policy."""
     policies = [p for p in POLICY_STYLE if any(
         (g, p, 0.0) in table for g in generators)]
-    fig, ax = plt.subplots(figsize=(7.0, 2.6), dpi=200)
+    fig, ax = plt.subplots(figsize=(7.0, 2.25), dpi=200)
     group_width = 0.8
     bar_width = group_width / len(policies)
 
@@ -179,7 +179,7 @@ def plot_cost_sweep(table, generators, costs, output, summary):
     if not costed or len(costs) < 2:
         return
     fig, axes = plt.subplots(
-        1, len(generators), figsize=(7.0, 2.1), dpi=200, sharey=True
+        1, len(generators), figsize=(7.0, 1.85), dpi=200, sharey=True
     )
     if len(generators) == 1:
         axes = [axes]

@@ -178,13 +178,12 @@ def run_policy(policy):
             from ncsim.scheduler.saga_adapter import SagaScheduler
             planner = SagaScheduler(algorithm="heft")
             t_of = float(label.split("t=")[1].rstrip("]"))
-            for start, view in phase_networks(network, trace):
-                if abs(start - t_of) < 1e-9:
-                    snap = NetworkSnapshot.from_network(view, timestamp=start)
-                    per_dag = {dag.id: dict(
-                        planner.on_dag_inject(copy.deepcopy(dag), snap).assignments)}
-                    sched = FixedPlacementScheduler(per_dag)
-                    break
+            phases = phase_networks(network, trace)
+            start, view = min(phases, key=lambda sv: abs(sv[0] - t_of))
+            snap = NetworkSnapshot.from_network(view, timestamp=start)
+            per_dag = {dag.id: dict(
+                planner.on_dag_inject(copy.deepcopy(dag), snap).assignments)}
+            sched = FixedPlacementScheduler(per_dag)
     else:
         scope = {"wait": "none", "reroute": "none",
                  "local": "local", "global": "global"}[policy]
@@ -215,10 +214,16 @@ plan_result = plan_sim.run()
 plan_node = {k.split(":", 1)[1]: ts.assigned_node
              for k, ts in plan_sim.engine.task_states.items()}
 
-rows = [("PLAN (no failure)", plan_sim, plan_result, [], None)]
-for policy in ("wait", "reroute", "local", "global", "oracle"):
+PAPER = len(sys.argv) > 3 and sys.argv[3] == "paper"
+POLICY_SET = ("wait", "local", "global") if PAPER else (
+    "wait", "reroute", "local", "global", "oracle")
+
+rows = [("Plan (no failure)" if PAPER else "PLAN (no failure)",
+         plan_sim, plan_result, [], None)]
+for policy in POLICY_SET:
     sim, result, repairs, label = run_policy(policy)
-    name = policy.upper() + (f"  [{label}]" if label else "")
+    name = (policy.capitalize() if PAPER else policy.upper()) + (
+        f"  [{label}]" if label else "")
     rows.append((name, sim, result, repairs, policy))
     moved = [t for t, ts in ((k.split(":", 1)[1], v)
              for k, v in sim.engine.task_states.items())
@@ -229,8 +234,10 @@ for policy in ("wait", "reroute", "local", "global", "oracle"):
 
 # ---------------------------------------------------------------- gantts
 node_ids = sorted(network.nodes)
-fig, axes = plt.subplots(len(rows), 1, figsize=(11, 1.75 * len(rows)),
-                         dpi=150, sharex=True)
+row_h = 0.92 if PAPER else 1.75
+fig, axes = plt.subplots(len(rows), 1,
+                         figsize=(7.0 if PAPER else 11, row_h * len(rows)),
+                         dpi=200, sharex=True)
 xmax = max(r.makespan for _, _, r, _, _ in rows) * 1.05
 
 for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
@@ -245,8 +252,11 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
                 edgecolor="#0b0b0b" if moved else "white",
                 linewidth=1.6 if moved else 0.5,
                 hatch="//" if moved else None, zorder=3)
-        ax.annotate(tid, (ts.started_at + (ts.completed_at - ts.started_at) / 2, y),
-                    ha="center", va="center", fontsize=6, zorder=4)
+        if not (PAPER and ts.completed_at - ts.started_at < 0.05):
+            ax.annotate(tid,
+                        (ts.started_at + (ts.completed_at - ts.started_at) / 2, y),
+                        ha="center", va="center", fontsize=5 if PAPER else 6,
+                        zorder=4)
     if policy is not None:  # every disrupted run shows the failure window
         ax.axvspan(fail_time, fail_time + fail_duration, color="#e34948",
                    alpha=0.10, zorder=1)
@@ -254,31 +264,38 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
                    zorder=2)
         ax.axvline(fail_time + fail_duration, color="#1baf7a", linewidth=1.2,
                    linestyle="--", zorder=2)
-        ax.annotate(f"{'+'.join(failed_links)} DOWN\nt={fail_time:.2f}",
-                    (fail_time, len(node_ids) - 0.45), fontsize=6,
-                    color="#e34948", ha="right", va="top", xytext=(-3, 0),
-                    textcoords="offset points")
-        ax.annotate(f"recovery\nt={fail_time+fail_duration:.2f}",
-                    (fail_time + fail_duration, len(node_ids) - 0.45),
-                    fontsize=6, color="#1baf7a", ha="left", va="top",
-                    xytext=(3, 0), textcoords="offset points")
+        if not PAPER:
+            ax.annotate(f"{'+'.join(failed_links)} DOWN\nt={fail_time:.2f}",
+                        (fail_time, len(node_ids) - 0.45), fontsize=6,
+                        color="#e34948", ha="right", va="top", xytext=(-3, 0),
+                        textcoords="offset points")
+            ax.annotate(f"recovery\nt={fail_time+fail_duration:.2f}",
+                        (fail_time + fail_duration, len(node_ids) - 0.45),
+                        fontsize=6, color="#1baf7a", ha="left", va="top",
+                        xytext=(3, 0), textcoords="offset points")
     for rt in repairs:
         ax.axvline(rt, color="#4a3aa7", linewidth=1.4, linestyle=":", zorder=2)
-        ax.annotate(f"repair applied\nt={rt:.2f}", (rt, -0.42), fontsize=6,
-                    color="#4a3aa7", ha="center", va="bottom")
+        if not PAPER:
+            ax.annotate(f"repair applied\nt={rt:.2f}", (rt, -0.42), fontsize=6,
+                        color="#4a3aa7", ha="center", va="bottom")
     ax.set_yticks(range(len(node_ids)))
     ax.set_yticklabels(node_ids, fontsize=7)
     ax.set_ylim(-0.6, len(node_ids) - 0.3)
-    ax.set_title(f"{name}   makespan={result.makespan:.3f}", fontsize=8,
-                 loc="left")
+    ax.set_title(
+        f"{name}   makespan={result.makespan:.2f}"
+        + (f"  ({result.makespan / m0:.2f}$\\times M_0$)" if PAPER and policy else ""),
+        fontsize=8, loc="left")
     ax.tick_params(labelsize=7)
     ax.xaxis.grid(True, color="#e8e7e2", linewidth=0.6)
     ax.set_axisbelow(True)
 axes[-1].set_xlabel("time (s)", fontsize=8)
 axes[-1].set_xlim(0, xmax)
-fig.suptitle("Hatched black-outlined bars = tasks moved off the planned node",
-             fontsize=8, y=0.995)
+if not PAPER:
+    fig.suptitle("Hatched black-outlined bars = tasks moved off the planned node",
+                 fontsize=8, y=0.995)
 fig.tight_layout()
 fig.savefig(OUT / "3_gantts.png")
+if PAPER:
+    fig.savefig(OUT / "gantt_example.pdf")
 plt.close(fig)
 print(f"\nfigures -> {OUT}")

@@ -94,6 +94,8 @@ def main() -> int:
     parser.add_argument("--ccr", type=float, default=1.0)
     parser.add_argument("--duration-frac", type=float, default=0.5,
                         help="Outage duration as a fraction of M0")
+    parser.add_argument("--compact", action="store_true",
+                        help="Paper-sized figure: shorter rows, no title")
     parser.add_argument("--time-fracs", nargs="+", type=float,
                         default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
                         help="Failure start times as fractions of M0")
@@ -161,8 +163,10 @@ def main() -> int:
         for p in pairs
     ]
 
+    row_height = 0.28 if args.compact else 0.42
     fig, axes = plt.subplots(1, len(POLICIES),
-                             figsize=(3.0 * len(POLICIES) + 1.2, 0.42 * len(pairs) + 1.6),
+                             figsize=(3.0 * len(POLICIES) + 1.2,
+                                      row_height * len(pairs) + 1.3),
                              dpi=150, sharey=True)
     for ax, policy in zip(axes, POLICIES):
         grid = [[by[("-".join(p), tf, policy)]["vs_m0"]
@@ -187,11 +191,12 @@ def main() -> int:
     cbar = fig.colorbar(im, ax=axes, fraction=0.02, pad=0.01)
     cbar.set_label("makespan / $M_0$  (green: better than plan)", fontsize=8)
     cbar.ax.tick_params(labelsize=7)
-    fig.suptitle(
-        f"Link x time failure sweep: {args.structure} seed={args.seed}, "
-        f"outage {args.duration_frac:g} M0 (M0={m0:.2f}); blank cells = no impact (= M0)",
-        fontsize=9, y=0.99,
-    )
+    if not args.compact:
+        fig.suptitle(
+            f"Link x time failure sweep: {args.structure} seed={args.seed}, "
+            f"outage {args.duration_frac:g} M0 (M0={m0:.2f}); blank cells = no impact (= M0)",
+            fontsize=9, y=0.99,
+        )
     for ext in ("png", "pdf"):
         fig.savefig(output / f"link_sweep.{ext}", bbox_inches="tight")
     plt.close(fig)
