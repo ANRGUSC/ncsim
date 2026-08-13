@@ -26,10 +26,11 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 from ncsim.core.simulation import Simulation, SimulationResult
 from ncsim.experiments.oracle import oracle_run
 from ncsim.experiments.workloads import (
+    ALL_STRUCTURES,
     STRUCTURES,
+    make_workload,
     scale_network_to_ccr,
     spatial_network,
-    synthetic_dag,
 )
 from ncsim.models.dag import DAG, SingleDAGSource
 from ncsim.models.disruptions import DisruptionEvent, ScheduledDisruptions
@@ -224,7 +225,7 @@ def run_matrix(
             # (which include structure-derived strings), not via this integer.
             seed = config.seed * 10_000 + index
             instance = f"{structure}-{index}"
-            dag = synthetic_dag(structure, seed=seed)
+            dag = make_workload(structure, seed=seed)
             network = spatial_network(config.num_nodes, seed=seed)
             scale_network_to_ccr(network, dag, config.ccr)
             m0 = undisrupted_makespan(network, dag)

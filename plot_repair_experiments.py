@@ -47,6 +47,14 @@ GENERATOR_LABELS = {
     "mobility": "Mobility",
     "jamming": "Jamming",
 }
+FAMILY_OF = {
+    "out_tree": "synthetic", "in_tree": "synthetic", "parallel_chains": "synthetic",
+    "etl": "riotbench", "stats": "riotbench", "train": "riotbench",
+    "predict": "riotbench",
+    "epigenomics": "wfcommons", "montage": "wfcommons", "seismology": "wfcommons",
+}
+FAMILY_LABELS = {"synthetic": "Synthetic", "riotbench": "RIoTBench",
+                 "wfcommons": "WfCommons"}
 
 
 def geo_mean(values):
@@ -212,6 +220,43 @@ def plot_cost_sweep(table, generators, costs, output, summary):
     plt.close(fig)
 
 
+def family_table(records, table, generators, output, summary):
+    """Per-workload-family geo-means as a LaTeX table body (family_table.tex).
+
+    Rows: family x generator; columns: policies. Values are geo-mean
+    makespan/oracle at zero repair cost. The paper wraps this body in its own
+    tabular environment.
+    """
+    families = sorted({FAMILY_OF.get(r["structure"], "other") for r in records})
+    policies = [p for p in POLICY_STYLE]
+    lines = []
+    for family in families:
+        instances = {r["instance"] for r in records
+                     if FAMILY_OF.get(r["structure"], "other") == family}
+        for gi, generator in enumerate(generators):
+            cells = []
+            for policy in policies:
+                ratios = oracle_normalized(table, generator, policy, 0.0)
+                mean = geo_mean([v for k, v in ratios.items() if k in instances])
+                summary["family"][family][generator][policy] = mean
+                cells.append(f"{mean:.2f}" if mean is not None else "--")
+            best = min((float(c) for c in cells if c != "--"), default=None)
+            cells = [
+                (r"\textbf{" + c + "}") if c != "--" and float(c) == best else c
+                for c in cells
+            ]
+            row_head = FAMILY_LABELS.get(family, family) if gi == 0 else ""
+            lines.append(
+                f"{row_head} & {GENERATOR_LABELS.get(generator, generator)} & "
+                + " & ".join(cells) + r" \\"
+            )
+        lines.append(r"\midrule")
+    if lines and lines[-1] == r"\midrule":
+        lines.pop()
+    with open(output / "family_table.tex", "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--records", required=True)
@@ -232,9 +277,11 @@ def main() -> int:
     summary = {
         "ladder": defaultdict(dict),
         "cost_sweep": defaultdict(lambda: defaultdict(dict)),
+        "family": defaultdict(lambda: defaultdict(dict)),
     }
     plot_ladder(table, generators, output, summary)
     plot_cost_sweep(table, generators, costs, output, summary)
+    family_table(records, table, generators, output, summary)
 
     with open(output / "summary.json", "w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=2, default=dict)

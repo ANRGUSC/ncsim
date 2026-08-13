@@ -27,7 +27,17 @@ try:
 except ImportError:  # pragma: no cover - exercised only without saga
     SAGA_AVAILABLE = False
 
+# Three workload families: synthetic structures (seeded weight streams),
+# RIoTBench IoT stream-processing pipelines, and WfCommons scientific
+# workflows. All arrive as SAGA TaskGraphs and convert identically.
 STRUCTURES = ("out_tree", "in_tree", "parallel_chains")
+RIOTBENCH_STRUCTURES = ("etl", "stats", "train", "predict")
+WFCOMMONS_STRUCTURES = ("epigenomics", "montage", "seismology")
+ALL_STRUCTURES = STRUCTURES + RIOTBENCH_STRUCTURES + WFCOMMONS_STRUCTURES
+
+# Cap WfCommons workflow sizes so instances stay comparable to the rest of
+# the matrix (and fast to simulate at scale).
+WFCOMMONS_SIZE_CAP = 50
 
 
 def saga_taskgraph_to_dag(task_graph: "SagaTaskGraph", dag_id: str) -> DAG:
@@ -97,6 +107,100 @@ def synthetic_dag(structure: str, seed: int, dag_id: str = "dag_1") -> DAG:
     else:
         raise ValueError(f"Unknown structure '{structure}'; expected {STRUCTURES}")
     return saga_taskgraph_to_dag(graph, dag_id)
+
+
+def riotbench_dag(kind: str, seed: int, dag_id: str = "dag_1") -> DAG:
+    """Generate one RIoTBench pipeline (ETL, STATS, TRAIN, or PRED).
+
+    The pipeline topology is fixed by the benchmark; per-instance variety
+    comes from the seeded input-size stream, matching how the benchmark is
+    instantiated in prior SAGA evaluations.
+
+    Args:
+        kind: One of RIOTBENCH_STRUCTURES
+        seed: Instance seed
+        dag_id: DAG identifier
+
+    Returns:
+        The ncsim DAG
+    """
+    if not SAGA_AVAILABLE:
+        raise RuntimeError("SAGA is required for RIoTBench workloads")
+    import numpy as np
+    from saga.schedulers.data import riotbench
+
+    if kind not in RIOTBENCH_STRUCTURES:
+        raise ValueError(f"Unknown RIoTBench kind '{kind}'; expected {RIOTBENCH_STRUCTURES}")
+    rng = random.Random(f"riotbench:{kind}:{seed}")
+    generator = getattr(riotbench, f"get_{kind}_task_graphs")
+    # The stochastic layer's sample() draws from the global RNGs; scope the
+    # seeding to this call so (kind, seed) always yields the same instance.
+    random_state = random.getstate()
+    np_state = np.random.get_state()
+    try:
+        random.seed(f"riotbench:{kind}:{seed}")
+        np.random.seed(seed % 2**32)
+        graph = generator(num=1, get_input_size=lambda: rng.uniform(500, 1500))[0]
+    finally:
+        random.setstate(random_state)
+        np.random.set_state(np_state)
+    return saga_taskgraph_to_dag(graph, dag_id)
+
+
+def wfcommons_dag(recipe: str, seed: int, dag_id: str = "dag_1") -> DAG:
+    """Generate one WfCommons scientific workflow from a recipe.
+
+    WfCommons draws task counts and weights from distributions fitted to real
+    execution traces, using the global random/numpy RNGs; both are seeded
+    here so the same (recipe, seed) always yields the same workflow.
+
+    Args:
+        recipe: One of WFCOMMONS_STRUCTURES
+        seed: Instance seed
+        dag_id: DAG identifier
+
+    Returns:
+        The ncsim DAG
+    """
+    if not SAGA_AVAILABLE:
+        raise RuntimeError("SAGA is required for WfCommons workloads")
+    import numpy as np
+    from saga.schedulers.data import wfcommons
+
+    if recipe not in WFCOMMONS_STRUCTURES:
+        raise ValueError(f"Unknown WfCommons recipe '{recipe}'; expected {WFCOMMONS_STRUCTURES}")
+    # Every recipe has a minimum workflow size; the cap cannot go below it.
+    min_tasks, _ = wfcommons.get_num_task_range(recipe)
+    size_cap = max(min_tasks, WFCOMMONS_SIZE_CAP)
+
+    # WfCommons samples via the global RNGs; scope the seeding to this call.
+    random_state = random.getstate()
+    np_state = np.random.get_state()
+    try:
+        random.seed(f"wfcommons:{recipe}:{seed}")
+        np.random.seed(seed % 2**32)
+        graph = wfcommons.get_workflows(
+            num=1, recipe_name=recipe, size_cap=size_cap
+        )[0]
+    finally:
+        random.setstate(random_state)
+        np.random.set_state(np_state)
+    return saga_taskgraph_to_dag(graph, dag_id)
+
+
+def make_workload(structure: str, seed: int, dag_id: str = "dag_1") -> DAG:
+    """Generate one workload DAG of any supported structure.
+
+    Dispatches across the three families: synthetic structures, RIoTBench
+    pipelines, and WfCommons workflows.
+    """
+    if structure in STRUCTURES:
+        return synthetic_dag(structure, seed, dag_id)
+    if structure in RIOTBENCH_STRUCTURES:
+        return riotbench_dag(structure, seed, dag_id)
+    if structure in WFCOMMONS_STRUCTURES:
+        return wfcommons_dag(structure, seed, dag_id)
+    raise ValueError(f"Unknown structure '{structure}'; expected one of {ALL_STRUCTURES}")
 
 
 def spatial_network(

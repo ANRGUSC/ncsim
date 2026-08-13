@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ncsim.experiments import ExperimentConfig, run_matrix, save_records
 from ncsim.experiments.runner import GENERATORS, POLICIES
-from ncsim.experiments.workloads import STRUCTURES
+from ncsim.experiments.workloads import ALL_STRUCTURES, STRUCTURES
 
 
 def main() -> int:
@@ -29,7 +29,11 @@ def main() -> int:
                         help="Communication-to-computation ratio (default: 1.0)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--structures", nargs="+", default=list(STRUCTURES),
-                        choices=list(STRUCTURES))
+                        choices=list(ALL_STRUCTURES),
+                        help="Workload structures; synthetic by default. Also "
+                             "available: RIoTBench pipelines (etl, stats, "
+                             "train, predict) and WfCommons workflows "
+                             "(epigenomics, montage, seismology)")
     parser.add_argument("--generators", nargs="+", default=list(GENERATORS),
                         choices=list(GENERATORS))
     parser.add_argument("--policies", nargs="+", default=list(POLICIES),
