@@ -40,25 +40,36 @@ ALL_STRUCTURES = STRUCTURES + RIOTBENCH_STRUCTURES + WFCOMMONS_STRUCTURES
 WFCOMMONS_SIZE_CAP = 50
 
 
+# SAGA encodes "no data" as an epsilon (~1e-9) rather than zero to avoid
+# division problems in its own rank computations. In ncsim any positive size
+# demands a route -- an epsilon transfer would stall a whole outage on a dead
+# link -- so sizes and costs at or below this threshold convert to true zero,
+# restoring their meaning as pure precedence constraints.
+EPSILON_WEIGHT = 1e-6
+
+
 def saga_taskgraph_to_dag(task_graph: "SagaTaskGraph", dag_id: str) -> DAG:
     """Convert a SAGA TaskGraph to an ncsim DAG.
 
-    SAGA task costs map to compute_cost and dependency sizes to data_size.
-    Zero-cost super source/sink nodes added by SAGA to normalize multi-root
-    graphs convert as ordinary zero-cost tasks.
+    SAGA task costs map to compute_cost and dependency sizes to data_size,
+    with epsilon weights (SAGA's stand-in for zero on super source/sink
+    edges) normalized to true zero; see EPSILON_WEIGHT.
     """
     # Sorted: task_graph.tasks is a frozenset, and its hash order would leak
     # into the DAG's dict order and from there into same-instant event
     # ordering in the engine -- a PYTHONHASHSEED dependence.
+    def clean(value: float) -> float:
+        return 0.0 if value <= EPSILON_WEIGHT else float(value)
+
     tasks = {
-        task.name: Task(id=task.name, compute_cost=float(task.cost), dag_id=dag_id)
+        task.name: Task(id=task.name, compute_cost=clean(task.cost), dag_id=dag_id)
         for task in sorted(task_graph.tasks)
     }
     edges = [
         Edge(
             from_task=dep.source,
             to_task=dep.target,
-            data_size=float(dep.size),
+            data_size=clean(dep.size),
         )
         for dep in sorted(task_graph.dependencies, key=lambda d: (d.source, d.target))
     ]

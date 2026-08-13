@@ -78,3 +78,15 @@ class TestCcrScaling:
         bandwidth = next(iter(network.links.values())).bandwidth
         mean_comm = (sum(sizes) / len(sizes)) / bandwidth
         assert mean_comm / mean_comp == pytest.approx(1.0)
+
+
+class TestEpsilonWeights:
+    def test_saga_epsilon_sizes_convert_to_true_zero(self):
+        """SAGA marks super source/sink edges with ~1e-9 sizes meaning 'no
+        data'; they must arrive as exactly 0.0 so a dead link cannot stall a
+        pure precedence constraint."""
+        dag = make_workload("out_tree", seed=420000)
+        tiny = [e for e in dag.edges if 0 < e.data_size < 1e-3]
+        assert tiny == [], f"epsilon-sized edges survived conversion: {tiny}"
+        assert any(e.data_size == 0.0 for e in dag.edges), \
+            "expected the super-sink's zero edges to be present"

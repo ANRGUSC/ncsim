@@ -619,6 +619,13 @@ class ExecutionEngine:
         src_node = from_state.assigned_node
         dst_node = to_state.assigned_node
 
+        # A zero-size edge is a pure precedence constraint: there is no data
+        # to move, so it needs no route and cannot stall on a downed link.
+        # (SAGA's super source/sink normalization adds exactly such edges.)
+        if edge.data_size <= 0:
+            self._complete_local_transfer(dag_id, from_task, to_task)
+            return
+
         # Check if same node (local transfer)
         if src_node == dst_node:
             # No network transfer needed - mark predecessor complete
@@ -1009,6 +1016,10 @@ class ExecutionEngine:
             link_state.up = False
             logger.info(f"Link {link_id} DOWN at t={self.sim_time:.6f}")
             self._abort_transfers_on_link(link_id)
+            # Retransmissions attempt immediately on whatever route still
+            # exists (multi-hop routing may offer a detour); those with no
+            # route simply stall again until recovery or repair.
+            self._retry_stalled_transfers()
         elif change == "link_degrade":
             link_state.bandwidth_factor = float(event.data.get("bandwidth_factor", 1.0))
             logger.info(

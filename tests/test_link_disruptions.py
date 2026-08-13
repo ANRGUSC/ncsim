@@ -244,3 +244,52 @@ scenario:
             path = f.name
         with pytest.raises(ValueError, match="unknown link"):
             load_scenario(path)
+
+
+class TestZeroSizeEdges:
+    def test_zero_byte_dependency_needs_no_route(self):
+        """A zero-size edge is pure precedence: it must not stall on a dead
+        link. SAGA's super source/sink normalization adds exactly such edges,
+        so before this rule an 'idle' link failure could stall a whole
+        workload through its zero-cost sink."""
+        network = make_network()
+        tasks = {
+            "A": Task(id="A", compute_cost=100, dag_id="d", pinned_to="n0"),
+            "B": Task(id="B", compute_cost=100, dag_id="d", pinned_to="n1"),
+        }
+        dag = DAG(id="d", tasks=tasks,
+                  edges=[Edge(from_task="A", to_task="B", data_size=0.0)])
+        sim = Simulation(
+            network=network,
+            scheduler=ManualScheduler(),
+            dag_source=SingleDAGSource(dag),
+            routing_model=DirectLinkRouting(),
+            disruption_model=ScheduledDisruptions(
+                [link_down(0.5, "l01")]  # permanent; would strand a real transfer
+            ),
+        )
+        result = sim.run()
+        assert result.metrics["unfinished_tasks"] == 0
+        # A runs 0->1, B starts immediately at 1 despite the dead link.
+        assert result.makespan == pytest.approx(2.0)
+
+
+class TestImmediateRetryAfterAbort:
+    def test_aborted_transfer_detours_without_waiting_for_recovery(self):
+        """A mid-flight abort retries immediately over a detour when one
+        exists, instead of stalling until the failed link recovers.
+
+        Triangle + widest-path routing. The transfer runs 1.0->2.0 on l01;
+        the link dies at 1.5 with no recovery. The retransmission goes
+        n0->n2->n1 at once (1.5->2.5, same bandwidth), so T1 runs 2.5->3.5.
+        Before this rule the retry waited for a recovery that never came and
+        the workload never finished.
+        """
+        result = run_with_disruptions(
+            [link_down(1.5, "l01")],  # permanent
+            network=make_network(triangle=True),
+            routing=WidestPathRouting(),
+        ).run()
+        assert result.metrics["unfinished_tasks"] == 0
+        assert result.metrics["disruptions"]["transfers_aborted"] == 1
+        assert result.makespan == pytest.approx(3.5)
