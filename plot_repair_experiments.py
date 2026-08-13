@@ -47,10 +47,13 @@ matplotlib.rcParams.update({
 })
 
 POLICY_STYLE = {
-    "wait": {"color": "#4d6d9a", "hatch": "///", "marker": "o"},
-    "reroute": {"color": "#b5573f", "hatch": "\\\\\\", "marker": "^"},
-    "local": {"color": "#3f8264", "hatch": "xx", "marker": "s"},
-    "global": {"color": "#a8842c", "hatch": "..", "marker": "D"},
+    "wait": {"color": "#4d6d9a", "hatch": "///", "marker": "o", "ls": "-"},
+    "reroute": {"color": "#b5573f", "hatch": "\\\\\\", "marker": "^",
+                "ls": (0, (4, 1.6))},
+    "local": {"color": "#3f8264", "hatch": "xx", "marker": "s",
+              "ls": (0, (4, 1.4, 1, 1.4))},
+    "global": {"color": "#a8842c", "hatch": "..", "marker": "D",
+               "ls": (0, (1, 1.1))},
 }
 TEXT_PRIMARY = "#1a1a1a"
 TEXT_SECONDARY = "#444444"
@@ -228,6 +231,7 @@ def plot_cost_sweep(table, generators, costs, output, summary):
                     ys.append(mean)
             style = POLICY_STYLE[policy]
             ax.plot(xs, ys, color=style["color"], linewidth=0.9,
+                    linestyle=style["ls"],
                     marker=style["marker"], markersize=2.6,
                     markerfacecolor="white", markeredgewidth=0.7,
                     zorder=3, label=policy)
@@ -257,6 +261,7 @@ def plot_cost_sweep(table, generators, costs, output, summary):
 def _draw_ccr(axes, ccrs, table, generators, summary, legend=True):
     """Draw the per-CCR trend panels onto axes; one axis per generator."""
     for ax, generator in zip(axes, generators):
+        panel_max = 1.0
         for policy, style in POLICY_STYLE.items():
             xs, ys = [], []
             for ccr in ccrs:
@@ -267,7 +272,10 @@ def _draw_ccr(axes, ccrs, table, generators, summary, legend=True):
                 if mean is not None:
                     xs.append(ccr)
                     ys.append(mean)
+            if ys:
+                panel_max = max(panel_max, max(ys))
             ax.plot(xs, ys, color=style["color"], linewidth=0.9,
+                    linestyle=style["ls"],
                     marker=style["marker"], markersize=2.6,
                     markerfacecolor="white", markeredgewidth=0.7,
                     zorder=3, label=policy)
@@ -277,15 +285,22 @@ def _draw_ccr(axes, ccrs, table, generators, summary, legend=True):
         ax.set_xticks(ccrs)
         ax.set_xticklabels([f"{c:g}" for c in ccrs], fontsize=6.5)
         ax.minorticks_off()
+        # Per-panel y range: a shared scale would let flapping's blow-up
+        # flatten every other panel's curves into an indistinguishable band.
+        ax.set_ylim(0.985, 1.0 + (panel_max - 1.0) * 1.12 + 0.01)
+        ax.tick_params(axis="y", labelsize=6.5)
         ax.set_title(GENERATOR_LABELS.get(generator, generator), fontsize=8,
                      color=TEXT_PRIMARY)
         ax.set_xlabel("CCR", fontsize=7, color=TEXT_PRIMARY)
         style_axis(ax)
     axes[0].set_ylabel("Makespan / oracle", fontsize=8, color=TEXT_PRIMARY)
     if legend:
-        # First panel: its lines are the flattest, leaving room up top.
-        axes[0].legend(frameon=False, fontsize=6.5, loc="upper left",
-                       handlelength=1.7, labelspacing=0.3, borderaxespad=0.2)
+        # Flapping panel: its curves hug the floor until the right side, so
+        # the upper left is the one reliably empty corner.
+        target = 1 if len(axes) > 1 else 0
+        axes[target].legend(frameon=False, fontsize=6.5, loc="upper left",
+                            handlelength=1.9, labelspacing=0.3,
+                            borderaxespad=0.2)
 
 
 def plot_ccr_trend(records, table, generators, output, summary):
@@ -294,7 +309,7 @@ def plot_ccr_trend(records, table, generators, output, summary):
     if len(ccrs) < 2:
         return
     fig, axes = plt.subplots(1, len(generators), figsize=(7.0, 1.85),
-                             dpi=200, sharey=True)
+                             dpi=200)
     if len(generators) == 1:
         axes = [axes]
     _draw_ccr(axes, ccrs, table, generators, summary)
@@ -318,13 +333,7 @@ def plot_ladder_ccr(records, table, generators, output, summary):
                             hspace=0.5)
     top = fig.add_subplot(grid[0, :])
     _draw_ladder(top, table, generators, summary)
-    first = fig.add_subplot(grid[1, 0])
-    bottom = [first] + [
-        fig.add_subplot(grid[1, i], sharey=first)
-        for i in range(1, len(generators))
-    ]
-    for ax in bottom[1:]:
-        plt.setp(ax.get_yticklabels(), visible=False)
+    bottom = [fig.add_subplot(grid[1, i]) for i in range(len(generators))]
     _draw_ccr(bottom, ccrs, table, generators, summary, legend=True)
     fig.tight_layout()
     for ext in ("pdf", "png"):
