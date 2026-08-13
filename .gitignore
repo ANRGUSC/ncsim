@@ -9,7 +9,7 @@ build/
 .eggs/
 
 # Virtual environments
-.venv/
+.venv
 venv/
 env/
 

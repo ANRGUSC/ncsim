@@ -37,9 +37,12 @@ def saga_taskgraph_to_dag(task_graph: "SagaTaskGraph", dag_id: str) -> DAG:
     Zero-cost super source/sink nodes added by SAGA to normalize multi-root
     graphs convert as ordinary zero-cost tasks.
     """
+    # Sorted: task_graph.tasks is a frozenset, and its hash order would leak
+    # into the DAG's dict order and from there into same-instant event
+    # ordering in the engine -- a PYTHONHASHSEED dependence.
     tasks = {
         task.name: Task(id=task.name, compute_cost=float(task.cost), dag_id=dag_id)
-        for task in task_graph.tasks
+        for task in sorted(task_graph.tasks)
     }
     edges = [
         Edge(

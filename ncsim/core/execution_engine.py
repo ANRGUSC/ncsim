@@ -1133,7 +1133,9 @@ class ExecutionEngine:
                 f"ignoring {plan.cancel_tasks}"
             )
 
-        for key, new_node in plan.new_assignments.items():
+        # Sorted application: move order decides same-instant event ordering,
+        # so it must be independent of how the plan dict was built.
+        for key, new_node in sorted(plan.new_assignments.items()):
             task_key = self._resolve_task_key(key)
             if task_key is None:
                 continue

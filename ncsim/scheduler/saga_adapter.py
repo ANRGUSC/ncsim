@@ -187,11 +187,18 @@ class SagaScheduler(Scheduler):
                 speed=node_snap.compute_capacity
             ))
 
-        # Create SAGA network edges for all pairs
+        # Create SAGA network edges for all pairs. SAGA's network is
+        # undirected while ncsim models a radio link as two directed links,
+        # so the pair's speed is the min of the two directions: the pair is
+        # only as usable as its worse direction (mid-disruption they can
+        # differ, e.g. one direction's failure event processed first).
         edges = set()
         for src_id in node_ids:
             for dst_id in node_ids:
-                speed = speed_matrix[(src_id, dst_id)]
+                speed = min(
+                    speed_matrix[(src_id, dst_id)],
+                    speed_matrix[(dst_id, src_id)],
+                )
                 edges.add(NetworkEdge(
                     source=f"node_{node_idx[src_id]}",
                     target=f"node_{node_idx[dst_id]}",

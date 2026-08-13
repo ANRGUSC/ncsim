@@ -234,9 +234,11 @@ class RepairingSagaScheduler(SagaScheduler):
         )
 
         assignments = self._extract_assignments(schedule, snapshot)
+        # Sorted: the plan's ordering decides same-instant event ordering in
+        # the engine, so it must not inherit set (hash) order.
         return {
             f"{dag_id}:{task_id}": assignments[task_id]
-            for task_id in replan
+            for task_id in sorted(replan)
             if task_id in assignments
         }
 
