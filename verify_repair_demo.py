@@ -254,17 +254,22 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
         tid = k.split(":", 1)[1]
         if ts.started_at is None:
             continue
+        if PAPER and ts.completed_at - ts.started_at < 0.005 * xmax:
+            # Zero-duration wrapper tasks would render as stray ticks now
+            # that every bar has a dark edge.
+            continue
         y = node_ids.index(ts.assigned_node)
         moved = ts.assigned_node != plan_node[tid]
         if PAPER:
-            # Wide bars, thin outlines: at column scale a heavy outline plus
-            # hatching swallows the bar and collides with the task label, so
-            # "moved" is encoded by the black outline alone (the caption
-            # says so) and bars get most of the row height.
+            # Print styling: neutral fills, with the single accent reserved
+            # for the semantic distinction. Unmoved tasks are light gray;
+            # tasks moved off the planned node are hatched over a pale brick
+            # fill. Task ids sit in white circular badges so they stay
+            # legible over the hatch.
             ax.barh(y, ts.completed_at - ts.started_at, left=ts.started_at,
-                    height=0.82, color=TASK_COLOR[tid],
-                    edgecolor="#0b0b0b" if moved else "white",
-                    linewidth=0.9 if moved else 0.4, zorder=3)
+                    height=0.9, color="#e5c4ba" if moved else "#e9e9e6",
+                    edgecolor="#262626", linewidth=0.7 if moved else 0.4,
+                    hatch="///" if moved else None, zorder=3)
         else:
             ax.barh(y, ts.completed_at - ts.started_at, left=ts.started_at,
                     height=0.62, color=TASK_COLOR[tid],
@@ -272,17 +277,21 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
                     linewidth=1.6 if moved else 0.5,
                     hatch="//" if moved else None, zorder=3)
         if not (PAPER and ts.completed_at - ts.started_at < 0.05):
+            badge = dict(boxstyle="circle,pad=0.22", facecolor="white",
+                         edgecolor="#262626", linewidth=0.4) if PAPER else None
             ax.annotate(tid,
                         (ts.started_at + (ts.completed_at - ts.started_at) / 2, y),
-                        ha="center", va="center",
-                        fontsize=5.5 if PAPER else 6, zorder=4)
+                        ha="center", va="center", color="#1a1a1a",
+                        fontsize=5 if PAPER else 6, zorder=4, bbox=badge)
     if policy is not None:  # every disrupted run shows the failure window
-        ax.axvspan(fail_time, fail_time + fail_duration, color="#e34948",
-                   alpha=0.10, zorder=1)
-        ax.axvline(fail_time, color="#e34948", linewidth=1.2, linestyle="--",
-                   zorder=2)
-        ax.axvline(fail_time + fail_duration, color="#1baf7a", linewidth=1.2,
-                   linestyle="--", zorder=2)
+        fail_c = "#b5573f" if PAPER else "#e34948"
+        recover_c = "#3f8264" if PAPER else "#1baf7a"
+        ax.axvspan(fail_time, fail_time + fail_duration, color=fail_c,
+                   alpha=0.08 if PAPER else 0.10, zorder=1)
+        ax.axvline(fail_time, color=fail_c,
+                   linewidth=0.9 if PAPER else 1.2, linestyle="--", zorder=2)
+        ax.axvline(fail_time + fail_duration, color=recover_c,
+                   linewidth=0.9 if PAPER else 1.2, linestyle="--", zorder=2)
         if not PAPER:
             ax.annotate(f"{'+'.join(failed_links)} DOWN\nt={fail_time:.2f}",
                         (fail_time, len(node_ids) - 0.45), fontsize=6,
@@ -293,7 +302,8 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
                         fontsize=6, color="#1baf7a", ha="left", va="top",
                         xytext=(3, 0), textcoords="offset points")
     for rt in repairs:
-        ax.axvline(rt, color="#4a3aa7", linewidth=1.4, linestyle=":", zorder=2)
+        ax.axvline(rt, color="#55507a", linewidth=1.0 if PAPER else 1.4,
+                   linestyle=":", zorder=2)
         if not PAPER:
             ax.annotate(f"repair applied\nt={rt:.2f}", (rt, -0.42), fontsize=6,
                         color="#4a3aa7", ha="center", va="bottom")
@@ -305,7 +315,7 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
         + (f"  ({result.makespan / m0:.2f}$\\times M_0$)" if PAPER and policy else ""),
         fontsize=8, loc="left")
     ax.tick_params(labelsize=7)
-    ax.xaxis.grid(True, color="#e8e7e2", linewidth=0.6)
+    ax.xaxis.grid(True, color="#dedede", linewidth=0.4)
     ax.set_axisbelow(True)
 axes[-1].set_xlabel("time (s)", fontsize=8)
 axes[-1].set_xlim(0, xmax)
