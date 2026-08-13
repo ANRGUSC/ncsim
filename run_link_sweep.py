@@ -23,6 +23,15 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
+# Match the paper's serif type and hairline axes across every figure.
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "Times", "STIXGeneral", "DejaVu Serif"],
+    "mathtext.fontset": "stix",
+    "axes.linewidth": 0.6,
+    "xtick.major.width": 0.6,
+    "ytick.major.width": 0.6,
+})
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 

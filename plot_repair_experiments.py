@@ -31,16 +31,37 @@ import matplotlib.pyplot as plt
 
 from ncsim.experiments import load_records
 
-# Validated categorical palette (dataviz reference, adjacent-pair mode) with
-# per-policy hatch textures as the secondary encoding for print/CVD.
+# Print-oriented styling: serif type to match the IEEE body font, hairline
+# axes, and a muted categorical palette; hatch textures and per-policy
+# markers remain the secondary encoding for grayscale print and CVD.
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "Times", "STIXGeneral", "DejaVu Serif"],
+    "mathtext.fontset": "stix",
+    "axes.linewidth": 0.6,
+    "xtick.major.width": 0.6,
+    "ytick.major.width": 0.6,
+    "xtick.major.size": 2.5,
+    "ytick.major.size": 2.5,
+    "hatch.linewidth": 0.5,
+})
+
 POLICY_STYLE = {
-    "wait": {"color": "#2a78d6", "hatch": "///"},
-    "reroute": {"color": "#eb6834", "hatch": "\\\\\\"},
-    "local": {"color": "#1baf7a", "hatch": "xx"},
-    "global": {"color": "#eda100", "hatch": ".."},
+    "wait": {"color": "#4d6d9a", "hatch": "///", "marker": "o"},
+    "reroute": {"color": "#b5573f", "hatch": "\\\\\\", "marker": "^"},
+    "local": {"color": "#3f8264", "hatch": "xx", "marker": "s"},
+    "global": {"color": "#a8842c", "hatch": "..", "marker": "D"},
 }
-TEXT_PRIMARY = "#0b0b0b"
-TEXT_SECONDARY = "#52514e"
+TEXT_PRIMARY = "#1a1a1a"
+TEXT_SECONDARY = "#444444"
+EDGE = "#262626"
+
+
+def lighten(hex_color, amount=0.45):
+    """Mix a hex color toward white; bar fills stay pale under dark hatch."""
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    mix = lambda c: int(c + (255 - c) * amount)
+    return f"#{mix(r):02x}{mix(g):02x}{mix(b):02x}"
 GENERATOR_LABELS = {
     "single": "Single failure",
     "flapping": "Flapping (GE)",
@@ -94,10 +115,10 @@ def oracle_normalized(table, generator, policy, cost, oracle_key_cost=0.0):
 def style_axis(ax):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color("#d8d7d2")
-    ax.spines["bottom"].set_color("#d8d7d2")
-    ax.tick_params(colors=TEXT_SECONDARY, labelsize=8)
-    ax.yaxis.grid(True, color="#e8e7e2", linewidth=0.7)
+    ax.spines["left"].set_color(EDGE)
+    ax.spines["bottom"].set_color(EDGE)
+    ax.tick_params(colors=TEXT_PRIMARY, labelsize=7.5, direction="out")
+    ax.yaxis.grid(True, color="#dedede", linewidth=0.4)
     ax.set_axisbelow(True)
 
 
@@ -123,9 +144,9 @@ def _draw_ladder(ax, table, generators, summary):
             mean = geo_mean(ratios.values())
             style = POLICY_STYLE[policy]
             ax.bar(
-                x, mean, width=bar_width * 0.92,
-                color=style["color"], hatch=style["hatch"],
-                edgecolor="white", linewidth=0.8, zorder=3,
+                x, mean, width=bar_width * 0.88,
+                color=lighten(style["color"]), hatch=style["hatch"],
+                edgecolor=EDGE, linewidth=0.5, zorder=3,
                 label=policy if gi == 0 else None,
             )
             # Per-instance dots: honest spread behind the aggregate. Dots
@@ -136,18 +157,19 @@ def _draw_ladder(ax, table, generators, summary):
             clipped = [v for v in ratios.values() if v > cap]
             ax.scatter(
                 [x] * len(inside), inside,
-                s=4, color=TEXT_PRIMARY, alpha=0.35, zorder=4, linewidths=0,
+                s=2.5, color="#111111", alpha=0.25, zorder=4, linewidths=0,
             )
             if clipped:
                 ax.scatter(
                     [x] * len(clipped), [cap] * len(clipped),
-                    s=8, marker="^", color=TEXT_PRIMARY, alpha=0.5,
+                    s=6, marker="^", color="#111111", alpha=0.5,
                     zorder=4, linewidths=0,
                 )
+            # Left of the bar center so the label clears the dot column.
             ax.annotate(
-                f"{mean:.2f}", (x, mean), xytext=(0, 2),
-                textcoords="offset points", ha="center", va="bottom",
-                fontsize=6.5, color=TEXT_PRIMARY, zorder=5,
+                f"{mean:.2f}", (x, mean), xytext=(-3, 2),
+                textcoords="offset points", ha="right", va="bottom",
+                fontsize=6, color=TEXT_PRIMARY, zorder=5,
             )
             if len(ratios) < total:
                 ax.annotate(
@@ -156,19 +178,20 @@ def _draw_ladder(ax, table, generators, summary):
                     annotation_clip=False,
                 )
 
-    ax.axhline(1.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", zorder=2)
-    ax.annotate("oracle = 1.0", (-0.48, 1.0), xytext=(0, -9),
-                textcoords="offset points", ha="left", fontsize=7,
-                color=TEXT_SECONDARY)
+    ax.axhline(1.0, color=EDGE, linewidth=0.7, linestyle=(0, (4, 3)), zorder=2)
     ax.set_xticks(range(len(generators)))
     ax.set_xticklabels([GENERATOR_LABELS.get(g, g) for g in generators],
-                       fontsize=8.5, color=TEXT_PRIMARY)
-    ax.set_ylabel("Makespan / oracle (geo. mean)", fontsize=8.5,
+                       fontsize=8, color=TEXT_PRIMARY)
+    ax.set_ylabel("Makespan / oracle (geo. mean)", fontsize=8,
                   color=TEXT_PRIMARY)
     ax.set_ylim(0, 2.3)
     style_axis(ax)
-    ax.legend(frameon=False, fontsize=8, loc="upper left", ncols=len(policies),
-              handlelength=1.4, columnspacing=1.0)
+    # Legend above the axis, outside the data area, so it never sits on the
+    # per-instance dot columns.
+    ax.legend(frameon=False, fontsize=7.5, loc="lower left",
+              bbox_to_anchor=(0.0, 1.01), ncols=len(policies),
+              handlelength=1.6, handleheight=0.9, columnspacing=1.4,
+              borderaxespad=0.0)
 
 
 def plot_ladder(table, generators, output, summary):
@@ -204,25 +227,27 @@ def plot_cost_sweep(table, generators, costs, output, summary):
                     xs.append(cost)
                     ys.append(mean)
             style = POLICY_STYLE[policy]
-            ax.plot(xs, ys, color=style["color"], linewidth=1.8,
-                    marker="o", markersize=4, zorder=3, label=policy)
+            ax.plot(xs, ys, color=style["color"], linewidth=0.9,
+                    marker=style["marker"], markersize=2.6,
+                    markerfacecolor="white", markeredgewidth=0.7,
+                    zorder=3, label=policy)
         # Wait pays no repair cost: flat reference.
         wait_ratios = oracle_normalized(table, generator, "wait", 0.0)
         wait_mean = geo_mean(wait_ratios.values())
         summary["cost_sweep"][generator]["wait"] = wait_mean
         if wait_mean is not None:
             ax.axhline(wait_mean, color=POLICY_STYLE["wait"]["color"],
-                       linewidth=1.2, linestyle=":", zorder=2, label="wait")
-        ax.axhline(1.0, color=TEXT_SECONDARY, linewidth=0.8, linestyle="--",
+                       linewidth=0.8, linestyle=":", zorder=2, label="wait")
+        ax.axhline(1.0, color=EDGE, linewidth=0.5, linestyle=(0, (4, 3)),
                    zorder=1)
-        ax.set_title(GENERATOR_LABELS.get(generator, generator), fontsize=8.5,
+        ax.set_title(GENERATOR_LABELS.get(generator, generator), fontsize=8,
                      color=TEXT_PRIMARY)
-        ax.set_xlabel("Repair cost / task (frac. of $M_0$)", fontsize=7.5,
-                      color=TEXT_SECONDARY)
+        ax.set_xlabel("Repair cost / task (frac. of $M_0$)", fontsize=7,
+                      color=TEXT_PRIMARY)
         style_axis(ax)
 
-    axes[0].set_ylabel("Makespan / oracle", fontsize=8.5, color=TEXT_PRIMARY)
-    axes[-1].legend(frameon=False, fontsize=7.5, loc="best", handlelength=1.6)
+    axes[0].set_ylabel("Makespan / oracle", fontsize=8, color=TEXT_PRIMARY)
+    axes[-1].legend(frameon=False, fontsize=7, loc="best", handlelength=1.7)
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(output / f"cost_sweep.{ext}")
@@ -242,21 +267,23 @@ def _draw_ccr(axes, ccrs, table, generators, summary, legend=True):
                 if mean is not None:
                     xs.append(ccr)
                     ys.append(mean)
-            ax.plot(xs, ys, color=style["color"], linewidth=1.8, marker="o",
-                    markersize=3.5, zorder=3, label=policy)
-        ax.axhline(1.0, color=TEXT_SECONDARY, linewidth=0.8, linestyle="--",
+            ax.plot(xs, ys, color=style["color"], linewidth=0.9,
+                    marker=style["marker"], markersize=2.6,
+                    markerfacecolor="white", markeredgewidth=0.7,
+                    zorder=3, label=policy)
+        ax.axhline(1.0, color=EDGE, linewidth=0.5, linestyle=(0, (4, 3)),
                    zorder=1)
         ax.set_xscale("log")
         ax.set_xticks(ccrs)
         ax.set_xticklabels([f"{c:g}" for c in ccrs], fontsize=6.5)
         ax.minorticks_off()
-        ax.set_title(GENERATOR_LABELS.get(generator, generator), fontsize=8.5,
+        ax.set_title(GENERATOR_LABELS.get(generator, generator), fontsize=8,
                      color=TEXT_PRIMARY)
-        ax.set_xlabel("CCR", fontsize=7.5, color=TEXT_SECONDARY)
+        ax.set_xlabel("CCR", fontsize=7, color=TEXT_PRIMARY)
         style_axis(ax)
-    axes[0].set_ylabel("Makespan / oracle", fontsize=8.5, color=TEXT_PRIMARY)
+    axes[0].set_ylabel("Makespan / oracle", fontsize=8, color=TEXT_PRIMARY)
     if legend:
-        axes[-1].legend(frameon=False, fontsize=7, loc="best", handlelength=1.4)
+        axes[-1].legend(frameon=False, fontsize=7, loc="best", handlelength=1.7)
 
 
 def plot_ccr_trend(records, table, generators, output, summary):
