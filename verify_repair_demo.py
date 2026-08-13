@@ -277,8 +277,12 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
                     linewidth=1.6 if moved else 0.5,
                     hatch="//" if moved else None, zorder=3)
         if not (PAPER and ts.completed_at - ts.started_at < 0.05):
-            badge = dict(boxstyle="circle,pad=0.22", facecolor="white",
-                         edgecolor="#262626", linewidth=0.4) if PAPER else None
+            # A capsule rather than a circle: a circle around a three-char
+            # label is wider (hence taller) than the bar, so it cannot stay
+            # inside; the pill keeps the white badge within the rectangle.
+            badge = dict(boxstyle="round,pad=0.16,rounding_size=0.9",
+                         facecolor="white", edgecolor="#262626",
+                         linewidth=0.4) if PAPER else None
             ax.annotate(tid,
                         (ts.started_at + (ts.completed_at - ts.started_at) / 2, y),
                         ha="center", va="center", color="#1a1a1a",
