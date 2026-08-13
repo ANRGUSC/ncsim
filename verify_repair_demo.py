@@ -247,16 +247,26 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
             continue
         y = node_ids.index(ts.assigned_node)
         moved = ts.assigned_node != plan_node[tid]
-        ax.barh(y, ts.completed_at - ts.started_at, left=ts.started_at,
-                height=0.62, color=TASK_COLOR[tid],
-                edgecolor="#0b0b0b" if moved else "white",
-                linewidth=1.6 if moved else 0.5,
-                hatch="//" if moved else None, zorder=3)
+        if PAPER:
+            # Wide bars, thin outlines: at column scale a heavy outline plus
+            # hatching swallows the bar and collides with the task label, so
+            # "moved" is encoded by the black outline alone (the caption
+            # says so) and bars get most of the row height.
+            ax.barh(y, ts.completed_at - ts.started_at, left=ts.started_at,
+                    height=0.82, color=TASK_COLOR[tid],
+                    edgecolor="#0b0b0b" if moved else "white",
+                    linewidth=0.9 if moved else 0.4, zorder=3)
+        else:
+            ax.barh(y, ts.completed_at - ts.started_at, left=ts.started_at,
+                    height=0.62, color=TASK_COLOR[tid],
+                    edgecolor="#0b0b0b" if moved else "white",
+                    linewidth=1.6 if moved else 0.5,
+                    hatch="//" if moved else None, zorder=3)
         if not (PAPER and ts.completed_at - ts.started_at < 0.05):
             ax.annotate(tid,
                         (ts.started_at + (ts.completed_at - ts.started_at) / 2, y),
-                        ha="center", va="center", fontsize=5 if PAPER else 6,
-                        zorder=4)
+                        ha="center", va="center",
+                        fontsize=5.5 if PAPER else 6, zorder=4)
     if policy is not None:  # every disrupted run shows the failure window
         ax.axvspan(fail_time, fail_time + fail_duration, color="#e34948",
                    alpha=0.10, zorder=1)
