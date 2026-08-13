@@ -283,7 +283,9 @@ def _draw_ccr(axes, ccrs, table, generators, summary, legend=True):
         style_axis(ax)
     axes[0].set_ylabel("Makespan / oracle", fontsize=8, color=TEXT_PRIMARY)
     if legend:
-        axes[-1].legend(frameon=False, fontsize=7, loc="best", handlelength=1.7)
+        # First panel: its lines are the flattest, leaving room up top.
+        axes[0].legend(frameon=False, fontsize=6.5, loc="upper left",
+                       handlelength=1.7, labelspacing=0.3, borderaxespad=0.2)
 
 
 def plot_ccr_trend(records, table, generators, output, summary):
@@ -323,7 +325,7 @@ def plot_ladder_ccr(records, table, generators, output, summary):
     ]
     for ax in bottom[1:]:
         plt.setp(ax.get_yticklabels(), visible=False)
-    _draw_ccr(bottom, ccrs, table, generators, summary, legend=False)
+    _draw_ccr(bottom, ccrs, table, generators, summary, legend=True)
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(output / f"ladder_ccr.{ext}")
