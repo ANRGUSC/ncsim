@@ -211,12 +211,16 @@ def _run_policy(
 def run_matrix(
     config: ExperimentConfig,
     progress: Optional[Callable[[str], None]] = None,
+    on_record: Optional[Callable[[Dict[str, object]], None]] = None,
 ) -> List[Dict[str, object]]:
     """Run the full experiment matrix and return one record per run.
 
     Every record carries the instance identity, the policy and its cost, the
     absolute and M0-normalized makespan, completion, and the disruption
     counters, so downstream analysis needs no re-simulation.
+
+    on_record is called with each record as it is produced, so callers can
+    checkpoint long runs incrementally instead of only at the end.
     """
     records: List[Dict[str, object]] = []
     say = progress or (lambda _msg: None)
@@ -279,6 +283,8 @@ def run_matrix(
                                  **extra,
                              }
                          )
+                         if on_record is not None:
+                             on_record(records[-1])
                  say(f"{instance}/{generator}: done")
     return records
 

@@ -13,7 +13,7 @@ import json
 import time
 from pathlib import Path
 
-from ncsim.experiments import ExperimentConfig, run_matrix, save_records
+from ncsim.experiments import ExperimentConfig, run_matrix
 from ncsim.experiments.runner import GENERATORS, POLICIES
 from ncsim.experiments.workloads import ALL_STRUCTURES, STRUCTURES
 
@@ -60,10 +60,21 @@ def main() -> int:
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     started = time.time()
-    records = run_matrix(config, progress=print)
-    elapsed = time.time() - started
 
-    save_records(records, output / "records.jsonl")
+    # Stream records to disk as they are produced (and flush), so a killed or
+    # crashed run keeps everything it finished and progress survives nohup
+    # buffering.
+    def say(message: str) -> None:
+        print(message, flush=True)
+
+    with open(output / "records.jsonl", "w", encoding="utf-8") as sink:
+
+        def checkpoint(record) -> None:
+            sink.write(json.dumps(record) + "\n")
+            sink.flush()
+
+        records = run_matrix(config, progress=say, on_record=checkpoint)
+    elapsed = time.time() - started
     with open(output / "config.json", "w", encoding="utf-8") as handle:
         json.dump(
             {
