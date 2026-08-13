@@ -25,8 +25,10 @@ def main() -> int:
                         help="Instances per DAG structure (default: 10)")
     parser.add_argument("--nodes", type=int, default=5,
                         help="Network size (default: 5)")
-    parser.add_argument("--ccr", type=float, default=1.0,
-                        help="Communication-to-computation ratio (default: 1.0)")
+    parser.add_argument("--ccrs", nargs="+", type=float,
+                        default=[0.2, 0.5, 1.0, 2.0, 5.0],
+                        help="Communication-to-computation ratios; every "
+                             "instance runs once per value")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--structures", nargs="+", default=list(STRUCTURES),
                         choices=list(ALL_STRUCTURES),
@@ -48,7 +50,7 @@ def main() -> int:
         structures=tuple(args.structures),
         instances_per_structure=args.instances,
         num_nodes=args.nodes,
-        ccr=args.ccr,
+        ccrs=tuple(args.ccrs),
         generators=tuple(args.generators),
         policies=tuple(args.policies),
         repair_cost_fracs=tuple(args.repair_costs),
@@ -68,7 +70,7 @@ def main() -> int:
                 "structures": list(config.structures),
                 "instances_per_structure": config.instances_per_structure,
                 "num_nodes": config.num_nodes,
-                "ccr": config.ccr,
+                "ccrs": list(config.ccrs),
                 "generators": list(config.generators),
                 "policies": list(config.policies),
                 "repair_cost_fracs": list(config.repair_cost_fracs),

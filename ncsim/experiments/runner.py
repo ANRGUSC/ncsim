@@ -62,7 +62,9 @@ class ExperimentConfig:
         structures: DAG structures to instantiate
         instances_per_structure: Instances per structure (seeded 0..n-1)
         num_nodes: Network size
-        ccr: Communication-to-computation ratio of every instance
+        ccrs: Communication-to-computation ratios; every instance runs once
+            per value, with link bandwidths rescaled and disruptions
+            re-parameterized against that variant's own M0
         generators: Disruption generators to run
         policies: Repair policies to run
         repair_cost_fracs: Per-moved-task decision latency as a fraction of
@@ -73,7 +75,7 @@ class ExperimentConfig:
     structures: Sequence[str] = STRUCTURES
     instances_per_structure: int = 10
     num_nodes: int = 5
-    ccr: float = 1.0
+    ccrs: Sequence[float] = (1.0,)
     generators: Sequence[str] = GENERATORS
     policies: Sequence[str] = POLICIES
     repair_cost_fracs: Sequence[float] = (0.0,)
@@ -226,55 +228,58 @@ def run_matrix(
             seed = config.seed * 10_000 + index
             instance = f"{structure}-{index}"
             dag = make_workload(structure, seed=seed)
-            network = spatial_network(config.num_nodes, seed=seed)
-            scale_network_to_ccr(network, dag, config.ccr)
-            m0 = undisrupted_makespan(network, dag)
-            say(f"{instance}: M0={m0:.3f}")
 
-            for generator in config.generators:
-                trace = build_trace(generator, network, m0, seed=seed)
-                for policy in config.policies:
-                    cost_fracs = (
-                        config.repair_cost_fracs
-                        if policy in COSTED_POLICIES
-                        else (0.0,)
-                    )
-                    for cost_frac in cost_fracs:
-                        result, extra = _run_policy(
-                            policy, network, dag, trace, cost_frac * m0
-                        )
-                        disruptions = result.metrics.get("disruptions", {})
-                        unfinished = result.metrics.get("unfinished_tasks", 0)
-                        records.append(
-                            {
-                                "instance": instance,
-                                "structure": structure,
-                                "seed": seed,
-                                "generator": generator,
-                                "policy": policy,
-                                "repair_cost_frac": cost_frac,
-                                "m0": m0,
-                                "makespan": result.makespan,
-                                "norm_makespan": (
-                                    result.makespan / m0 if m0 > 0 else None
-                                ),
-                                "completed": unfinished == 0
-                                and result.status == "completed",
-                                "unfinished": unfinished,
-                                "tasks_total": len(dag.tasks),
-                                "replanned": disruptions.get("tasks_replanned", 0),
-                                "aborted": disruptions.get("transfers_aborted", 0),
-                                "stalled": disruptions.get("transfers_stalled", 0),
-                                "superseded": disruptions.get(
-                                    "repairs_superseded", 0
-                                ),
-                                "repair_wall_s": result.metrics.get(
-                                    "repair_wall_time_s", 0.0
-                                ),
-                                **extra,
-                            }
-                        )
-                say(f"{instance}/{generator}: done")
+            for ccr in config.ccrs:
+              network = spatial_network(config.num_nodes, seed=seed)
+              scale_network_to_ccr(network, dag, ccr)
+              m0 = undisrupted_makespan(network, dag)
+              say(f"{instance} ccr={ccr:g}: M0={m0:.3f}")
+
+              for generator in config.generators:
+                 trace = build_trace(generator, network, m0, seed=seed)
+                 for policy in config.policies:
+                     cost_fracs = (
+                         config.repair_cost_fracs
+                         if policy in COSTED_POLICIES
+                         else (0.0,)
+                     )
+                     for cost_frac in cost_fracs:
+                         result, extra = _run_policy(
+                             policy, network, dag, trace, cost_frac * m0
+                         )
+                         disruptions = result.metrics.get("disruptions", {})
+                         unfinished = result.metrics.get("unfinished_tasks", 0)
+                         records.append(
+                             {
+                                 "instance": instance,
+                                 "ccr": ccr,
+                                 "structure": structure,
+                                 "seed": seed,
+                                 "generator": generator,
+                                 "policy": policy,
+                                 "repair_cost_frac": cost_frac,
+                                 "m0": m0,
+                                 "makespan": result.makespan,
+                                 "norm_makespan": (
+                                     result.makespan / m0 if m0 > 0 else None
+                                 ),
+                                 "completed": unfinished == 0
+                                 and result.status == "completed",
+                                 "unfinished": unfinished,
+                                 "tasks_total": len(dag.tasks),
+                                 "replanned": disruptions.get("tasks_replanned", 0),
+                                 "aborted": disruptions.get("transfers_aborted", 0),
+                                 "stalled": disruptions.get("transfers_stalled", 0),
+                                 "superseded": disruptions.get(
+                                     "repairs_superseded", 0
+                                 ),
+                                 "repair_wall_s": result.metrics.get(
+                                     "repair_wall_time_s", 0.0
+                                 ),
+                                 **extra,
+                             }
+                         )
+                 say(f"{instance}/{generator}: done")
     return records
 
 

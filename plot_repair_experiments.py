@@ -65,11 +65,15 @@ def geo_mean(values):
 
 
 def index_records(records):
-    """(generator, policy, cost) -> {instance: record}."""
+    """(generator, policy, cost) -> {(instance, ccr): record}.
+
+    Aggregates therefore pool across the CCR grid: each (instance, ccr)
+    variant is one sample, normalized by its own oracle.
+    """
     table = defaultdict(dict)
     for record in records:
         key = (record["generator"], record["policy"], record["repair_cost_frac"])
-        table[key][record["instance"]] = record
+        table[key][(record["instance"], record.get("ccr", 1.0))] = record
     return table
 
 
@@ -220,6 +224,46 @@ def plot_cost_sweep(table, generators, costs, output, summary):
     plt.close(fig)
 
 
+def plot_ccr_trend(records, table, generators, output, summary):
+    """Lines: geo-mean makespan/oracle vs. CCR per policy, per generator."""
+    ccrs = sorted({r.get("ccr", 1.0) for r in records})
+    if len(ccrs) < 2:
+        return
+    fig, axes = plt.subplots(1, len(generators), figsize=(7.0, 1.85),
+                             dpi=200, sharey=True)
+    if len(generators) == 1:
+        axes = [axes]
+    for ax, generator in zip(axes, generators):
+        for policy, style in POLICY_STYLE.items():
+            xs, ys = [], []
+            for ccr in ccrs:
+                ratios = oracle_normalized(table, generator, policy, 0.0)
+                values = [v for (inst, c), v in ratios.items() if c == ccr]
+                mean = geo_mean(values)
+                summary["ccr_trend"][generator][policy][str(ccr)] = mean
+                if mean is not None:
+                    xs.append(ccr)
+                    ys.append(mean)
+            ax.plot(xs, ys, color=style["color"], linewidth=1.8, marker="o",
+                    markersize=3.5, zorder=3, label=policy)
+        ax.axhline(1.0, color=TEXT_SECONDARY, linewidth=0.8, linestyle="--",
+                   zorder=1)
+        ax.set_xscale("log")
+        ax.set_xticks(ccrs)
+        ax.set_xticklabels([f"{c:g}" for c in ccrs], fontsize=6.5)
+        ax.minorticks_off()
+        ax.set_title(GENERATOR_LABELS.get(generator, generator), fontsize=8.5,
+                     color=TEXT_PRIMARY)
+        ax.set_xlabel("CCR", fontsize=7.5, color=TEXT_SECONDARY)
+        style_axis(ax)
+    axes[0].set_ylabel("Makespan / oracle", fontsize=8.5, color=TEXT_PRIMARY)
+    axes[-1].legend(frameon=False, fontsize=7, loc="best", handlelength=1.4)
+    fig.tight_layout()
+    for ext in ("pdf", "png"):
+        fig.savefig(output / f"ccr_trend.{ext}")
+    plt.close(fig)
+
+
 def family_table(records, table, generators, output, summary):
     """Per-workload-family geo-means as a LaTeX table body (family_table.tex).
 
@@ -238,7 +282,8 @@ def family_table(records, table, generators, output, summary):
             cells = []
             for policy in policies:
                 ratios = oracle_normalized(table, generator, policy, 0.0)
-                mean = geo_mean([v for k, v in ratios.items() if k in instances])
+                mean = geo_mean([v for (inst, _ccr), v in ratios.items()
+                                 if inst in instances])
                 summary["family"][family][generator][policy] = mean
                 cells.append(f"{mean:.2f}" if mean is not None else "--")
             best = min((float(c) for c in cells if c != "--"), default=None)
@@ -286,9 +331,11 @@ def main() -> int:
         "ladder": defaultdict(dict),
         "cost_sweep": defaultdict(lambda: defaultdict(dict)),
         "family": defaultdict(lambda: defaultdict(dict)),
+        "ccr_trend": defaultdict(lambda: defaultdict(dict)),
     }
     plot_ladder(table, generators, output, summary)
     plot_cost_sweep(table, generators, costs, output, summary)
+    plot_ccr_trend(records, table, generators, output, summary)
     family_table(records, table, generators, output, summary)
 
     with open(output / "summary.json", "w", encoding="utf-8") as handle:
