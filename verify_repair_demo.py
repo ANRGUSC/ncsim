@@ -267,7 +267,7 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
             # fill. Task ids sit in white circular badges so they stay
             # legible over the hatch.
             ax.barh(y, ts.completed_at - ts.started_at, left=ts.started_at,
-                    height=0.9, color="#e5c4ba" if moved else "#e9e9e6",
+                    height=0.96, color="#e5c4ba" if moved else "#e9e9e6",
                     edgecolor="#262626", linewidth=0.7 if moved else 0.4,
                     hatch="///" if moved else None, zorder=3)
         else:
@@ -277,16 +277,15 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
                     linewidth=1.6 if moved else 0.5,
                     hatch="//" if moved else None, zorder=3)
         if not (PAPER and ts.completed_at - ts.started_at < 0.05):
-            # A capsule rather than a circle: a circle around a three-char
-            # label is wider (hence taller) than the bar, so it cannot stay
-            # inside; the pill keeps the white badge within the rectangle.
-            badge = dict(boxstyle="round,pad=0.16,rounding_size=0.9",
-                         facecolor="white", edgecolor="#262626",
-                         linewidth=0.4) if PAPER else None
+            # Borderless white disc behind the id; the bars are tall enough
+            # (tight row spacing, full-lane bars) for the circle to sit
+            # entirely inside the rectangle.
+            badge = dict(boxstyle="circle,pad=0.15", facecolor="white",
+                         edgecolor="none") if PAPER else None
             ax.annotate(tid,
                         (ts.started_at + (ts.completed_at - ts.started_at) / 2, y),
                         ha="center", va="center", color="#1a1a1a",
-                        fontsize=5 if PAPER else 6, zorder=4, bbox=badge)
+                        fontsize=4.6 if PAPER else 6, zorder=4, bbox=badge)
     if policy is not None:  # every disrupted run shows the failure window
         fail_c = "#b5573f" if PAPER else "#e34948"
         recover_c = "#3f8264" if PAPER else "#1baf7a"
@@ -313,7 +312,12 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
                         color="#4a3aa7", ha="center", va="bottom")
     ax.set_yticks(range(len(node_ids)))
     ax.set_yticklabels(node_ids, fontsize=7)
-    ax.set_ylim(-0.6, len(node_ids) - 0.3)
+    # Paper mode trims the vertical slack above and below the lanes so the
+    # bars get the reclaimed height (the badges must fit inside them).
+    if PAPER:
+        ax.set_ylim(-0.55, len(node_ids) - 0.45)
+    else:
+        ax.set_ylim(-0.6, len(node_ids) - 0.3)
     ax.set_title(
         f"{name}   makespan={result.makespan:.2f}"
         + (f"  ({result.makespan / m0:.2f}$\\times M_0$)" if PAPER and policy else ""),
@@ -326,7 +330,8 @@ axes[-1].set_xlim(0, xmax)
 if not PAPER:
     fig.suptitle("Hatched black-outlined bars = tasks moved off the planned node",
                  fontsize=8, y=0.995)
-fig.tight_layout()
+# Tight row gaps in paper mode: the reclaimed spacing goes to lane height.
+fig.tight_layout(h_pad=0.3 if PAPER else 1.08)
 fig.savefig(OUT / "3_gantts.png")
 if PAPER:
     fig.savefig(OUT / "gantt_example.pdf")
