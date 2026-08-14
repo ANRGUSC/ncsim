@@ -18,7 +18,7 @@ scenarios, with statistical analysis using multiple seeds.
 
 - ncsim installed (`pip install -e .`)
 - Three built-in scenarios available in `scenarios/`
-- Python 3.10+ with the `json` and `statistics` standard library modules
+- Python 3.12+ with the `json` and `statistics` standard library modules
 
 ---
 
@@ -313,6 +313,6 @@ Use Round Robin exclusively as a comparison baseline.
 - **[Tutorial 5: Viz Walkthrough](tutorial-5-viz-walkthrough.md)** --
   Visualize these results in the web UI
 - **[Scheduling Concepts](../concepts/scheduling.md)** -- Deep dive into
-  HEFT, CPOP, and Round Robin algorithms
+  three representative algorithms: HEFT, CPOP, and Round Robin
 - **[Batch Experiments](../cli/batch-experiments.md)** -- Automate
   large-scale parameter sweeps

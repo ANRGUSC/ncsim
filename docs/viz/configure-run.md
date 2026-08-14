@@ -21,7 +21,7 @@ The top section of the form contains four fields that control the core simulatio
 
 | Value | Algorithm | Description |
 |---|---|---|
-| SAGA static batch | 23 algorithms | The list is loaded from ncsim's scheduler registry, including HEFT, CPOP, PEFT, Min-Min, Sufferage, and WBA |
+| SAGA static batch | 22 or 23 algorithms | The list is loaded from ncsim's registry: SAGA 2.0.4 supplies 22 choices, and SAGA 2.1.0 adds PEFT |
 | `round_robin` | Round Robin | Assigns tasks to nodes in a round-robin rotation |
 | `manual` | Manual | You assign each task to a specific node using the "Pinned To" column in the DAG section |
 
@@ -35,7 +35,7 @@ options; the form initializes each control to SAGA's default value.
 |---|---|---|
 | `direct` | Direct | Uses only explicitly declared links (single-hop). Fails if no direct link exists. |
 | `widest_path` | Widest Path | Finds the multi-hop path that maximizes bottleneck bandwidth. |
-| `shortest_path` | Shortest Path | Finds the multi-hop path that minimizes total latency (hop count). |
+| `shortest_path` | Shortest Path | Finds the multi-hop path that minimizes total link latency. |
 
 !!! tip "Manual scheduler"
     When you select the **manual** scheduler, the "Pinned To" column in the DAG Structure section switches from a free-text input to a dropdown populated with all defined node IDs, making it easy to assign each task to a specific node.

@@ -1,7 +1,8 @@
 # Scheduling Algorithms
 
-ncsim supports 23 SAGA static batch schedulers plus two built-in schedulers that decide **where** each
-task runs. The scheduler receives a DAG and a snapshot of the network
+ncsim supports 22 SAGA static batch schedulers with SAGA 2.0.4, plus PEFT
+when SAGA 2.1.0 is installed, and two built-in schedulers. These schedulers
+decide **where** each task runs. The scheduler receives a DAG and a snapshot of the network
 (node capacities, link bandwidths), and returns a `PlacementPlan`
 mapping every task to a node. The execution engine then decides
 **when** tasks run based on event ordering and node availability.
@@ -21,10 +22,10 @@ config:
     alpha: 0.75
 ```
 
-The SAGA registry includes `bil`, `brute_force`, `cpop`, `dps`, `duplex`,
+With SAGA 2.0.4 installed, ncsim registers `bil`, `brute_force`, `cpop`, `dps`, `duplex`,
 `etf`, `fastest_node`, `fcp`, `flb`, `gdl`, `hbmct`, `heft`, `maxmin`,
-`mct`, `met`, `minmin`, `msbc`, `mst`, `olb`, `peft`, `smt`, `sufferage`,
-and `wba`. These algorithms produce a static placement for each injected DAG;
+`mct`, `met`, `minmin`, `msbc`, `mst`, `olb`, `smt`, `sufferage`,
+and `wba`. SAGA 2.1.0 adds `peft`. These algorithms produce a static placement for each injected DAG;
 ncsim's execution engine controls actual run and transfer timing.
 
 ## HEFT (Heterogeneous Earliest Finish Time)
@@ -290,9 +291,13 @@ The registered static batch schedulers are implemented via the
    actual node IDs.
 
 !!! note "Install requirement"
-    SAGA schedulers require the `anrg-saga` package:
+    The 22 schedulers listed above work with SAGA 2.0.4 from PyPI:
     ```
-    pip install anrg-saga
+    pip install "anrg-saga>=2.0.4"
+    ```
+    To add PEFT, install the tagged SAGA 2.1.0 source:
+    ```
+    pip install "anrg-saga @ git+https://github.com/ANRGUSC/saga.git@v2.1.0"
     ```
     ncsim reports a clear error when a requested scheduler is unavailable or
     receives an unsupported option; it does not silently substitute another

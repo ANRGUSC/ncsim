@@ -35,7 +35,6 @@ try:
         MsbcScheduler,
         MSTScheduler,
         OLBScheduler,
-        PEFTScheduler,
         SMTScheduler,
         SufferageScheduler,
         WBAScheduler,
@@ -44,8 +43,17 @@ try:
     from saga import TaskGraph, NetworkNode, NetworkEdge, TaskGraphNode, TaskGraphEdge
     SAGA_AVAILABLE = True
     logger.debug("SAGA library loaded successfully")
+
+    # PEFT was added to SAGA in 2.1.0. Keep the adapter compatible with the
+    # latest PyPI release (2.0.4), where every other registered scheduler is
+    # available, and expose PEFT automatically when a newer SAGA is installed.
+    try:
+        from saga.schedulers import PEFTScheduler
+    except ImportError:
+        PEFTScheduler = None
 except ImportError as e:
     SAGA_AVAILABLE = False
+    PEFTScheduler = None
     logger.warning(f"SAGA library not available: {e}")
 
 
@@ -138,7 +146,12 @@ def _build_saga_registry() -> Dict[str, SchedulerRegistration]:
         SchedulerRegistration("msbc", "MSBC", MsbcScheduler, "Mean standard-deviation based clustering scheduling."),
         SchedulerRegistration("mst", "MST", MSTScheduler, "Minimum Start Time scheduling."),
         SchedulerRegistration("olb", "OLB", OLBScheduler, "Opportunistic Load Balancing scheduling."),
-        SchedulerRegistration("peft", "PEFT", PEFTScheduler, "Predict Earliest Finish Time scheduling."),
+    ]
+    if PEFTScheduler is not None:
+        registrations.append(
+            SchedulerRegistration("peft", "PEFT", PEFTScheduler, "Predict Earliest Finish Time scheduling.")
+        )
+    registrations.extend([
         SchedulerRegistration(
             "smt", "SMT", SMTScheduler, "Constraint-solver based scheduling.",
             options=(
@@ -154,7 +167,7 @@ def _build_saga_registry() -> Dict[str, SchedulerRegistration]:
                 "Tradeoff weight used by WBA.", minimum=0, maximum=1,
             ),),
         ),
-    ]
+    ])
     return {registration.name: registration for registration in registrations}
 
 

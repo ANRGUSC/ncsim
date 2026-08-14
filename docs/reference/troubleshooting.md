@@ -65,7 +65,7 @@ python -m site --user-base
 **Fix:** Install or upgrade anrg-saga:
 
 ```bash
-pip install "anrg-saga>=2.0.3"
+pip install "anrg-saga>=2.0.4"
 ```
 
 If you have a different package named `saga` installed, uninstall it
@@ -73,35 +73,33 @@ first:
 
 ```bash
 pip uninstall saga
-pip install "anrg-saga>=2.0.3"
+pip install "anrg-saga>=2.0.4"
 ```
 
-!!! warning "pygraphviz on Windows"
-    The `anrg-saga` package has an optional dependency on `pygraphviz`,
-    which can be difficult to install on Windows. If the full install
-    fails, install without optional dependencies:
+!!! tip "PEFT is not listed"
+    PyPI's SAGA 2.0.4 supplies 22 of ncsim's registered SAGA schedulers.
+    Install the tagged 2.1.0 source to add PEFT:
 
     ```bash
-    pip install anrg-saga --no-deps
-    pip install networkx numpy scipy pandas pydantic tqdm
+    pip install "anrg-saga @ git+https://github.com/ANRGUSC/saga.git@v2.1.0"
     ```
 
 ---
 
 ### SAGA library not available (warning at runtime)
 
-**Cause:** The `anrg-saga` package is not importable, so HEFT and CPOP
-schedulers are unavailable.
+**Cause:** The `anrg-saga` package is not importable or does not expose the
+API ncsim expects. The supported minimum version is 2.0.4.
 
 **Fix:** Reinstall anrg-saga:
 
 ```bash
-pip install "anrg-saga>=2.0.3"
+pip install "anrg-saga>=2.0.4"
 ```
 
-When SAGA is unavailable, ncsim falls back to Round Robin scheduling
-with a warning. HEFT and CPOP will not be available until SAGA is
-properly installed.
+When SAGA is unavailable, only the built-in `round_robin` and `manual`
+schedulers are registered. ncsim does not silently substitute one of them
+when a scenario requests a SAGA scheduler.
 
 ---
 
@@ -111,7 +109,7 @@ properly installed.
 
 **Fix:**
 
-1. Verify Python version is 3.10+: `python --version`
+1. Verify Python version is 3.12+: `python --version`
 2. Upgrade pip and setuptools: `pip install --upgrade pip setuptools`
 3. Retry: `pip install -e .`
 
@@ -353,13 +351,13 @@ D3 visualizations.
 |---|---|---|
 | `ModuleNotFoundError: ncsim` | Not installed | `pip install -e .` |
 | `ncsim: command not found` | PATH issue | Use `python -m ncsim` |
-| `ImportError: anrg-saga` | Missing dependency | `pip install "anrg-saga>=2.0.3"` |
+| `ImportError: anrg-saga` | Missing dependency | `pip install "anrg-saga>=2.0.4"` |
 | `"to_node 'X' not found"` | Invalid node reference in YAML | Check that all link endpoints match node IDs |
 | `No direct link` | Direct routing + non-adjacent nodes | Use `--routing widest_path` |
 | `Network Error` in viz | Backend not running | Start `python run.py` on port 8000 |
 | `Port in use` | Port conflict | Kill conflicting process or change port |
 | `npm install` fails | Old Node.js | Upgrade to Node.js 18+ |
-| `SAGA not available` | anrg-saga not importable | `pip install "anrg-saga>=2.0.3"` |
+| `SAGA not available` | anrg-saga not importable | `pip install "anrg-saga>=2.0.4"` |
 | Same makespan for all schedulers | All tasks have `pinned_to` | Remove `pinned_to` to let scheduler decide |
 
 ---

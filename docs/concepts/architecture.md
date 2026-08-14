@@ -24,7 +24,7 @@ ncsim/
 │   └── wifi.py         # 802.11 RF physics (PHY rates, conflict graph, Bianchi)
 ├── scheduler/
 │   ├── base.py         # Scheduler ABC, PlacementPlan, RoundRobinScheduler
-│   └── saga_adapter.py # HEFT/CPOP via anrg-saga library
+│   └── saga_adapter.py # Version-aware SAGA scheduler registry and adapter
 └── io/
     ├── scenario_loader.py  # YAML parsing -> Scenario object
     ├── trace_writer.py     # JSONL trace output (event stream)
@@ -54,7 +54,7 @@ transforms or consumes the output of the previous one.
 ```mermaid
 flowchart TD
     A["1. Load<br/>ScenarioLoader reads YAML<br/>-> Scenario with Network, DAGs, Config"] --> B
-    B["2. Configure<br/>CLI overrides applied<br/>(--scheduler, --routing, --interference, --seed)"] --> C
+    B["2. Configure<br/>CLI overrides applied<br/>(scheduler/options, routing, interference, seed)"] --> C
     C["3. Wire<br/>Simulation constructed with<br/>Scheduler, DAGSource,<br/>RoutingModel, InterferenceModel"] --> D
     D["4. Inject<br/>DAGs injected at inject_at times<br/>Scheduler returns PlacementPlan<br/>for each DAG"] --> E
     E["5. Execute<br/>Event loop: pop from priority queue<br/>ExecutionEngine handles each event<br/>New events scheduled as side effects"] --> F
@@ -70,6 +70,7 @@ flowchart TD
 scheduler, routing, interference, and seed.
 
 **2. Configure.** CLI arguments such as `--scheduler heft`,
+`--scheduler-option alpha=0.75`,
 `--routing widest_path`, or `--interference csma_bianchi` override the
 values from the YAML config section. The `--seed` flag overrides the
 scenario seed for reproducibility experiments.
@@ -107,7 +108,7 @@ via CLI flag or YAML config.
 
 | Abstraction | Interface | Implementations | Configured by |
 |---|---|---|---|
-| **Scheduler** | `on_dag_inject(dag, snapshot) -> PlacementPlan` | `RoundRobinScheduler`, `ManualScheduler`, `SagaScheduler` (HEFT, CPOP) | `--scheduler` |
+| **Scheduler** | `on_dag_inject(dag, snapshot) -> PlacementPlan` | `RoundRobinScheduler`, `ManualScheduler`, and 22+ algorithms through `SagaScheduler` | `--scheduler`, `--scheduler-option` |
 | **RoutingModel** | `get_path(src, dst, network) -> [link_ids]` | `DirectLinkRouting`, `WidestPathRouting`, `ShortestPathRouting` | `--routing` |
 | **InterferenceModel** | `get_interference_factor(link, actives, net) -> float` | `NoInterference`, `ProximityInterference`, `CsmaCliqueInterference`, `CsmaBianchiInterference` | `--interference` |
 | **DAGSource** | `get_next_injection(after_time) -> (time, dag)` | `SingleDAGSource`, `MultiDAGSource` | Scenario YAML |
@@ -124,8 +125,8 @@ ordering and node availability.
 
 !!! info "Pinned tasks"
     Any task with a `pinned_to` field in the YAML overrides the
-    scheduler's assignment. This works with all schedulers, including
-    HEFT and CPOP.
+    scheduler's assignment. This works with every built-in and registered
+    SAGA scheduler.
 
 ### RoutingModel
 

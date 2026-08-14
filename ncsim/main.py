@@ -255,7 +255,7 @@ def main(args: list = None) -> int:
     parser.add_argument(
         "--version",
         action="version",
-        version="ncsim 1.0.0"
+        version="ncsim 1.1.0"
     )
 
     parsed = parser.parse_args(args)

@@ -9,7 +9,7 @@ Developed by the [Autonomous Networks Research Group (ANRG)](https://anrg.usc.ed
 ## Key Features
 
 - **Deterministic simulation** -- same inputs plus the same seed produce identical results every time
-- **HEFT / CPOP / Round Robin scheduling** -- integrated with [anrg-saga](https://github.com/ANRGUSC/saga) schedulers, plus manual task pinning
+- **22+ SAGA static batch schedulers** -- HEFT, CPOP, Min-Min, Sufferage, and more from [anrg-saga](https://github.com/ANRGUSC/saga), with optional PEFT plus built-in round-robin and manual assignment
 - **Multi-hop routing** -- direct, widest-path (max-min bandwidth), and shortest-path (min-latency) algorithms
 - **802.11 WiFi PHY/MAC modeling** -- log-distance path loss, SNR-based MCS rate adaptation for 802.11n/ac/ax
 - **Interference models** -- none, proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (dynamic SINR)
@@ -102,7 +102,7 @@ At a high level, ncsim follows this pipeline:
 ```mermaid
 graph LR
     A[Scenario YAML] --> B[Scenario Loader]
-    B --> C[Scheduler<br/>HEFT / CPOP / RR]
+    B --> C[Scheduler<br/>22+ SAGA / RR / Manual]
     C --> D[Simulation Engine]
     D --> E[Trace JSONL]
     D --> F[Metrics JSON]
@@ -125,7 +125,7 @@ graph LR
 | **Repository** | [github.com/ANRGUSC/ncsim](https://github.com/ANRGUSC/ncsim) |
 | **PyPI package** | [anrg-ncsim](https://pypi.org/project/anrg-ncsim/) |
 | **License** | MIT |
-| **Python** | 3.10+ |
+| **Python** | 3.12+ |
 | **Contributors** | Bhaskar Krishnamachari, Maya Gutierrez |
 | **Organization** | [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California |
 

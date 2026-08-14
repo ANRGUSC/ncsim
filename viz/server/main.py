@@ -20,7 +20,7 @@ from pydantic import BaseModel
 
 from ncsim.scheduler.saga_adapter import scheduler_catalog
 
-app = FastAPI(title="ncsim-viz API", version="1.0.0")
+app = FastAPI(title="ncsim-viz API", version="1.1.0")
 
 app.add_middleware(
     CORSMiddleware,

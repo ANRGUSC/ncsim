@@ -85,6 +85,7 @@ copyright: Copyright &copy; 2026 Autonomous Networks Research Group (ANRG), Univ
 
 nav:
   - Home: index.md
+  - Why ncsim?: intro.html
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
