@@ -1,6 +1,6 @@
 # Scheduling Algorithms
 
-ncsim supports three scheduling algorithms that decide **where** each
+ncsim supports 23 SAGA static batch schedulers plus two built-in schedulers that decide **where** each
 task runs. The scheduler receives a DAG and a snapshot of the network
 (node capacities, link bandwidths), and returns a `PlacementPlan`
 mapping every task to a node. The execution engine then decides
@@ -16,8 +16,16 @@ Or in the scenario YAML:
 
 ```yaml
 config:
-  scheduler: heft   # heft | cpop | round_robin | manual
+  scheduler: wba
+  scheduler_options:
+    alpha: 0.75
 ```
+
+The SAGA registry includes `bil`, `brute_force`, `cpop`, `dps`, `duplex`,
+`etf`, `fastest_node`, `fcp`, `flb`, `gdl`, `hbmct`, `heft`, `maxmin`,
+`mct`, `met`, `minmin`, `msbc`, `mst`, `olb`, `peft`, `smt`, `sufferage`,
+and `wba`. These algorithms produce a static placement for each injected DAG;
+ncsim's execution engine controls actual run and transfer timing.
 
 ## HEFT (Heterogeneous Earliest Finish Time)
 
@@ -262,7 +270,7 @@ ncsim --scenario diamond.yaml --output out/rr   --scheduler round_robin
 
 ## SAGA Library Integration
 
-HEFT and CPOP are implemented via the
+The registered static batch schedulers are implemented via the
 [anrg-saga](https://pypi.org/project/anrg-saga/) library. ncsim's
 `SagaScheduler` adapter translates between ncsim's data model and SAGA's:
 
@@ -282,9 +290,10 @@ HEFT and CPOP are implemented via the
    actual node IDs.
 
 !!! note "Install requirement"
-    HEFT and CPOP require the `anrg-saga` package:
+    SAGA schedulers require the `anrg-saga` package:
     ```
     pip install anrg-saga
     ```
-    If SAGA is not installed, ncsim falls back to Round Robin with a
-    warning.
+    ncsim reports a clear error when a requested scheduler is unavailable or
+    receives an unsupported option; it does not silently substitute another
+    algorithm.

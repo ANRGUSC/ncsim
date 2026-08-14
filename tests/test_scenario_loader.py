@@ -62,7 +62,34 @@ class TestLoadScenario:
             assert len(scenario.network.links) == 1
             assert len(scenario.dags) == 1
             assert scenario.config.scheduler == "heft"
+            assert scenario.config.scheduler_options == {}
             assert scenario.config.seed == 42
+
+    def test_loads_scheduler_options(self):
+        scenario_yaml = SIMPLE_SCENARIO.replace(
+            "scheduler: heft",
+            "scheduler: wba\n    scheduler_options:\n      alpha: 0.75",
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(scenario_yaml)
+            f.flush()
+
+            scenario = load_scenario(f.name)
+
+            assert scenario.config.scheduler == "wba"
+            assert scenario.config.scheduler_options == {"alpha": 0.75}
+
+    def test_rejects_non_mapping_scheduler_options(self):
+        scenario_yaml = SIMPLE_SCENARIO.replace(
+            "scheduler: heft",
+            "scheduler: wba\n    scheduler_options: invalid",
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(scenario_yaml)
+            f.flush()
+
+            with pytest.raises(ValueError, match="scheduler_options must be a mapping"):
+                load_scenario(f.name)
 
     def test_loads_network_correctly(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:

@@ -11,12 +11,14 @@ import shutil
 import sys
 from pathlib import Path
 
+import yaml
+
 from ncsim.io.scenario_loader import load_scenario
 from ncsim.io.trace_writer import TraceWriter, TraceEventAdapter
 from ncsim.io.results_writer import write_results
 from ncsim.models.dag import SingleDAGSource, MultiDAGSource
 from ncsim.core.simulation import Simulation
-from ncsim.scheduler.saga_adapter import create_scheduler
+from ncsim.scheduler.saga_adapter import available_scheduler_names, create_scheduler
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -27,6 +29,18 @@ def setup_logging(verbose: bool = False) -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S"
     )
+
+
+def _scheduler_option(value: str) -> tuple[str, object]:
+    """Parse a KEY=VALUE scheduler option using YAML scalar types."""
+    key, separator, raw_value = value.partition("=")
+    if not separator or not key.strip():
+        raise argparse.ArgumentTypeError("scheduler options must use KEY=VALUE")
+    try:
+        parsed_value = yaml.safe_load(raw_value)
+    except yaml.YAMLError as exc:
+        raise argparse.ArgumentTypeError(f"invalid scheduler option value: {exc}") from exc
+    return key.strip(), parsed_value
 
 
 def _setup_wifi_model(scenario, parsed, seed, logger):
@@ -172,9 +186,17 @@ def main(args: list = None) -> int:
     )
     parser.add_argument(
         "--scheduler",
-        choices=["heft", "cpop", "round_robin", "manual"],
+        choices=available_scheduler_names(),
         default=None,
         help="Scheduling algorithm (overrides scenario config)"
+    )
+    parser.add_argument(
+        "--scheduler-option",
+        action="append",
+        type=_scheduler_option,
+        default=[],
+        metavar="KEY=VALUE",
+        help="Scheduler constructor option; repeat to set multiple options"
     )
     parser.add_argument(
         "--routing",
@@ -252,6 +274,10 @@ def main(args: list = None) -> int:
         # Override config if specified
         seed = parsed.seed if parsed.seed is not None else scenario.config.seed
         scheduler_algo = parsed.scheduler if parsed.scheduler else scenario.config.scheduler
+        scheduler_options = dict(scenario.config.scheduler_options)
+        if parsed.scheduler and parsed.scheduler != scenario.config.scheduler:
+            scheduler_options = {}
+        scheduler_options.update(dict(parsed.scheduler_option))
         routing_type = parsed.routing if parsed.routing else scenario.config.routing
 
         # Create routing model
@@ -288,11 +314,15 @@ def main(args: list = None) -> int:
             logger.info("Interference model: none")
 
         # Create scheduler (pass routing model for SAGA bandwidth awareness)
-        logger.info(f"Creating scheduler: {scheduler_algo}")
+        logger.info(f"Creating scheduler: {scheduler_algo} (options={scheduler_options})")
         if routing_type in ("widest_path", "shortest_path"):
-            scheduler = create_scheduler(scheduler_algo, routing=routing_model)
+            scheduler = create_scheduler(
+                scheduler_algo,
+                routing=routing_model,
+                scheduler_options=scheduler_options,
+            )
         else:
-            scheduler = create_scheduler(scheduler_algo)
+            scheduler = create_scheduler(scheduler_algo, scheduler_options=scheduler_options)
 
         # Create DAG source
         if len(scenario.dags) == 1:
@@ -371,6 +401,8 @@ def main(args: list = None) -> int:
         print(f"\n=== Simulation Complete ===")
         print(f"Scenario: {scenario.name}")
         print(f"Scheduler: {scheduler_algo}")
+        if scheduler_options:
+            print(f"Scheduler options: {scheduler_options}")
         print(f"Routing: {routing_type}")
         print(f"Interference: {interference_type}")
         if interference_type in ("csma_clique", "csma_bianchi") and extra_metrics:

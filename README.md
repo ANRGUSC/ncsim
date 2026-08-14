@@ -10,7 +10,7 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 ## Features
 
 - **Deterministic simulation**: Same inputs + same seed = identical results
-- **HEFT/CPOP/Manual scheduling**: Integrated with [anrg-saga](https://github.com/ANRGUSC/saga) schedulers, plus manual assignment via `pinned_to`
+- **23 SAGA static batch schedulers**: HEFT, CPOP, PEFT, Min-Min, Sufferage, and more, plus round-robin and manual assignment
 - **Multi-hop routing**: Direct, widest-path (max-min bandwidth), and shortest-path (min-latency)
 - **802.11 WiFi PHY/MAC**: Log-distance path loss, SNR-based MCS rate adaptation (802.11n/ac/ax)
 - **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (capture-aware)
@@ -33,7 +33,7 @@ pip install -e ".[dev]"
 
 Alternatively, `pip install anrg-ncsim` installs just the core simulator and `ncsim` CLI. This is suitable if you want to use ncsim as a library in your own project and will write your own scenario YAML files. It does not include the example scenarios, experiment scripts, visualization UI, or documentation.
 
-Requires Python 3.10+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.0.3.
+Requires Python 3.10+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.1.0.
 
 ## Quick Start
 
@@ -53,7 +53,9 @@ ncsim --scenario PATH --output DIR [options]
 
 Options:
   --seed N              Random seed (default: from scenario or 42)
-  --scheduler ALGO      heft | cpop | round_robin | manual
+  --scheduler ALGO      SAGA scheduler, round_robin, or manual
+  --scheduler-option K=V
+                        Scheduler constructor option (repeatable)
   --routing ROUTING     direct | widest_path | shortest_path
   --interference MODEL  none | proximity | csma_clique | csma_bianchi
   --verbose             Enable verbose logging
@@ -86,11 +88,16 @@ scenario:
       edges:
         - {from: T0, to: T1, data_size: 50}
   config:
-    scheduler: heft
+    scheduler: wba
+    scheduler_options:
+      alpha: 0.75
     seed: 42
 ```
 
 Tasks can include `pinned_to: node_id` for use with `--scheduler manual`.
+Run `ncsim --help` for the complete scheduler list. SAGA scheduler options
+currently available are `fcp.priority_queue_size`, `gdl.dynamic_level`,
+`smt.epsilon`, `smt.solver_name`, and `wba.alpha`; all have SAGA defaults.
 
 See [scenarios/](scenarios/) for more examples including WiFi interference, multi-hop routing, and parallel spread topologies.
 
@@ -140,7 +147,7 @@ ncsim/                  # Python package
 │   └── wifi.py         # 802.11 PHY/MAC
 ├── scheduler/
 │   ├── base.py         # Scheduler interface
-│   └── saga_adapter.py # SAGA HEFT/CPOP integration
+│   └── saga_adapter.py # SAGA static batch scheduler registry and adapter
 └── io/
     ├── scenario_loader.py
     ├── trace_writer.py

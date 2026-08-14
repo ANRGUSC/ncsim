@@ -1,11 +1,8 @@
-"""
-SAGA scheduler adapter.
-
-Wraps the SAGA library's HEFT and CPOP schedulers for use with ncsim.
-"""
+"""SAGA static batch scheduler adapter and registry."""
 
 import logging
-from typing import Dict, Optional, TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from ncsim.scheduler.base import Scheduler, PlacementPlan, NetworkSnapshot
 from ncsim.models.dag import DAG
@@ -18,7 +15,31 @@ logger = logging.getLogger(__name__)
 
 # Try to import SAGA
 try:
-    from saga.schedulers import HeftScheduler, CpopScheduler
+    from saga.schedulers import (
+        BILScheduler,
+        BruteForceScheduler,
+        CpopScheduler,
+        DPSScheduler,
+        DuplexScheduler,
+        ETFScheduler,
+        FastestNodeScheduler,
+        FCPScheduler,
+        FLBScheduler,
+        GDLScheduler,
+        HbmctScheduler,
+        HeftScheduler,
+        MaxMinScheduler,
+        MCTScheduler,
+        METScheduler,
+        MinMinScheduler,
+        MsbcScheduler,
+        MSTScheduler,
+        OLBScheduler,
+        PEFTScheduler,
+        SMTScheduler,
+        SufferageScheduler,
+        WBAScheduler,
+    )
     from saga import Network as SagaNetwork
     from saga import TaskGraph, NetworkNode, NetworkEdge, TaskGraphNode, TaskGraphEdge
     SAGA_AVAILABLE = True
@@ -33,8 +54,178 @@ DISCONNECTED_SPEED = 0.001  # Very slow for non-connected pairs (effectively dis
 LOCAL_SPEED = 10000.0  # Very fast for same-node transfers
 
 
+@dataclass(frozen=True)
+class SchedulerOption:
+    """A constructor option exposed by a registered SAGA scheduler."""
+
+    name: str
+    label: str
+    value_type: str
+    default: Any
+    description: str
+    nullable: bool = False
+    choices: tuple[Any, ...] = ()
+    minimum: Optional[float] = None
+    maximum: Optional[float] = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "label": self.label,
+            "type": self.value_type,
+            "default": self.default,
+            "description": self.description,
+            "nullable": self.nullable,
+            "choices": list(self.choices),
+            "minimum": self.minimum,
+            "maximum": self.maximum,
+        }
+
+
+@dataclass(frozen=True)
+class SchedulerRegistration:
+    """Metadata and implementation class for a SAGA scheduler."""
+
+    name: str
+    label: str
+    scheduler_class: Any
+    description: str
+    options: tuple[SchedulerOption, ...] = field(default_factory=tuple)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "label": self.label,
+            "kind": "saga",
+            "description": self.description,
+            "options": [option.as_dict() for option in self.options],
+        }
+
+
+def _build_saga_registry() -> Dict[str, SchedulerRegistration]:
+    if not SAGA_AVAILABLE:
+        return {}
+
+    registrations = [
+        SchedulerRegistration("bil", "BIL", BILScheduler, "Best Imaginary Level scheduling."),
+        SchedulerRegistration("brute_force", "Brute Force", BruteForceScheduler, "Exhaustive optimal schedule search for small problems."),
+        SchedulerRegistration("cpop", "CPOP", CpopScheduler, "Critical Path on a Processor scheduling."),
+        SchedulerRegistration("dps", "DPS", DPSScheduler, "Dynamic priority scheduling."),
+        SchedulerRegistration("duplex", "Duplex", DuplexScheduler, "Selects between complementary list schedules."),
+        SchedulerRegistration("etf", "ETF", ETFScheduler, "Earliest Task First scheduling."),
+        SchedulerRegistration("fastest_node", "Fastest Node", FastestNodeScheduler, "Places work on the fastest compute node."),
+        SchedulerRegistration(
+            "fcp", "FCP", FCPScheduler, "Fast Critical Path scheduling.",
+            options=(SchedulerOption(
+                "priority_queue_size", "Priority queue size", "integer", None,
+                "Maximum ready tasks considered at each scheduling step.", nullable=True, minimum=1,
+            ),),
+        ),
+        SchedulerRegistration("flb", "FLB", FLBScheduler, "Fast Load Balancing scheduling."),
+        SchedulerRegistration(
+            "gdl", "GDL", GDLScheduler, "Generalized Dynamic Level scheduling.",
+            options=(SchedulerOption(
+                "dynamic_level", "Dynamic level", "integer", 2,
+                "Dynamic-level formula variant.", choices=(1, 2),
+            ),),
+        ),
+        SchedulerRegistration("hbmct", "HBMCT", HbmctScheduler, "Heterogeneous Balanced Minimum Completion Time scheduling."),
+        SchedulerRegistration("heft", "HEFT", HeftScheduler, "Heterogeneous Earliest Finish Time scheduling."),
+        SchedulerRegistration("maxmin", "Max-Min", MaxMinScheduler, "Schedules the task with the largest minimum completion time."),
+        SchedulerRegistration("mct", "MCT", MCTScheduler, "Minimum Completion Time scheduling."),
+        SchedulerRegistration("met", "MET", METScheduler, "Minimum Execution Time scheduling."),
+        SchedulerRegistration("minmin", "Min-Min", MinMinScheduler, "Schedules the task with the smallest minimum completion time."),
+        SchedulerRegistration("msbc", "MSBC", MsbcScheduler, "Mean standard-deviation based clustering scheduling."),
+        SchedulerRegistration("mst", "MST", MSTScheduler, "Minimum Start Time scheduling."),
+        SchedulerRegistration("olb", "OLB", OLBScheduler, "Opportunistic Load Balancing scheduling."),
+        SchedulerRegistration("peft", "PEFT", PEFTScheduler, "Predict Earliest Finish Time scheduling."),
+        SchedulerRegistration(
+            "smt", "SMT", SMTScheduler, "Constraint-solver based scheduling.",
+            options=(
+                SchedulerOption("epsilon", "Epsilon", "number", 0.001, "Solver comparison tolerance.", minimum=0),
+                SchedulerOption("solver_name", "Solver name", "string", None, "Optional solver backend name.", nullable=True),
+            ),
+        ),
+        SchedulerRegistration("sufferage", "Sufferage", SufferageScheduler, "Sufferage heuristic scheduling."),
+        SchedulerRegistration(
+            "wba", "WBA", WBAScheduler, "Workflow-based allocation scheduling.",
+            options=(SchedulerOption(
+                "alpha", "Alpha", "number", 0.5,
+                "Tradeoff weight used by WBA.", minimum=0, maximum=1,
+            ),),
+        ),
+    ]
+    return {registration.name: registration for registration in registrations}
+
+
+SAGA_SCHEDULERS = _build_saga_registry()
+BUILTIN_SCHEDULERS = ("round_robin", "manual")
+
+
+def available_scheduler_names() -> tuple[str, ...]:
+    """Return every scheduler accepted by ncsim."""
+    return tuple(SAGA_SCHEDULERS) + BUILTIN_SCHEDULERS
+
+
+def scheduler_catalog() -> list[Dict[str, Any]]:
+    """Return JSON-safe scheduler metadata for CLI and UI consumers."""
+    builtins = [
+        {
+            "name": "round_robin", "label": "Round Robin", "kind": "builtin",
+            "description": "Assigns ready tasks cyclically across nodes.", "options": [],
+        },
+        {
+            "name": "manual", "label": "Manual", "kind": "builtin",
+            "description": "Uses each task's pinned_to assignment.", "options": [],
+        },
+    ]
+    return [registration.as_dict() for registration in SAGA_SCHEDULERS.values()] + builtins
+
+
+def _validate_scheduler_options(
+    registration: SchedulerRegistration,
+    values: Dict[str, Any],
+) -> None:
+    definitions = {option.name: option for option in registration.options}
+    unknown_options = set(values) - set(definitions)
+    if unknown_options:
+        unknown = ", ".join(sorted(unknown_options))
+        raise ValueError(f"Unknown option(s) for scheduler '{registration.name}': {unknown}")
+
+    for name, value in values.items():
+        option = definitions[name]
+        if value is None:
+            if option.nullable:
+                continue
+            raise ValueError(f"Option '{name}' for scheduler '{registration.name}' cannot be null")
+
+        valid_type = {
+            "integer": isinstance(value, int) and not isinstance(value, bool),
+            "number": isinstance(value, (int, float)) and not isinstance(value, bool),
+            "string": isinstance(value, str),
+            "boolean": isinstance(value, bool),
+        }[option.value_type]
+        if not valid_type:
+            raise ValueError(
+                f"Option '{name}' for scheduler '{registration.name}' must be {option.value_type}"
+            )
+        if option.choices and value not in option.choices:
+            raise ValueError(
+                f"Option '{name}' for scheduler '{registration.name}' must be one of "
+                f"{', '.join(map(str, option.choices))}"
+            )
+        if option.minimum is not None and value < option.minimum:
+            raise ValueError(
+                f"Option '{name}' for scheduler '{registration.name}' must be at least {option.minimum}"
+            )
+        if option.maximum is not None and value > option.maximum:
+            raise ValueError(
+                f"Option '{name}' for scheduler '{registration.name}' must be at most {option.maximum}"
+            )
+
+
 class SagaScheduler(Scheduler):
-    """Scheduler using SAGA library's HEFT or CPOP algorithms.
+    """Scheduler using a registered SAGA static batch algorithm.
 
     SAGA requires a fully-connected network graph. We construct one by:
     - Using LOCAL_SPEED for same-node transfers (essentially instant)
@@ -46,26 +237,36 @@ class SagaScheduler(Scheduler):
     nodes due to the high transfer cost.
     """
 
-    def __init__(self, algorithm: str = "heft", routing: Optional["WidestPathRouting"] = None):
+    def __init__(
+        self,
+        algorithm: str = "heft",
+        routing: Optional["WidestPathRouting"] = None,
+        scheduler_options: Optional[Dict[str, Any]] = None,
+    ):
         """Initialize SAGA scheduler.
 
         Args:
-            algorithm: "heft" or "cpop"
+            algorithm: Registered SAGA scheduler name
             routing: Optional WidestPathRouting for multi-hop bandwidth calculation
+            scheduler_options: Keyword arguments for the SAGA scheduler constructor
         """
         if not SAGA_AVAILABLE:
             raise RuntimeError("SAGA library not available. Install with: pip install anrg-saga")
 
         self.algorithm = algorithm.lower()
         self.routing = routing
-        if self.algorithm == "heft":
-            self._scheduler = HeftScheduler()
-        elif self.algorithm == "cpop":
-            self._scheduler = CpopScheduler()
-        else:
-            logger.warning(f"Unknown algorithm '{algorithm}', defaulting to HEFT")
-            self.algorithm = "heft"
-            self._scheduler = HeftScheduler()
+        self.scheduler_options = dict(scheduler_options or {})
+        registration = SAGA_SCHEDULERS.get(self.algorithm)
+        if registration is None:
+            available = ", ".join(SAGA_SCHEDULERS)
+            raise ValueError(f"Unknown SAGA scheduler '{algorithm}'. Available: {available}")
+
+        _validate_scheduler_options(registration, self.scheduler_options)
+
+        try:
+            self._scheduler = registration.scheduler_class(**self.scheduler_options)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid options for scheduler '{self.algorithm}': {exc}") from exc
 
     def on_dag_inject(
         self,
@@ -102,7 +303,7 @@ class SagaScheduler(Scheduler):
         logger.info(f"SAGA {self.algorithm.upper()} assignments: {assignments}")
         return PlacementPlan(
             assignments=assignments,
-            metadata={"algorithm": self.algorithm}
+            metadata={"algorithm": self.algorithm, "scheduler_options": self.scheduler_options}
         )
 
     def _build_saga_network(self, snapshot: NetworkSnapshot) -> "SagaNetwork":
@@ -279,13 +480,15 @@ class SagaScheduler(Scheduler):
 
 def create_scheduler(
     algorithm: str = "heft",
-    routing: Optional["WidestPathRouting"] = None
+    routing: Optional["WidestPathRouting"] = None,
+    scheduler_options: Optional[Dict[str, Any]] = None,
 ) -> Scheduler:
     """Factory function to create a scheduler.
 
     Args:
-        algorithm: "heft", "cpop", or "round_robin"
+        algorithm: Registered SAGA scheduler or built-in scheduler name
         routing: Optional WidestPathRouting for multi-hop bandwidth calculation
+        scheduler_options: Keyword arguments for the SAGA scheduler constructor
 
     Returns:
         Scheduler instance
@@ -293,16 +496,22 @@ def create_scheduler(
     algorithm = algorithm.lower()
 
     if algorithm == "manual":
+        if scheduler_options:
+            raise ValueError("The manual scheduler does not accept scheduler options")
         from ncsim.scheduler.base import ManualScheduler
         return ManualScheduler()
 
     if algorithm == "round_robin":
+        if scheduler_options:
+            raise ValueError("The round_robin scheduler does not accept scheduler options")
         from ncsim.scheduler.base import RoundRobinScheduler
         return RoundRobinScheduler()
 
     if not SAGA_AVAILABLE:
-        logger.warning(f"SAGA not available for {algorithm}, using round-robin")
-        from ncsim.scheduler.base import RoundRobinScheduler
-        return RoundRobinScheduler()
+        raise RuntimeError("SAGA library not available. Install with: pip install anrg-saga")
 
-    return SagaScheduler(algorithm=algorithm, routing=routing)
+    return SagaScheduler(
+        algorithm=algorithm,
+        routing=routing,
+        scheduler_options=scheduler_options,
+    )

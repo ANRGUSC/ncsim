@@ -21,10 +21,13 @@ The top section of the form contains four fields that control the core simulatio
 
 | Value | Algorithm | Description |
 |---|---|---|
-| `heft` | HEFT | Heterogeneous Earliest Finish Time -- prioritizes tasks by upward rank, assigns each to the node that gives the earliest finish |
-| `cpop` | CPOP | Critical Path on a Processor -- identifies the critical path and schedules critical tasks on the fastest processor |
+| SAGA static batch | 23 algorithms | The list is loaded from ncsim's scheduler registry, including HEFT, CPOP, PEFT, Min-Min, Sufferage, and WBA |
 | `round_robin` | Round Robin | Assigns tasks to nodes in a round-robin rotation |
 | `manual` | Manual | You assign each task to a specific node using the "Pinned To" column in the DAG section |
+
+When a SAGA scheduler has configurable constructor options, typed controls
+appear below the scheduler selector. FCP, GDL, SMT, and WBA currently expose
+options; the form initializes each control to SAGA's default value.
 
 ### Routing Options
 

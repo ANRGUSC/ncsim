@@ -55,6 +55,7 @@ export interface RFConfig {
 
 export interface ScenarioConfig {
   scheduler: string;
+  scheduler_options?: Record<string, string | number | boolean | null>;
   seed: number;
   routing?: string;
   interference?: string;
