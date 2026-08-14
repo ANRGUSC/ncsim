@@ -29,6 +29,29 @@ permissions:
   contents: read
 
 jobs:
+  devcontainer:
+    name: Dev container lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build and validate the Codespaces container
+        uses: devcontainers/ci@v0.3
+        with:
+          push: never
+          runCmd: |
+            command -v ncsim
+            ncsim --version
+            test -s results/codespaces-demo/scenario.yaml
+            test -s results/codespaces-demo/trace.jsonl
+            test -s results/codespaces-demo/metrics.json
+            start-viz
+            curl --fail --silent --show-error http://127.0.0.1:8000/api/experiments > /dev/null
+            curl --fail --silent --show-error http://127.0.0.1:5173 > /dev/null
+
   smoke:
     name: Python, simulation, and visualization
     runs-on: ubuntu-latest

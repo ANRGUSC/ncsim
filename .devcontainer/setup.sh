@@ -5,6 +5,11 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 DEMO_OUTPUT="${REPO_ROOT}/results/codespaces-demo"
+PYTHON_USER_BIN="$(python -m site --user-base)/bin"
+
+# pip falls back to a user install in the Codespaces image because the global
+# site-packages directory is read-only for the vscode user.
+export PATH="${PYTHON_USER_BIN}:${REPO_ROOT}:${PATH}"
 
 echo "==> Installing NCSim and development dependencies"
 (
@@ -21,7 +26,7 @@ npm ci --prefix "${REPO_ROOT}/viz"
 
 echo "==> Running the deterministic Codespaces demo"
 mkdir -p "${DEMO_OUTPUT}"
-ncsim \
+python -m ncsim.main \
   --scenario "${REPO_ROOT}/scenarios/demo_simple.yaml" \
   --output "${DEMO_OUTPUT}" \
   --seed 42

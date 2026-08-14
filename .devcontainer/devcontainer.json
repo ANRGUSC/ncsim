@@ -19,11 +19,11 @@
     }
   },
   "remoteEnv": {
-    "PATH": "${containerWorkspaceFolder}:${containerEnv:PATH}"
+    "PATH": "${containerEnv:HOME}/.local/bin:${containerWorkspaceFolder}:${containerEnv:PATH}"
   },
   "updateContentCommand": "bash .devcontainer/setup.sh",
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "postAttachCommand": "bash .devcontainer/start-viz.sh",
+  "postAttachCommand": "bash .devcontainer/start-viz.sh || { echo 'WARNING: NCSim visualization did not start automatically. Run start-viz in the terminal for diagnostics.' >&2; true; }",
   "forwardPorts": [5173],
   "portsAttributes": {
     "5173": {
