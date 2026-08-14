@@ -15,6 +15,7 @@ export interface LinkDef {
   to: string;
   bandwidth: number;
   latency: number;
+  derive_bandwidth?: boolean;
 }
 
 export interface NetworkDef {

@@ -104,7 +104,7 @@ Select a preset to auto-generate a topology, or choose Custom to define nodes an
 |---|---|---|
 | Node count | 2 -- 20 | Number of compute nodes (slider) |
 | Default capacity | 1+ | Default compute capacity (CU/s) for generated nodes |
-| Default bandwidth | 0.1+ | Default bandwidth (MB/s) for generated links |
+| Default bandwidth | 0.1+ | Fixed/fallback bandwidth (MB/s) for generated links |
 
 ### Nodes Table
 
@@ -128,8 +128,15 @@ Each link has the following editable fields:
 | ID | Unique link identifier (e.g., `l0`, `l1`) |
 | From | Source node ID |
 | To | Target node ID |
+| Rate source | `Auto` omits bandwidth for WiFi models so ncsim derives it from distance/SNR/MCS; `Fixed` preserves the entered value |
 | BW (MB/s) | Bandwidth in megabytes per second |
 | Latency (s) | Propagation latency in seconds |
+
+Links created by the Random (radio-range) preset default to `Auto`. With
+CSMA/CA Clique or Bianchi selected, their base PHY rates are computed by ncsim
+from node placement and RF parameters. More distant links therefore select
+lower MCS rates. Entering a fixed value remains available for wired links or
+controlled mixed-topology experiments.
 
 ---
 
@@ -184,7 +191,7 @@ At the bottom of the form, a live YAML preview shows the complete scenario defin
 The preview includes:
 
 - Scenario name
-- Full network definition (nodes with positions and capacities, links with bandwidths and latencies)
+- Full network definition (nodes with positions and capacities, links with fixed bandwidths or RF-derived rates and latencies)
 - DAG definition (tasks with compute costs, edges with data sizes)
 - Config section (scheduler, seed, routing, interference model, and RF parameters if applicable)
 

@@ -77,6 +77,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
   const [interference, setInterference] = useState('none');
   const [interferenceRadius, setInterferenceRadius] = useState(15);
   const [rf, setRf] = useState<RFFormState>(DEFAULT_RF);
+  const deriveWirelessRates = interference === 'csma_clique' || interference === 'csma_bianchi';
 
   // Topology
   const [topoPreset, setTopoPreset] = useState<TopologyPreset>('line');
@@ -174,13 +175,18 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
           compute_capacity: n.compute_capacity,
           position: { x: n.position.x, y: n.position.y },
         })),
-        links: links.map((l) => ({
-          id: l.id,
-          from: l.from,
-          to: l.to,
-          bandwidth: l.bandwidth,
-          latency: l.latency,
-        })),
+        links: links.map((l) => {
+          const link: Record<string, unknown> = {
+            id: l.id,
+            from: l.from,
+            to: l.to,
+            latency: l.latency,
+          };
+          if (!l.derive_bandwidth || !deriveWirelessRates) {
+            link.bandwidth = l.bandwidth;
+          }
+          return link;
+        }),
       },
       dags: [
         {
@@ -222,7 +228,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
     };
 
     return yaml.dump({ scenario }, { lineWidth: 120, noRefs: true });
-  }, [name, nodes, links, tasks, edges, scheduler, selectedScheduler, schedulerOptions, seed, routing, interference, interferenceRadius, rf]);
+  }, [name, nodes, links, tasks, edges, scheduler, selectedScheduler, schedulerOptions, seed, routing, interference, interferenceRadius, rf, deriveWirelessRates]);
 
   const handleRun = async () => {
     const result = await run({ name, scenario_yaml: scenarioYaml });
@@ -364,6 +370,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
           links={links}
           rfParams={rfParams}
           seed={seed}
+          deriveWirelessRates={deriveWirelessRates}
           onPresetChange={setTopoPreset}
           onParamsChange={setTopoParams}
           onNodesChange={setNodes}
