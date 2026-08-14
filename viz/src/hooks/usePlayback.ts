@@ -16,6 +16,14 @@ export function usePlayback(trace: TraceEvent[] | null, makespan: number) {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeedState] = useState(1);
   const [eventIndex, setEventIndex] = useState(0);
+  const [playbackSource, setPlaybackSource] = useState({ trace, makespan });
+
+  if (playbackSource.trace !== trace || playbackSource.makespan !== makespan) {
+    setPlaybackSource({ trace, makespan });
+    setCurrentTime(0);
+    setEventIndex(0);
+    setPlaying(false);
+  }
 
   // Refs for the rAF loop — avoids stale closures
   const playingRef = useRef(false);
@@ -31,15 +39,12 @@ export function usePlayback(trace: TraceEvent[] | null, makespan: number) {
   useEffect(() => { makespanRef.current = makespan; }, [makespan]);
   useEffect(() => { traceRef.current = trace; }, [trace]);
 
-  // Reset on new data
+  // Stop the previous animation loop when the playback source changes.
   useEffect(() => {
-    setCurrentTime(0);
-    setEventIndex(0);
-    setPlaying(false);
     playingRef.current = false;
     currentTimeRef.current = 0;
     cancelAnimationFrame(animRef.current);
-  }, [makespan]);
+  }, [trace, makespan]);
 
   const findEventIndex = useCallback(
     (time: number): number => {

@@ -27,7 +27,8 @@ python -m ncsim --scenario PATH --output DIR [options]
 | `--scenario` | path | **required** | Path to scenario YAML file |
 | `--output` | path | **required** | Output directory for trace and metrics |
 | `--seed` | int | from YAML (`42`) | Random seed for reproducibility |
-| `--scheduler` | choice | from YAML (`heft`) | Scheduling algorithm: `heft`, `cpop`, `round_robin`, or `manual` |
+| `--scheduler` | choice | from YAML (`heft`) | Registered SAGA static batch scheduler, `round_robin`, or `manual` |
+| `--scheduler-option KEY=VALUE` | repeatable | from YAML | Override a scheduler constructor option; YAML scalar types are accepted |
 | `--routing` | choice | from YAML (`direct`) | Routing algorithm: `direct`, `widest_path`, or `shortest_path` |
 | `--interference` | choice | from YAML (`proximity`) | Interference model: `none`, `proximity`, `csma_clique`, or `csma_bianchi` |
 | `--interference-radius` | float | `15.0` | Radius in meters for the proximity interference model |
@@ -54,6 +55,10 @@ Built-in defaults  <  Scenario YAML config  <  CLI flags
     `scheduler:` value is set in the scenario YAML file. If you omit a CLI flag,
     the value from the YAML file is used. If the YAML file also omits it, the
     built-in default applies.
+
+    Scheduler options are merged over `config.scheduler_options`. If
+    `--scheduler` changes the scheduler, options belonging to the previous
+    scheduler are cleared before CLI options are applied.
 
 ---
 
@@ -88,7 +93,22 @@ ncsim --scenario scenarios/demo_simple.yaml \
       --interference none
 ```
 
-### 4. Custom interference radius with verbose logging
+### 4. Configure a SAGA scheduler
+
+Run WBA with a non-default tradeoff weight:
+
+```bash
+ncsim --scenario scenarios/demo_simple.yaml \
+      --output output/wba \
+      --scheduler wba \
+      --scheduler-option alpha=0.75
+```
+
+The repeatable option flag is available for FCP (`priority_queue_size`), GDL
+(`dynamic_level`), SMT (`epsilon`, `solver_name`), and WBA (`alpha`). Other
+registered schedulers use their SAGA defaults and accept no options.
+
+### 5. Custom interference radius with verbose logging
 
 Set a 25-meter proximity interference radius and enable debug output:
 
@@ -100,7 +120,7 @@ ncsim --scenario scenarios/interference_test.yaml \
       --verbose
 ```
 
-### 5. WiFi with Bianchi CSMA/CA model
+### 6. WiFi with Bianchi CSMA/CA model
 
 Use the analytical Bianchi model for CSMA/CA contention:
 
@@ -110,7 +130,7 @@ ncsim --scenario scenarios/wifi_test.yaml \
       --interference csma_bianchi
 ```
 
-### 6. WiFi with static clique model
+### 7. WiFi with static clique model
 
 Use the max-clique static throughput division model:
 
@@ -120,7 +140,7 @@ ncsim --scenario scenarios/wifi_clique_test.yaml \
       --interference csma_clique
 ```
 
-### 7. Override WiFi RF parameters
+### 8. Override WiFi RF parameters
 
 Customize transmit power, frequency, and path loss exponent:
 
@@ -134,7 +154,7 @@ ncsim --scenario scenarios/wifi_test.yaml \
       --wifi-standard n
 ```
 
-### 8. Enable RTS/CTS
+### 9. Enable RTS/CTS
 
 Enable the RTS/CTS handshake to extend the conflict graph and protect
 receivers from hidden-node interference:
@@ -146,7 +166,7 @@ ncsim --scenario scenarios/wifi_test.yaml \
       --rts-cts
 ```
 
-### 9. Determinism check
+### 10. Determinism check
 
 Run the same scenario twice with the same seed and verify that the output
 traces are identical:

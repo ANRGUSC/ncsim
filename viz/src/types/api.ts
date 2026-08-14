@@ -28,3 +28,25 @@ export interface ExperimentFiles {
   trace_jsonl?: string;
   metrics_json?: string;
 }
+
+export type SchedulerOptionValue = string | number | boolean | null;
+
+export interface SchedulerOptionDefinition {
+  name: string;
+  label: string;
+  type: 'string' | 'integer' | 'number' | 'boolean';
+  default: SchedulerOptionValue;
+  description: string;
+  nullable: boolean;
+  choices: SchedulerOptionValue[];
+  minimum: number | null;
+  maximum: number | null;
+}
+
+export interface SchedulerDefinition {
+  name: string;
+  label: string;
+  kind: 'saga' | 'builtin';
+  description: string;
+  options: SchedulerOptionDefinition[];
+}

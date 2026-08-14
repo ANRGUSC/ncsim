@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from ncsim.main import setup_logging, main
-from ncsim.scheduler.saga_adapter import SAGA_AVAILABLE
+from ncsim.scheduler.saga_adapter import SAGA_AVAILABLE, SAGA_SCHEDULERS
 
 
 class TestSetupLogging:
@@ -113,3 +113,48 @@ class TestMain:
                 "--scheduler", "heft",
             ])
             assert result == 0
+
+    @pytest.mark.skipif(not SAGA_AVAILABLE, reason="SAGA library not installed")
+    @pytest.mark.parametrize("algorithm", tuple(SAGA_SCHEDULERS))
+    def test_every_registered_scheduler_through_cli(self, algorithm):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scenario_text = Path("scenarios/demo_simple.yaml").read_text()
+            scenario_text = scenario_text.replace(
+                "        latency: 0.001\n\n  dags:",
+                "        latency: 0.001\n"
+                "      - id: l10\n"
+                "        from: n1\n"
+                "        to: n0\n"
+                "        bandwidth: 100\n"
+                "        latency: 0.001\n\n  dags:",
+            )
+            scenario_path = Path(tmpdir) / "scenario.yaml"
+            scenario_path.write_text(scenario_text)
+            output_path = Path(tmpdir) / "output"
+            result = main(args=[
+                "--scenario", str(scenario_path),
+                "--output", str(output_path),
+                "--scheduler", algorithm,
+            ])
+            assert result == 0
+
+    @pytest.mark.skipif(not SAGA_AVAILABLE, reason="SAGA library not installed")
+    def test_scheduler_option_override(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = main(args=[
+                "--scenario", "scenarios/demo_simple.yaml",
+                "--output", tmpdir,
+                "--scheduler", "wba",
+                "--scheduler-option", "alpha=0.75",
+            ])
+            assert result == 0
+
+    def test_invalid_scheduler_option_returns_1(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = main(args=[
+                "--scenario", "scenarios/demo_simple.yaml",
+                "--output", tmpdir,
+                "--scheduler", "round_robin",
+                "--scheduler-option", "alpha=0.75",
+            ])
+            assert result == 1

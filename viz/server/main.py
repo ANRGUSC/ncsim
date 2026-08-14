@@ -18,6 +18,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from ncsim.scheduler.saga_adapter import scheduler_catalog
+
 app = FastAPI(title="ncsim-viz API", version="1.0.0")
 
 app.add_middleware(
@@ -58,6 +60,12 @@ class ExperimentSummary(BaseModel):
     scheduler: str | None = None
     status: str | None = None
     seed: int | None = None
+
+
+@app.get("/api/schedulers")
+async def list_schedulers() -> list[dict]:
+    """Return scheduler names and their supported constructor options."""
+    return scheduler_catalog()
 
 
 @app.get("/api/experiments")

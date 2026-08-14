@@ -52,10 +52,22 @@ function makeNode(id: string, capacity: number, x: number, y: number): NodeDef {
 }
 
 /** Generate a bidirectional link pair (a→b and b→a). */
-function makeBiLink(a: string, b: string, bw: number, lat: number): LinkDef[] {
+function makeBiLink(
+  a: string,
+  b: string,
+  bw: number,
+  lat: number,
+  deriveBandwidth: boolean = false,
+): LinkDef[] {
   return [
-    { id: `l${a}_${b}`, from: a, to: b, bandwidth: bw, latency: lat },
-    { id: `l${b}_${a}`, from: b, to: a, bandwidth: bw, latency: lat },
+    {
+      id: `l${a}_${b}`, from: a, to: b, bandwidth: bw, latency: lat,
+      derive_bandwidth: deriveBandwidth,
+    },
+    {
+      id: `l${b}_${a}`, from: b, to: a, bandwidth: bw, latency: lat,
+      derive_bandwidth: deriveBandwidth,
+    },
   ];
 }
 
@@ -184,7 +196,9 @@ export function generateRandom(
       const dy = nodes[i].position.y - nodes[j].position.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist <= range) {
-        links.push(...makeBiLink(`n${i}`, `n${j}`, p.defaultBandwidth, p.defaultLatency));
+        links.push(...makeBiLink(
+          `n${i}`, `n${j}`, p.defaultBandwidth, p.defaultLatency, true,
+        ));
       }
     }
   }

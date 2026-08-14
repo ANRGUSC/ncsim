@@ -15,6 +15,7 @@ export interface LinkDef {
   to: string;
   bandwidth: number;
   latency: number;
+  derive_bandwidth?: boolean;
 }
 
 export interface NetworkDef {
@@ -55,6 +56,7 @@ export interface RFConfig {
 
 export interface ScenarioConfig {
   scheduler: string;
+  scheduler_options?: Record<string, string | number | boolean | null>;
   seed: number;
   routing?: string;
   interference?: string;

@@ -21,7 +21,8 @@ class ScenarioConfig:
     """Configuration section of a scenario.
 
     Attributes:
-        scheduler: Scheduling algorithm to use ("heft", "cpop", "round_robin")
+        scheduler: Scheduling algorithm to use
+        scheduler_options: Optional constructor arguments for the scheduler
         seed: Random seed for reproducibility
         routing: Routing algorithm to use ("direct", "widest_path", or "shortest_path")
         interference: Interference model type ("none", "proximity", "csma_clique", "csma_bianchi")
@@ -29,6 +30,7 @@ class ScenarioConfig:
         rf_config: Raw dict of RF parameters for WiFi models (from YAML rf: section)
     """
     scheduler: str = "heft"
+    scheduler_options: Dict[str, Any] = field(default_factory=dict)
     seed: int = 42
     routing: str = "direct"
     interference: str = "proximity"
@@ -181,8 +183,15 @@ def _parse_config(config_data: Optional[Dict]) -> ScenarioConfig:
     if config_data is None:
         return ScenarioConfig()
 
+    scheduler_options = config_data.get("scheduler_options", {})
+    if scheduler_options is None:
+        scheduler_options = {}
+    if not isinstance(scheduler_options, dict):
+        raise ValueError("config.scheduler_options must be a mapping")
+
     return ScenarioConfig(
         scheduler=str(config_data.get("scheduler", "heft")),
+        scheduler_options=dict(scheduler_options),
         seed=int(config_data.get("seed", 42)),
         routing=str(config_data.get("routing", "direct")),
         interference=str(config_data.get("interference", "proximity")),

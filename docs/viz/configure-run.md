@@ -21,10 +21,13 @@ The top section of the form contains four fields that control the core simulatio
 
 | Value | Algorithm | Description |
 |---|---|---|
-| `heft` | HEFT | Heterogeneous Earliest Finish Time -- prioritizes tasks by upward rank, assigns each to the node that gives the earliest finish |
-| `cpop` | CPOP | Critical Path on a Processor -- identifies the critical path and schedules critical tasks on the fastest processor |
+| SAGA static batch | 23 algorithms | The list is loaded from ncsim's scheduler registry, including HEFT, CPOP, PEFT, Min-Min, Sufferage, and WBA |
 | `round_robin` | Round Robin | Assigns tasks to nodes in a round-robin rotation |
 | `manual` | Manual | You assign each task to a specific node using the "Pinned To" column in the DAG section |
+
+When a SAGA scheduler has configurable constructor options, typed controls
+appear below the scheduler selector. FCP, GDL, SMT, and WBA currently expose
+options; the form initializes each control to SAGA's default value.
 
 ### Routing Options
 
@@ -101,7 +104,7 @@ Select a preset to auto-generate a topology, or choose Custom to define nodes an
 |---|---|---|
 | Node count | 2 -- 20 | Number of compute nodes (slider) |
 | Default capacity | 1+ | Default compute capacity (CU/s) for generated nodes |
-| Default bandwidth | 0.1+ | Default bandwidth (MB/s) for generated links |
+| Default bandwidth | 0.1+ | Fixed/fallback bandwidth (MB/s) for generated links |
 
 ### Nodes Table
 
@@ -125,8 +128,15 @@ Each link has the following editable fields:
 | ID | Unique link identifier (e.g., `l0`, `l1`) |
 | From | Source node ID |
 | To | Target node ID |
+| Rate source | `Auto` omits bandwidth for WiFi models so ncsim derives it from distance/SNR/MCS; `Fixed` preserves the entered value |
 | BW (MB/s) | Bandwidth in megabytes per second |
 | Latency (s) | Propagation latency in seconds |
+
+Links created by the Random (radio-range) preset default to `Auto`. With
+CSMA/CA Clique or Bianchi selected, their base PHY rates are computed by ncsim
+from node placement and RF parameters. More distant links therefore select
+lower MCS rates. Entering a fixed value remains available for wired links or
+controlled mixed-topology experiments.
 
 ---
 
@@ -181,7 +191,7 @@ At the bottom of the form, a live YAML preview shows the complete scenario defin
 The preview includes:
 
 - Scenario name
-- Full network definition (nodes with positions and capacities, links with bandwidths and latencies)
+- Full network definition (nodes with positions and capacities, links with fixed bandwidths or RF-derived rates and latencies)
 - DAG definition (tasks with compute costs, edges with data sizes)
 - Config section (scheduler, seed, routing, interference model, and RF parameters if applicable)
 

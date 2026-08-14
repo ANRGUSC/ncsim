@@ -43,7 +43,9 @@ scenario:
           data_size: 50             # MB
 
   config:
-    scheduler: heft                 # heft | cpop | round_robin
+    scheduler: wba                  # registered SAGA scheduler or built-in
+    scheduler_options:              # optional SAGA constructor arguments
+      alpha: 0.75
     seed: 42
     routing: direct                 # direct | widest_path | shortest_path
     interference: proximity         # none | proximity | csma_clique | csma_bianchi
@@ -115,11 +117,19 @@ scenario:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `config.scheduler` | string | No | `heft` | Scheduling algorithm. Options: `heft` (Heterogeneous Earliest Finish Time), `cpop` (Critical Path on a Processor), `round_robin`. |
+| `config.scheduler` | string | No | `heft` | Registered SAGA static batch scheduler, `round_robin`, or `manual`. |
+| `config.scheduler_options` | mapping | No | `{}` | Constructor options for the selected scheduler. Unknown options are rejected. |
 | `config.seed` | int | No | `42` | Random seed for reproducibility. Affects shadow fading, tie-breaking, and any stochastic behavior. |
 | `config.routing` | string | No | `direct` | Routing algorithm. Options: `direct` (single-hop only), `widest_path` (maximize bottleneck bandwidth), `shortest_path` (minimize hop count/latency). |
 | `config.interference` | string | No | `proximity` | Interference model. Options: `none`, `proximity` (distance-based 1/k sharing), `csma_clique` (static 802.11 clique model), `csma_bianchi` (dynamic 802.11 SINR + Bianchi MAC). |
 | `config.interference_radius` | float | No | `15.0` | Radius in meters for the `proximity` interference model. Links whose midpoints are within this distance interfere with each other. Ignored by other models. |
+
+Registered SAGA names are `bil`, `brute_force`, `cpop`, `dps`, `duplex`,
+`etf`, `fastest_node`, `fcp`, `flb`, `gdl`, `hbmct`, `heft`, `maxmin`,
+`mct`, `met`, `minmin`, `msbc`, `mst`, `olb`, `peft`, `smt`, `sufferage`,
+and `wba`. FCP accepts `priority_queue_size` (default `null`), GDL accepts
+`dynamic_level` (default `2`), SMT accepts `epsilon` (default `0.001`) and
+`solver_name` (default `null`), and WBA accepts `alpha` (default `0.5`).
 
 ### RF Parameters (`scenario.config.rf`)
 
