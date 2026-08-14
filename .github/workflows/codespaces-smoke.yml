@@ -1,0 +1,121 @@
+name: Codespaces Smoke Test
+
+on:
+  push:
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/codespaces-smoke.yml'
+      - 'ncsim/**'
+      - 'scenarios/demo_simple.yaml'
+      - 'tests/**'
+      - 'analyze_trace.py'
+      - 'pyproject.toml'
+      - 'viz/**'
+  pull_request:
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/codespaces-smoke.yml'
+      - 'ncsim/**'
+      - 'scenarios/demo_simple.yaml'
+      - 'tests/**'
+      - 'analyze_trace.py'
+      - 'pyproject.toml'
+      - 'viz/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Python, simulation, and visualization
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            viz/server/requirements.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: viz/package-lock.json
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install -e ".[dev]"
+          python -m pip install -r viz/server/requirements.txt
+
+      - name: Install visualization dependencies
+        working-directory: viz
+        run: npm ci
+
+      - name: Validate Codespaces lifecycle and services
+        run: |
+          bash -n .devcontainer/post-create.sh .devcontainer/start-viz.sh
+          bash .devcontainer/start-viz.sh
+          curl --fail --silent --show-error http://127.0.0.1:8000/api/experiments > /dev/null
+          curl --fail --silent --show-error http://127.0.0.1:5173 > /dev/null
+
+      - name: Run test suite
+        run: python -m pytest
+
+      - name: Run deterministic demo simulation
+        run: ncsim --scenario scenarios/demo_simple.yaml --output results/codespaces-smoke
+
+      - name: Validate simulation outputs
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          import yaml
+
+          output = Path("results/codespaces-smoke")
+          expected = ("scenario.yaml", "metrics.json", "trace.jsonl")
+          missing = [name for name in expected if not (output / name).is_file()]
+          if missing:
+              raise SystemExit(f"Missing simulation outputs: {', '.join(missing)}")
+
+          with (output / "scenario.yaml").open(encoding="utf-8") as handle:
+              scenario = yaml.safe_load(handle)
+          if not isinstance(scenario, dict):
+              raise SystemExit("scenario.yaml did not parse to a mapping")
+
+          with (output / "metrics.json").open(encoding="utf-8") as handle:
+              metrics = json.load(handle)
+          if not isinstance(metrics, dict):
+              raise SystemExit("metrics.json did not parse to an object")
+
+          event_count = 0
+          with (output / "trace.jsonl").open(encoding="utf-8") as handle:
+              for line_number, line in enumerate(handle, start=1):
+                  if not line.strip():
+                      continue
+                  event = json.loads(line)
+                  if not isinstance(event, dict):
+                      raise SystemExit(f"Trace line {line_number} is not an object")
+                  event_count += 1
+          if event_count == 0:
+              raise SystemExit("trace.jsonl contains no events")
+
+          print(f"Validated all outputs and {event_count} trace events")
+          PY
+
+      - name: Analyze simulation trace
+        run: python analyze_trace.py results/codespaces-smoke/trace.jsonl --summary --gantt --timeline --tasks
+
+      - name: Build visualization
+        working-directory: viz
+        run: npm run build

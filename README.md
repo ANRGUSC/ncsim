@@ -2,6 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/anrg-ncsim)](https://pypi.org/project/anrg-ncsim/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19138224.svg)](https://doi.org/10.5281/zenodo.19138224)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ANRGUSC/ncsim?quickstart=1)
 
 **Networked Compute Simulator** — a headless discrete-event simulator for evaluating task scheduling algorithms on heterogeneous networked systems.
 
@@ -17,6 +18,23 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 - **Fair bandwidth sharing** when multiple transfers share a link
 - **Experiment scripts** for interference verification and routing comparison
 - **Documentation**: [installation guide](docs/installation.html), [user guide](docs/userguide.html), [architecture overview](docs/architecture.html), and [WiFi interference model](docs/wifi_interference_model.pdf)
+
+## Try in GitHub Codespaces
+
+[Open ncsim in GitHub Codespaces](https://codespaces.new/ANRGUSC/ncsim?quickstart=1) for a ready-to-use environment with **both the web UI and CLI**. The UI starts automatically on port 5173, while the `ncsim` CLI is ready in the terminal. A demo simulation is also run during setup; inspect its raw `scenario.yaml`, `trace.jsonl`, and `metrics.json` files under `results/codespaces-demo/`.
+
+Rerun the demo and analyze its trace from the terminal:
+
+```bash
+ncsim --scenario scenarios/demo_simple.yaml --output results/codespaces-demo
+python analyze_trace.py results/codespaces-demo/trace.jsonl --gantt --timeline --tasks
+```
+
+If the UI does not open automatically, open port 5173 from the Codespaces **Ports** tab. To restart the visualization servers, run:
+
+```bash
+bash .devcontainer/start-viz.sh
+```
 
 ## Installation
 
