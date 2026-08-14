@@ -13,13 +13,13 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 ## Features
 
 - **Deterministic simulation**: Same inputs + same seed = identical results
-- **23 SAGA static batch schedulers**: HEFT, CPOP, PEFT, Min-Min, Sufferage, and more, plus round-robin and manual assignment
+- **22+ SAGA static batch schedulers**: HEFT, CPOP, Min-Min, Sufferage, and more; PEFT is added automatically with SAGA 2.1.0, alongside built-in round-robin and manual assignment
 - **Multi-hop routing**: Direct, widest-path (max-min bandwidth), and shortest-path (min-latency)
 - **802.11 WiFi PHY/MAC**: Log-distance path loss, SNR-based MCS rate adaptation (802.11n/ac/ax)
 - **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (capture-aware)
 - **Fair bandwidth sharing** when multiple transfers share a link
 - **Experiment scripts** for interference verification and routing comparison
-- **Documentation**: [installation guide](docs/installation.html), [user guide](docs/userguide.html), [architecture overview](docs/architecture.html), and [WiFi interference model](docs/wifi_interference_model.pdf)
+- **Documentation**: [installation guide](docs/getting-started/installation.md), [quick start](docs/getting-started/quickstart.md), [architecture overview](docs/concepts/architecture.md), and [WiFi interference model](docs/wifi_interference_model.pdf)
 
 ## Try in GitHub Codespaces
 
@@ -55,7 +55,11 @@ pip install -e ".[dev]"
 
 Alternatively, `pip install anrg-ncsim` installs just the core simulator and `ncsim` CLI. This is suitable if you want to use ncsim as a library in your own project and will write your own scenario YAML files. It does not include the example scenarios, experiment scripts, visualization UI, or documentation.
 
-Requires Python 3.10+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.1.0.
+Requires Python 3.12+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.0.4. The PyPI release of SAGA provides 22 directly compatible schedulers. To add PEFT as the 23rd scheduler, install SAGA 2.1.0 from its tagged source:
+
+```bash
+python -m pip install "anrg-saga @ git+https://github.com/ANRGUSC/saga.git@v2.1.0"
+```
 
 ## Quick Start
 
@@ -85,7 +89,8 @@ Options:
 WiFi / RF options (for csma_clique or csma_bianchi):
   --tx-power DBM        Transmit power in dBm (default: 20)
   --freq GHZ            Carrier frequency in GHz (default: 5.0)
-  --path-loss-exp N     Path loss exponent (default: 3.0)
+  --path-loss-exponent N
+                        Path loss exponent (default: 3.0)
   --wifi-standard STD   n | ac | ax (default: ax)
   --rts-cts             Enable RTS/CTS
 ```
@@ -117,7 +122,7 @@ scenario:
 ```
 
 Tasks can include `pinned_to: node_id` for use with `--scheduler manual`.
-Run `ncsim --help` for the complete scheduler list. SAGA scheduler options
+Run `ncsim --help` for the scheduler list provided by the installed SAGA version. SAGA scheduler options
 currently available are `fcp.priority_queue_size`, `gdl.dynamic_level`,
 `smt.epsilon`, `smt.solver_name`, and `wba.alpha`; all have SAGA defaults.
 
@@ -148,11 +153,11 @@ python analyze_trace.py results/trace.jsonl --gantt --timeline --tasks
 python -m pytest tests/ -v
 ```
 
-178 tests covering event queue, execution engine, scheduling, routing, WiFi physics, and acceptance criteria.
+More than 300 tests across 14 modules cover the event queue, execution engine, scheduling, routing, WiFi physics, visualization API, and acceptance criteria.
 
 ## Architecture
 
-For a detailed interactive overview, see [docs/architecture.html](https://htmlpreview.github.io/?https://github.com/ANRGUSC/ncsim/blob/main/docs/architecture.html).
+For a detailed overview, see [the architecture documentation](https://anrgusc.github.io/ncsim/concepts/architecture/).
 
 ```
 ncsim/                  # Python package
@@ -176,12 +181,8 @@ ncsim/                  # Python package
     └── results_writer.py
 
 scenarios/              # Example scenario YAML files (10 examples)
-tests/                  # Unit and integration tests (8 test modules)
-docs/                   # Documentation
-├── architecture.html   # Interactive architecture overview
-├── installation.html   # Installation guide
-├── userguide.html      # User guide with screenshots
-└── wifi_interference_model.pdf  # WiFi model writeup
+tests/                  # Unit and integration tests (14 test modules)
+docs/                   # MkDocs documentation source
 ```
 
 ---
@@ -262,7 +263,7 @@ If you use ncsim in your research, please cite it:
 @software{krishnamachari2026ncsim,
   author    = {Krishnamachari, Bhaskar},
   title     = {ncsim: Headless Discrete Event Simulator for Networked Computing Research},
-  version   = {1.0.0},
+  version   = {1.1.0},
   year      = {2026},
   url       = {https://github.com/ANRGUSC/ncsim},
   doi       = {10.5281/zenodo.19138224}

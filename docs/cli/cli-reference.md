@@ -40,6 +40,11 @@ python -m ncsim --scenario PATH --output DIR [options]
 | `--verbose`, `-v` | flag | off | Enable verbose/debug logging |
 | `--version` | flag | -- | Print version string and exit |
 
+The `--scheduler` choices are generated from the installed SAGA version.
+SAGA 2.0.4 from PyPI provides 22 registered choices; SAGA 2.1.0 adds
+`peft`. The built-in `round_robin` and `manual` choices are always available.
+Run `ncsim --help` to see the active list.
+
 ---
 
 ## Override Precedence

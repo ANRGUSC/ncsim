@@ -48,7 +48,7 @@ The home page offers two paths:
 ### Configure & Run
 
 Build a scenario from scratch using the form UI:
-- **Basic config**: experiment name, scheduler (HEFT/CPOP/Round Robin), routing, seed
+- **Basic config**: experiment name, dynamically discovered SAGA/built-in scheduler, routing, seed
 - **Interference model**: none, proximity, CSMA/CA clique, CSMA/CA Bianchi (with full WiFi RF config)
 - **Network topology**: presets (line, ring, star, mesh, grid) with editable node/link tables
 - **DAG structure**: presets (chain, fork-join, diamond, parallel) with editable task/edge tables

@@ -15,7 +15,7 @@ understanding the output, and comparing different scheduler configurations.
 
 ## Prerequisites
 
-- Python 3.10 or later
+- Python 3.12 or later
 - pip (included with Python)
 - git
 
@@ -40,13 +40,13 @@ ncsim --version
 Expected output:
 
 ```
-ncsim 1.0.0
+ncsim 1.1.0
 ```
 
 !!! info "Dependencies"
     Installing ncsim automatically pulls in its dependencies:
 
-    - **anrg-saga** (>=2.0.3) -- HEFT and CPOP scheduling algorithms
+    - **anrg-saga** (>=2.0.4) -- 22 SAGA static batch scheduling algorithms (SAGA 2.1.0 also exposes PEFT)
     - **networkx** (>=3.0) -- graph algorithms for routing
     - **pyyaml** (>=6.0) -- YAML scenario parsing
 
@@ -491,7 +491,7 @@ In this tutorial you learned how to:
 1. **Install** ncsim from source with `pip install -e .`
 2. **Run** a simulation with `ncsim --scenario <file> --output <dir>`
 3. **Read** the three output files: `scenario.yaml`, `trace.jsonl`, `metrics.json`
-4. **Compare** schedulers: HEFT and CPOP make intelligent placement decisions; round-robin does not
+4. **Compare** three representative schedulers: HEFT and CPOP make communication-aware placement decisions; round-robin provides a simple baseline
 5. **Analyze** traces with `analyze_trace.py` using `--gantt`, `--timeline`, and `--tasks`
 6. **Verify** determinism by running the same scenario twice with the same seed
 

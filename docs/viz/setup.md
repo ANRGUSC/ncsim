@@ -10,7 +10,7 @@ Before setting up ncsim-viz, ensure you have:
 
 | Requirement | Minimum Version | Check Command |
 |---|---|---|
-| Python | 3.10+ | `python --version` |
+| Python | 3.12+ | `python --version` |
 | Node.js | 18+ | `node --version` |
 | npm | 9+ | `npm --version` |
 | ncsim | Installed in editable mode | `python -c "import ncsim"` |

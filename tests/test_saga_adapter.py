@@ -164,11 +164,13 @@ class TestSchedulerRegistry:
             "bil", "brute_force", "cpop", "dps", "duplex", "etf",
             "fastest_node", "fcp", "flb", "gdl", "hbmct", "heft",
             "maxmin", "mct", "met", "minmin", "msbc", "mst", "olb",
-            "peft", "smt", "sufferage", "wba",
+            "smt", "sufferage", "wba",
         }
-        assert set(SAGA_SCHEDULERS) == expected
+        assert expected <= set(SAGA_SCHEDULERS) <= expected | {"peft"}
         assert "hybrid" not in SAGA_SCHEDULERS
-        assert set(available_scheduler_names()) == expected | {"round_robin", "manual"}
+        assert set(available_scheduler_names()) == set(SAGA_SCHEDULERS) | {
+            "round_robin", "manual"
+        }
 
     def test_catalog_has_typed_options_and_defaults(self):
         catalog = {entry["name"]: entry for entry in scheduler_catalog()}

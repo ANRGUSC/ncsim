@@ -244,7 +244,7 @@ You can combine flags, or run with no flags to get a default summary plus Gantt 
 Now that you have run your first simulations, explore the rest of the documentation:
 
 - **[Core Concepts: Architecture](../concepts/architecture.md)** -- understand the simulation engine, event queue, and execution model
-- **[Core Concepts: Scheduling](../concepts/scheduling.md)** -- learn how HEFT, CPOP, and Round Robin assign tasks to nodes
+- **[Core Concepts: Scheduling](../concepts/scheduling.md)** -- explore the version-aware SAGA registry plus round-robin and manual assignment
 - **[Scenarios: YAML Reference](../scenarios/yaml-reference.md)** -- full specification of the scenario file format for writing your own scenarios
 - **[Scenarios: Scenario Gallery](../scenarios/scenario-gallery.md)** -- browse the 10 included example scenarios with descriptions and expected results
 - **[Visualization: Overview](../viz/viz-overview.md)** -- set up the web UI and explore results interactively with Gantt charts, animated replay, and network topology views

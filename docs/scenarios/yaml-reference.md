@@ -124,10 +124,10 @@ scenario:
 | `config.interference` | string | No | `proximity` | Interference model. Options: `none`, `proximity` (distance-based 1/k sharing), `csma_clique` (static 802.11 clique model), `csma_bianchi` (dynamic 802.11 SINR + Bianchi MAC). |
 | `config.interference_radius` | float | No | `15.0` | Radius in meters for the `proximity` interference model. Links whose midpoints are within this distance interfere with each other. Ignored by other models. |
 
-Registered SAGA names are `bil`, `brute_force`, `cpop`, `dps`, `duplex`,
+With SAGA 2.0.4, registered names are `bil`, `brute_force`, `cpop`, `dps`, `duplex`,
 `etf`, `fastest_node`, `fcp`, `flb`, `gdl`, `hbmct`, `heft`, `maxmin`,
-`mct`, `met`, `minmin`, `msbc`, `mst`, `olb`, `peft`, `smt`, `sufferage`,
-and `wba`. FCP accepts `priority_queue_size` (default `null`), GDL accepts
+`mct`, `met`, `minmin`, `msbc`, `mst`, `olb`, `smt`, `sufferage`,
+and `wba`; SAGA 2.1.0 adds `peft`. FCP accepts `priority_queue_size` (default `null`), GDL accepts
 `dynamic_level` (default `2`), SMT accepts `epsilon` (default `0.001`) and
 `solver_name` (default `null`), and WBA accepts `alpha` (default `0.5`).
 

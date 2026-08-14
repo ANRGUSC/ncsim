@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anrg-ncsim"
-version = "1.0.0"
+version = "1.1.0"
 description = "Headless Discrete Event Simulator for Networked Computing Research"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "MIT"
 authors = [
     {name = "Bhaskar Krishnamachari", email = "bkrishna@usc.edu"}
@@ -17,16 +17,19 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
-    "anrg-saga>=2.1.0",
+    "anrg-saga>=2.0.4",
     "networkx>=3.0",
     "pyyaml>=6.0",
 ]
+
+[project.urls]
+Documentation = "https://anrgusc.github.io/ncsim/"
+Repository = "https://github.com/ANRGUSC/ncsim"
+Issues = "https://github.com/ANRGUSC/ncsim/issues"
 
 [project.optional-dependencies]
 dev = [

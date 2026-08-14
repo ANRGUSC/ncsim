@@ -33,7 +33,7 @@ modify, and distribute it freely.
 
 **Q: What Python version is required?**
 
-A: Python 3.10 or later. Check your version with `python --version`.
+A: Python 3.12 or later. Check your version with `python --version`.
 
 ---
 
@@ -154,8 +154,9 @@ time). If the assigned node is idle, execution starts immediately.
 
 **Q: Which scheduler should I use?**
 
-A: Use **HEFT** as the default. It is the best general-purpose
-scheduling algorithm in ncsim:
+A: Use **HEFT** as the default general-purpose scheduler. ncsim also
+registers 21 other SAGA algorithms with SAGA 2.0.4, optional PEFT with
+SAGA 2.1.0, and two built-in schedulers:
 
 | Situation | Recommended Scheduler |
 |---|---|
@@ -190,12 +191,19 @@ hardware.
 
 **Q: What happens if anrg-saga is not installed?**
 
-A: If the `anrg-saga` package is not available, ncsim cannot use the HEFT
-or CPOP schedulers. It falls back to Round Robin with a warning. Install
-anrg-saga to restore HEFT and CPOP support:
+A: If `anrg-saga` is unavailable or incompatible, ncsim exposes only the
+built-in `round_robin` and `manual` schedulers. It does not silently replace a
+requested SAGA algorithm; a scenario that requests one fails with a clear
+error. Install SAGA 2.0.4 or later to restore the SAGA registry:
 
 ```bash
-pip install "anrg-saga>=2.0.3"
+pip install "anrg-saga>=2.0.4"
+```
+
+If `peft` is missing, install the tagged SAGA 2.1.0 source:
+
+```bash
+pip install "anrg-saga @ git+https://github.com/ANRGUSC/saga.git@v2.1.0"
 ```
 
 ---

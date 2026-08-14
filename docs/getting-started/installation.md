@@ -10,7 +10,7 @@ Verify that the following tools are installed and meet the minimum version requi
 
 | Tool | Minimum Version | Check Command | Notes |
 |------|----------------|---------------|-------|
-| Python | 3.10+ | `python --version` | Required |
+| Python | 3.12+ | `python --version` | Required by ncsim's SAGA integration |
 | pip | 21+ | `pip --version` | Required |
 | Git | 2.30+ | `git --version` | Required for cloning the repo |
 | Node.js | 18+ | `node --version` | Viz frontend only |
@@ -46,9 +46,23 @@ This installs the following dependencies automatically:
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| [anrg-saga](https://github.com/ANRGUSC/saga) | >= 2.0.3 | HEFT, CPOP, and Round Robin scheduling algorithms |
+| [anrg-saga](https://github.com/ANRGUSC/saga) | >= 2.0.4 | 22 SAGA static batch scheduling algorithms; PEFT is available with 2.1.0 |
 | [networkx](https://networkx.org/) | >= 3.0 | Graph data structures for routing and conflict graphs |
 | [pyyaml](https://pyyaml.org/) | >= 6.0 | YAML scenario file parsing |
+
+!!! info "Optional PEFT support"
+    The latest SAGA version on PyPI is 2.0.4. It provides all of ncsim's
+    registered SAGA schedulers except PEFT. To expose PEFT as the 23rd
+    scheduler, use this two-command sequence in place of the single editable
+    install above:
+
+    ```bash
+    python -m pip install "anrg-saga @ git+https://github.com/ANRGUSC/saga.git@v2.1.0"
+    python -m pip install -e .
+    ```
+
+    ncsim discovers PEFT at startup, so the CLI and visualization scheduler
+    lists update automatically. Run `ncsim --help` to see the active list.
 
 To also install development dependencies (pytest, pytest-cov), use:
 
@@ -78,7 +92,7 @@ ncsim --version
 Expected output:
 
 ```
-ncsim 1.0.0
+ncsim 1.1.0
 ```
 
 ---
@@ -294,17 +308,17 @@ Then refresh the visualization in your browser.
 
 **Cause:** The `anrg-saga` package is not installed, or an incompatible version is installed.
 
-**Fix:** Install or upgrade anrg-saga to version 2.0.3 or later:
+**Fix:** Install or upgrade anrg-saga to version 2.0.4 or later:
 
 ```bash
-pip install "anrg-saga>=2.0.3"
+pip install "anrg-saga>=2.0.4"
 ```
 
 If you have a different package named `saga` installed, it may conflict. Uninstall it first:
 
 ```bash
 pip uninstall saga
-pip install "anrg-saga>=2.0.3"
+pip install "anrg-saga>=2.0.4"
 ```
 
 ---
