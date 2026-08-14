@@ -259,11 +259,18 @@ def _draw_ladder_by_ccr(axes, ccrs, table, generators):
 
 
 def plot_cost_sweep(table, generators, costs, output, summary):
-    """Lines: normalized makespan vs. per-task repair cost, per generator."""
+    """Lines: normalized makespan vs. per-task repair cost, per generator.
+
+    Only local and global pay the cost; wait and reroute never move tasks,
+    so both appear as flat cost-independent reference lines. The cost grid
+    is non-uniform (small steps near zero, coarse steps above), so points
+    are index-spaced with the values as tick labels.
+    """
     costed = [p for p in ("local", "global") if any(
         (g, p, c) in table for g in generators for c in costs)]
     if not costed or len(costs) < 2:
         return
+    grid = sorted(costs)
     fig, axes = plt.subplots(
         1, len(generators), figsize=(7.0, 1.85), dpi=200, sharey=True
     )
@@ -273,12 +280,12 @@ def plot_cost_sweep(table, generators, costs, output, summary):
     for ax, generator in zip(axes, generators):
         for policy in costed:
             xs, ys = [], []
-            for cost in sorted(costs):
+            for index, cost in enumerate(grid):
                 ratios = oracle_normalized(table, generator, policy, cost)
                 mean = geo_mean(ratios.values())
                 summary["cost_sweep"][generator][policy][str(cost)] = mean
                 if mean is not None:
-                    xs.append(cost)
+                    xs.append(index)
                     ys.append(mean)
             style = POLICY_STYLE[policy]
             ax.plot(xs, ys, color=style["color"], linewidth=0.9,
@@ -286,15 +293,20 @@ def plot_cost_sweep(table, generators, costs, output, summary):
                     marker=style["marker"], markersize=2.6,
                     markerfacecolor="white", markeredgewidth=0.7,
                     zorder=3, label=policy)
-        # Wait pays no repair cost: flat reference.
-        wait_ratios = oracle_normalized(table, generator, "wait", 0.0)
-        wait_mean = geo_mean(wait_ratios.values())
-        summary["cost_sweep"][generator]["wait"] = wait_mean
-        if wait_mean is not None:
-            ax.axhline(wait_mean, color=POLICY_STYLE["wait"]["color"],
-                       linewidth=0.8, linestyle=":", zorder=2, label="wait")
+        # Wait and reroute pay no repair cost: flat references.
+        for flat in ("wait", "reroute"):
+            ratios = oracle_normalized(table, generator, flat, 0.0)
+            mean = geo_mean(ratios.values())
+            summary["cost_sweep"][generator][flat] = mean
+            if mean is not None:
+                ax.axhline(mean, color=POLICY_STYLE[flat]["color"],
+                           linewidth=0.8,
+                           linestyle=":" if flat == "wait" else (0, (5, 2)),
+                           zorder=2, label=flat)
         ax.axhline(1.0, color=EDGE, linewidth=0.5, linestyle=(0, (4, 3)),
                    zorder=1)
+        ax.set_xticks(range(len(grid)))
+        ax.set_xticklabels([f"{c:g}" for c in grid], fontsize=6.5)
         ax.set_title(GENERATOR_LABELS.get(generator, generator), fontsize=8,
                      color=TEXT_PRIMARY)
         ax.set_xlabel("Repair cost / task (frac. of $M_0$)", fontsize=7,
