@@ -88,6 +88,31 @@ def geo_mean(values):
     return math.exp(sum(math.log(v) for v in values) / len(values))
 
 
+def percentile(values, q):
+    """q-th percentile (0..1) by linear interpolation of sorted values."""
+    ordered = sorted(values)
+    if not ordered:
+        return None
+    pos = q * (len(ordered) - 1)
+    lo = int(math.floor(pos))
+    hi = min(lo + 1, len(ordered) - 1)
+    return ordered[lo] + (ordered[hi] - ordered[lo]) * (pos - lo)
+
+
+def spread_whisker(ax, x, values, cap):
+    """10th-90th percentile whisker at x; an arrow marks a clipped top."""
+    lo, hi = percentile(values, 0.10), percentile(values, 0.90)
+    if lo is None:
+        return
+    top = min(hi, cap)
+    ax.errorbar(x, (lo + top) / 2, yerr=[[(lo + top) / 2 - lo], [top - (lo + top) / 2]],
+                fmt="none", ecolor="#333333", elinewidth=0.7,
+                capsize=1.3, capthick=0.7, zorder=4)
+    if hi > cap:
+        ax.scatter([x], [cap], s=5, marker="^", color="#333333",
+                   zorder=4, linewidths=0)
+
+
 def index_records(records):
     """(generator, policy, cost) -> {(instance, ccr): record}.
 
@@ -152,22 +177,9 @@ def _draw_ladder(ax, table, generators, summary):
                 edgecolor=EDGE, linewidth=0.5, zorder=3,
                 label=policy if gi == 0 else None,
             )
-            # Per-instance dots: honest spread behind the aggregate. Dots
-            # beyond the cap render as up-triangles pinned at the cap so one
-            # outlier cannot flatten every bar.
-            cap = 2.2
-            inside = [v for v in ratios.values() if v <= cap]
-            clipped = [v for v in ratios.values() if v > cap]
-            ax.scatter(
-                [x] * len(inside), inside,
-                s=2.5, color="#111111", alpha=0.25, zorder=4, linewidths=0,
-            )
-            if clipped:
-                ax.scatter(
-                    [x] * len(clipped), [cap] * len(clipped),
-                    s=6, marker="^", color="#111111", alpha=0.5,
-                    zorder=4, linewidths=0,
-                )
+            # Honest spread behind the aggregate, as a 10th-90th percentile
+            # whisker: individual dots smear into a streak at bar width.
+            spread_whisker(ax, x, list(ratios.values()), cap=2.2)
             # Left of the bar center so the label clears the dot column.
             ax.annotate(
                 f"{mean:.2f}", (x, mean), xytext=(-3, 2),
@@ -216,7 +228,7 @@ def _draw_ladder_by_ccr(axes, ccrs, table, generators):
     group_width = 0.78
     bar_width = group_width / len(POLICY_STYLE)
     # Ceiling above the largest mean (flapping/reroute at CCR 5 is 2.68) so
-    # no bar is silently cut; dots beyond the cap pin as triangles.
+    # no bar is silently cut; a whisker past the cap gets an arrowhead.
     cap = 2.7
     for ax, generator in zip(axes, generators):
         for ci, ccr in enumerate(ccrs):
@@ -231,14 +243,7 @@ def _draw_ladder_by_ccr(axes, ccrs, table, generators):
                        color=lighten(style["color"]), hatch=style["hatch"],
                        edgecolor=EDGE, linewidth=0.4, zorder=3,
                        label=policy if (ci == 0 and ax is axes[0]) else None)
-                inside = [v for v in values if v <= cap]
-                clipped = [v for v in values if v > cap]
-                ax.scatter([x] * len(inside), inside, s=1.5,
-                           color="#111111", alpha=0.2, zorder=4, linewidths=0)
-                if clipped:
-                    ax.scatter([x] * len(clipped), [cap] * len(clipped), s=5,
-                               marker="^", color="#111111", alpha=0.5,
-                               zorder=4, linewidths=0)
+                spread_whisker(ax, x, values, cap)
         ax.axhline(1.0, color=EDGE, linewidth=0.5, linestyle=(0, (4, 3)),
                    zorder=2)
         ax.set_xticks(range(len(ccrs)))
