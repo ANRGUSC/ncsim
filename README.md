@@ -30,7 +30,7 @@ ncsim --scenario scenarios/demo_simple.yaml --output results/codespaces-demo
 python analyze_trace.py results/codespaces-demo/trace.jsonl --gantt --timeline --tasks
 ```
 
-If the UI does not open automatically, open port 5173 from the Codespaces **Ports** tab. To restart the visualization servers, run:
+If the UI does not open automatically, select the **Ports** tab at the bottom of Codespaces, hover over port 5173, and select the globe (**Open in Browser**). If port 5173 is not listed, restart the visualization servers:
 
 ```bash
 bash .devcontainer/start-viz.sh

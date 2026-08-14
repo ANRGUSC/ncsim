@@ -52,18 +52,14 @@ jobs:
           cache: npm
           cache-dependency-path: viz/package-lock.json
 
-      - name: Install Python dependencies
+      - name: Validate and run Codespaces prebuild setup
         run: |
-          python -m pip install -e ".[dev]"
-          python -m pip install -r viz/server/requirements.txt
+          bash -n .devcontainer/setup.sh .devcontainer/post-create.sh .devcontainer/start-viz.sh
+          bash .devcontainer/setup.sh
+          bash .devcontainer/post-create.sh
 
-      - name: Install visualization dependencies
-        working-directory: viz
-        run: npm ci
-
-      - name: Validate Codespaces lifecycle and services
+      - name: Validate Codespaces services
         run: |
-          bash -n .devcontainer/post-create.sh .devcontainer/start-viz.sh
           bash .devcontainer/start-viz.sh
           curl --fail --silent --show-error http://127.0.0.1:8000/api/experiments > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:5173 > /dev/null

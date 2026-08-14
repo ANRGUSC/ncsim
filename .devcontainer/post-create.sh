@@ -6,53 +6,32 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 DEMO_OUTPUT="${REPO_ROOT}/results/codespaces-demo"
 
-echo "==> Installing NCSim and development dependencies"
-(
-  cd "${REPO_ROOT}"
-  python -m pip install --disable-pip-version-check -e ".[dev]"
-)
+if ! command -v ncsim >/dev/null 2>&1; then
+  echo "ERROR: The ncsim CLI is unavailable. Run: bash .devcontainer/setup.sh" >&2
+  exit 1
+fi
 
-echo "==> Installing the visualization API dependencies"
-python -m pip install --disable-pip-version-check \
-  -r "${REPO_ROOT}/viz/server/requirements.txt"
-
-echo "==> Installing the visualization UI dependencies"
-npm ci --prefix "${REPO_ROOT}/viz"
-
-echo "==> Running the deterministic Codespaces demo"
-mkdir -p "${DEMO_OUTPUT}"
-ncsim \
-  --scenario "${REPO_ROOT}/scenarios/demo_simple.yaml" \
-  --output "${DEMO_OUTPUT}" \
-  --seed 42
+if [[ ! -d "${REPO_ROOT}/viz/node_modules" ]]; then
+  echo "ERROR: Visualization dependencies are unavailable. Run: bash .devcontainer/setup.sh" >&2
+  exit 1
+fi
 
 for output_file in scenario.yaml trace.jsonl metrics.json; do
   if [[ ! -s "${DEMO_OUTPUT}/${output_file}" ]]; then
-    echo "ERROR: Demo output is missing or empty: ${DEMO_OUTPUT}/${output_file}" >&2
+    echo "ERROR: Demo output is missing or empty: ${DEMO_OUTPUT}/${output_file}. Run: bash .devcontainer/setup.sh" >&2
     exit 1
   fi
 done
-
-python - "${DEMO_OUTPUT}" <<'PY'
-import json
-import pathlib
-import sys
-
-output_dir = pathlib.Path(sys.argv[1])
-json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
-with (output_dir / "trace.jsonl").open(encoding="utf-8") as trace:
-    events = [json.loads(line) for line in trace if line.strip()]
-if not events:
-    raise SystemExit("Demo trace contains no events")
-PY
 
 cat <<EOF
 
 NCSim Codespaces setup is ready.
 
 UI:
-  The visualization starts automatically and opens on forwarded port 5173.
-  If needed, run: bash .devcontainer/start-viz.sh
+  The visualization starts automatically on forwarded port 5173.
+  To open it manually, use the bottom Ports tab, hover over port 5173,
+  and select the globe (Open in Browser).
+  If port 5173 is absent, run: bash .devcontainer/start-viz.sh
 
 CLI:
   ncsim --scenario scenarios/demo_simple.yaml --output results/my-run
