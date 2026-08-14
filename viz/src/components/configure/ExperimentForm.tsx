@@ -55,6 +55,15 @@ const FALLBACK_SCHEDULERS: SchedulerDefinition[] = [
   { name: 'manual', label: 'Manual', kind: 'builtin', description: '', options: [] },
 ];
 
+function toRfParams(rf: RFFormState): RFParams {
+  return {
+    tx_power_dBm: rf.tx_power_dBm,
+    freq_ghz: rf.freq_ghz,
+    path_loss_exponent: rf.path_loss_exponent,
+    noise_floor_dBm: rf.noise_floor_dBm,
+  };
+}
+
 export function ExperimentForm({ onBack, onLoadResults }: Props) {
   // Basic config
   const [name, setName] = useState('my-experiment');
@@ -84,21 +93,27 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
   const [edges, setEdges] = useState<EdgeDef[]>(initialDag.edges);
 
   // RF params subset for radio range calculation
-  const rfParams: RFParams = useMemo(() => ({
-    tx_power_dBm: rf.tx_power_dBm,
-    freq_ghz: rf.freq_ghz,
-    path_loss_exponent: rf.path_loss_exponent,
-    noise_floor_dBm: rf.noise_floor_dBm,
-  }), [rf.tx_power_dBm, rf.freq_ghz, rf.path_loss_exponent, rf.noise_floor_dBm]);
+  const rfParams = useMemo(() => toRfParams(rf), [rf]);
 
-  // Regenerate random topology when RF params or seed change
-  useEffect(() => {
+  const regenerateRandomTopology = (nextRfParams: RFParams, nextSeed: number) => {
     if (topoPreset === 'random') {
-      const { nodes: n, links: l } = generateTopology('random', topoParams, rfParams, seed);
+      const { nodes: n, links: l } = generateTopology(
+        'random', topoParams, nextRfParams, nextSeed,
+      );
       setNodes(n);
       setLinks(l);
     }
-  }, [rfParams, seed, topoPreset]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
+
+  const handleSeedChange = (nextSeed: number) => {
+    setSeed(nextSeed);
+    regenerateRandomTopology(rfParams, nextSeed);
+  };
+
+  const handleRfChange = (nextRf: RFFormState) => {
+    setRf(nextRf);
+    regenerateRandomTopology(toRfParams(nextRf), seed);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -275,7 +290,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
               <span className="text-xs text-[var(--color-text-secondary)]">Seed</span>
               <input
                 type="number" value={seed}
-                onChange={(e) => setSeed(Number(e.target.value))}
+                onChange={(e) => handleSeedChange(Number(e.target.value))}
                 className="input-field"
               />
             </label>
@@ -339,7 +354,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
           rf={rf}
           onInterferenceChange={setInterference}
           onRadiusChange={setInterferenceRadius}
-          onRfChange={setRf}
+          onRfChange={handleRfChange}
         />
 
         <TopologySection
