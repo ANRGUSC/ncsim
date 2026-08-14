@@ -41,7 +41,7 @@ Both models use the same **RF propagation chain**:
 5. **Conflict graph**: links that can carrier-sense each other cannot transmit simultaneously
 
 !!! info "When to use which model"
-    - **csma_bianchi** is the default and recommended model. It accurately captures
+    - **csma_bianchi** is the recommended of the two WiFi-specific models. It captures
       both contention-domain time-sharing (via Bianchi's saturation throughput model)
       and hidden-terminal SINR degradation.
     - **csma_clique** is faster to compute and useful for quick estimates. It divides
@@ -133,9 +133,10 @@ Key lines from the verbose output:
 RF config: tx_power=20dBm, freq=5.0GHz, n=3.0, standard=ax, BW=20MHz, rts_cts=False
 Carrier sensing range: 71.2m
 Conflict graph: 2 links, 1 conflict pairs
-Link l01: base PHY=8.60 MB/s
-Link l23: base PHY=8.60 MB/s
 ```
+
+The generated `metrics.json` records the derived PHY rates under
+`link_phy_rates_MBps`: both `l01` and `l23` are **8.6 MB/s**.
 
 ```
 === Simulation Complete ===
@@ -146,7 +147,7 @@ Interference: csma_bianchi
   WiFi: ax @ 5.0GHz, TX=20dBm, n=3.0
   CS range: 71.22m, RTS/CTS: False
 Seed: 42
-Makespan: 13.222879 seconds
+Makespan: 25.760176 seconds
 Total events: 17
 Status: completed
 ```
@@ -163,9 +164,11 @@ The RF model computed:
 
 Since both links are in the same **contention domain**, the Bianchi model applies:
 
-- **n=2 contending stations**: each gets eta(2)/2 of the channel
-- **eta(2)** (Bianchi efficiency for 2 stations) reduces the effective throughput
-- Transfer time for 50 MB at the reduced effective rate yields the observed makespan
+- **n=2 contending stations**: both links share the channel
+- The Bianchi saturation model accounts for successful airtime, collisions,
+  backoff, and idle slots
+- Each 50 MB transfer takes 25.740176 seconds, an observed effective rate of
+  approximately **1.94 MB/s** per link
 
 ---
 
@@ -203,7 +206,7 @@ Status: completed
 
 | Model | Effective Rate per Link | Makespan | How Rate Is Computed |
 |-------|------------------------|----------|---------------------|
-| **csma_bianchi** | ~3.79 MB/s (dynamic) | 13.22s | PHY rate * eta(2)/2. Bianchi accounts for MAC overhead (collisions, backoff). |
+| **csma_bianchi** | ~1.94 MB/s (dynamic) | 25.76s | Dynamic Bianchi sharing with contention and MAC overhead. |
 | **csma_clique** | 4.30 MB/s (static) | 11.65s | PHY rate / clique_size = 8.60/2. Assumes perfect time-division. |
 
 !!! warning "Why Bianchi is slower"
@@ -251,7 +254,7 @@ Status: completed
 
 | Configuration | Effective Rate | Makespan | Notes |
 |--------------|---------------|----------|-------|
-| csma_bianchi | ~3.79 MB/s | 13.22s | Realistic WiFi with contention overhead |
+| csma_bianchi | ~1.94 MB/s | 25.76s | Realistic WiFi with contention overhead |
 | csma_clique | 4.30 MB/s | 11.65s | Idealized time-division sharing |
 | none (no WiFi model) | 1.00 MB/s | 50.02s | Placeholder bandwidth only |
 
@@ -312,7 +315,7 @@ Then run each:
 ncsim --scenario scenarios/wifi_dist_10m.yaml \
       --output results/tutorial3/dist_10m -v
 
-ncsim --scenario scenarios/wifi_dist_10m.yaml \
+ncsim --scenario scenarios/wifi_dist_20m.yaml \
       --output results/tutorial3/dist_20m -v
 # (after creating the 20m, 50m, 80m variants)
 ```
@@ -327,7 +330,7 @@ selection picks the highest modulation whose SNR threshold is met:
 | 10m | 76 dB | 39 dB | MCS 10 (1024-QAM 3/4) | 129.0 | 16.13 |
 | 20m | 85 dB | 30 dB | MCS 7 (64-QAM 5/6) | 86.0 | 10.75 |
 | 30m | 91 dB | 24 dB | MCS 5 (64-QAM 2/3) | 68.8 | 8.60 |
-| 50m | 97 dB | 18 dB | MCS 4 (16-QAM 3/4) | 51.6 | 6.45 |
+| 50m | 97 dB | 17.6 dB | MCS 3 (16-QAM 1/2) | 34.4 | 4.30 |
 | 80m | 103 dB | 12 dB | MCS 2 (QPSK 3/4) | 25.8 | 3.23 |
 
 !!! info "MCS Rate Tables"
@@ -361,9 +364,9 @@ ncsim --scenario scenarios/wifi_test.yaml \
 
 | TX Power | CS Range | PHY Rate | Makespan | Notes |
 |----------|----------|----------|----------|-------|
-| 15 dBm | 48.5m | lower | 17.62s | Lower SNR at 30m reduces MCS; shorter CS range |
-| 20 dBm | 71.2m | 8.60 MB/s | 13.22s | Default; both links contend |
-| 23 dBm | 89.7m | higher | 11.76s | Higher SNR improves MCS; wider CS range but better rates compensate |
+| 15 dBm | 48.5m | 6.45 MB/s | 34.34s | Lower SNR at 30m reduces MCS; shorter CS range |
+| 20 dBm | 71.2m | 8.60 MB/s | 25.76s | Default; both links contend |
+| 23 dBm | 89.7m | 9.68 MB/s | 22.90s | Higher SNR improves MCS; wider CS range but better rates compensate |
 
 !!! tip "The TX power tradeoff"
     Higher TX power increases the data rate (better SNR at the receiver) but
@@ -393,9 +396,9 @@ ncsim --scenario scenarios/wifi_test.yaml \
 
 | Standard | Max MCS | Highest Rate (20 MHz, 1SS) | Makespan |
 |----------|---------|---------------------------|----------|
-| **802.11n** | MCS 7 (64-QAM 5/6) | 65.0 Mbps | 17.49s |
-| **802.11ac** | MCS 9 (256-QAM 5/6) | 86.7 Mbps | 17.49s |
-| **802.11ax** | MCS 11 (1024-QAM 5/6) | 143.4 Mbps | 13.22s |
+| **802.11n** | MCS 7 (64-QAM 5/6) | 65.0 Mbps | 34.08s |
+| **802.11ac** | MCS 9 (256-QAM 5/6) | 86.7 Mbps | 34.08s |
+| **802.11ax** | MCS 11 (1024-QAM 5/6) | 143.4 Mbps | 25.76s |
 
 !!! info "Why n and ac have the same makespan"
     At 30m with the default RF parameters, the SNR (~24 dB) only supports up to
@@ -447,15 +450,15 @@ basic mode misses.
 
 | Experiment | Model | Settings | Makespan |
 |-----------|-------|----------|----------|
-| Bianchi (default) | csma_bianchi | ax, 20dBm, 30m | 13.22s |
+| Bianchi (default) | csma_bianchi | ax, 20dBm, 30m | 25.76s |
 | Clique | csma_clique | ax, 20dBm, 30m | 11.65s |
 | No interference | none | (placeholder 1 MB/s) | 50.02s |
-| TX power 15 dBm | csma_bianchi | ax, 15dBm, 30m | 17.62s |
-| TX power 23 dBm | csma_bianchi | ax, 23dBm, 30m | 11.76s |
-| 802.11n | csma_bianchi | n, 20dBm, 30m | 17.49s |
-| 802.11ac | csma_bianchi | ac, 20dBm, 30m | 17.49s |
-| 802.11ax | csma_bianchi | ax, 20dBm, 30m | 13.22s |
-| RTS/CTS enabled | csma_bianchi | ax, 20dBm, 30m, rts_cts | 13.22s |
+| TX power 15 dBm | csma_bianchi | ax, 15dBm, 30m | 34.34s |
+| TX power 23 dBm | csma_bianchi | ax, 23dBm, 30m | 22.90s |
+| 802.11n | csma_bianchi | n, 20dBm, 30m | 34.08s |
+| 802.11ac | csma_bianchi | ac, 20dBm, 30m | 34.08s |
+| 802.11ax | csma_bianchi | ax, 20dBm, 30m | 25.76s |
+| RTS/CTS enabled | csma_bianchi | ax, 20dBm, 30m, rts_cts | 25.76s |
 
 ---
 

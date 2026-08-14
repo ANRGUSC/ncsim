@@ -239,7 +239,9 @@ ncsim --scenario scenarios/my_custom.yaml --output results/tutorial2/heft
 
 ## Step 5: Run with Different Schedulers
 
-Run the scenario with each of the three available schedulers:
+Ncsim 1.1.0 discovers the scheduler catalog provided by the installed SAGA
+version. With the SAGA 2.1.0 setup from Tutorial 1, compare five representative
+choices on this scenario:
 
 ```bash
 ncsim --scenario scenarios/my_custom.yaml \
@@ -249,6 +251,14 @@ ncsim --scenario scenarios/my_custom.yaml \
 ncsim --scenario scenarios/my_custom.yaml \
       --output results/tutorial2/cpop \
       --scheduler cpop
+
+ncsim --scenario scenarios/my_custom.yaml \
+      --output results/tutorial2/peft \
+      --scheduler peft
+
+ncsim --scenario scenarios/my_custom.yaml \
+      --output results/tutorial2/minmin \
+      --scheduler minmin
 
 ncsim --scenario scenarios/my_custom.yaml \
       --output results/tutorial2/rr \
@@ -261,6 +271,8 @@ Compare the makespans:
 |-----------|----------|-------------------|
 | **heft** | Assigns each task to the node that gives the earliest finish time | Tends to place heavy tasks on fast nodes; balances compute vs. transfer cost |
 | **cpop** | Identifies the critical path and assigns critical tasks to the fastest node | Prioritizes the critical path; may leave non-critical tasks on slower nodes |
+| **peft** | Uses an optimistic cost table to estimate downstream finish times | Communication-aware alternative to HEFT for heterogeneous workflows |
+| **minmin** | Repeatedly schedules the task with the smallest minimum completion time | Favors tasks that can finish soon; useful as a list-scheduling baseline |
 | **round_robin** | Assigns tasks to nodes in rotation (n0, n1, n2, n3, n0, ...) | Ignores compute capacity and transfer cost; useful as a baseline |
 
 !!! tip "Examining the placement"
@@ -272,7 +284,16 @@ Compare the makespans:
           --scheduler heft -v
     ```
 
-    Look for the `SAGA HEFT assignments:` line in the log output.
+    Look for the `SAGA HEFT assignments:` line in the log output. The prefix
+    changes with the selected SAGA algorithm, for example `SAGA PEFT assignments:`.
+
+!!! info "The complete scheduler catalog"
+    `ncsim --help` prints every valid scheduler name. With SAGA 2.1.0, the set is:
+    `bil`, `brute_force`, `cpop`, `dps`, `duplex`, `etf`, `fastest_node`,
+    `fcp`, `flb`, `gdl`, `hbmct`, `heft`, `maxmin`, `mct`, `met`, `minmin`,
+    `msbc`, `mst`, `olb`, `peft`, `smt`, `sufferage`, and `wba`.
+    The built-in choices are `round_robin` and `manual`. SAGA 2.0.4 omits
+    `peft`; install the tagged SAGA 2.1.0 release as shown in Tutorial 1 to add it.
 
 Use the Gantt chart to visualize how each scheduler distributes work:
 
@@ -385,7 +406,9 @@ In this tutorial you built a complete ncsim scenario from scratch:
 1. **Network**: 4 nodes in a square with heterogeneous compute capacities (80--200 cu/s)
 2. **Links**: Full mesh with 12 directional links and varying bandwidths (300--500 MB/s)
 3. **DAG**: Fork-join pattern with 6 tasks and uneven worker compute costs (400--700 cu)
-4. **Experimented** with three schedulers (HEFT, CPOP, round-robin), two routing modes (direct, widest-path), and multiple interference settings
+4. **Experimented** with representative SAGA schedulers (HEFT, CPOP, PEFT,
+   Min-Min), the round-robin baseline, two routing modes (direct, widest-path),
+   and multiple interference settings
 
 ### Key Takeaways
 

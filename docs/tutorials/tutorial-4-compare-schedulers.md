@@ -1,55 +1,100 @@
 # Tutorial 4: Compare Schedulers
 
-Systematic comparison of HEFT vs CPOP vs Round Robin across multiple
-scenarios, with statistical analysis using multiple seeds.
+Ncsim 1.1.0 discovers the static batch scheduler catalog exposed by the installed
+SAGA version. This tutorial uses SAGA 2.1.0, compares a representative set, shows
+how to discover all 23 algorithms, and demonstrates scheduler-specific options.
 
 ---
 
 ## What You Will Learn
 
-- Run the same scenario with all three scheduling algorithms
-- Understand scheduler strengths and weaknesses on different DAG structures
-- Use multiple seeds for statistical comparison
-- Analyze results across different DAG structures using Python scripts
-
----
+- Discover every scheduler available in the installed Ncsim/SAGA combination
+- Run the same scenarios with several scheduler families
+- Aggregate makespans from `metrics.json`
+- Interpret ties, placement differences, and routing constraints
+- Pass scheduler options from YAML and the command line
+- Use seed sweeps only when the scenario contains stochastic behavior
 
 ## Prerequisites
 
-- ncsim installed (`pip install -e .`)
-- Three built-in scenarios available in `scenarios/`
-- Python 3.12+ with the `json` and `statistics` standard library modules
+- Ncsim installed from the repository with `pip install -e .`
+- SAGA 2.1.0 installed with
+  `python -m pip install "anrg-saga @ git+https://github.com/ANRGUSC/saga.git@v2.1.0"`
+- Python 3.12 or later
 
 ---
 
-## Step 1: Choose Test Scenarios
+## Step 1: Inspect the Scheduler Catalog
 
-We will use three built-in scenarios that stress different aspects of the
-scheduling problem:
+Run:
 
-| Scenario | File | Nodes | Tasks | Characteristics |
-|---|---|---|---|---|
-| Simple Demo | `demo_simple.yaml` | 2 | 2 | Minimal chain -- one dependency, trivial |
-| Parallel Spread | `parallel_spread.yaml` | 5 | 10 | Fan-out/fan-in -- 8 parallel tasks |
-| Bandwidth Contention | `bandwidth_contention.yaml` | 3 | 3 | Shared link -- contention-heavy |
+```bash
+ncsim --help
+```
 
-!!! info "Why these three?"
-    Each scenario isolates a different scheduling challenge.
-    **Simple Demo** is a baseline where all schedulers should perform
-    similarly. **Parallel Spread** rewards schedulers that balance load
-    across heterogeneous nodes. **Bandwidth Contention** tests how
-    schedulers handle shared network resources.
+With SAGA 2.1.0, the `--scheduler` choice contains 23 SAGA schedulers:
+
+```text
+bil, brute_force, cpop, dps, duplex, etf, fastest_node, fcp, flb,
+gdl, hbmct, heft, maxmin, mct, met, minmin, msbc, mst, olb, peft,
+smt, sufferage, wba
+```
+
+The base Ncsim dependency accepts SAGA 2.0.4, whose PyPI build exposes the same
+catalog without `peft`. Always treat `ncsim --help` as authoritative for the
+installed environment.
+
+Ncsim also supplies two built-in choices:
+
+| Scheduler | Purpose |
+|---|---|
+| `round_robin` | Cycles ready tasks across nodes without estimating compute or communication cost |
+| `manual` | Uses each task's `pinned_to` value; every task must have a valid assignment |
+
+The visualization UI obtains the same catalog from `GET /api/schedulers`, so
+the CLI and browser present the installed SAGA algorithms consistently.
+
+!!! warning "Use exhaustive methods on small problems"
+    `brute_force` searches the placement space exhaustively and is intended for
+    small validation cases. `smt` invokes a constraint solver. Start with the
+    heuristic schedulers for larger DAGs.
 
 ---
 
-## Step 2: Run All Combinations
+## Step 2: Choose Scenarios and Schedulers
 
-Run each scenario with each of the three schedulers. We use `widest_path`
-routing to ensure multi-hop scenarios work correctly:
+We will use three included scenarios:
+
+| Scenario | File | Nodes | Tasks | What It Exercises |
+|---|---|---:|---:|---|
+| Simple Demo | `demo_simple.yaml` | 2 | 2 | Small chain and transfer avoidance |
+| Parallel Spread | `parallel_spread.yaml` | 5 | 10 | Fan-out/fan-in placement across heterogeneous nodes |
+| Bandwidth Contention | `bandwidth_contention.yaml` | 3 | 3 | Pinned placement and shared-link behavior |
+
+Compare five representative schedulers:
+
+| Scheduler | Idea |
+|---|---|
+| `heft` | Heterogeneous Earliest Finish Time |
+| `cpop` | Critical Path on a Processor |
+| `peft` | Predict Earliest Finish Time using an optimistic cost table |
+| `minmin` | Repeatedly selects the task with the smallest minimum completion time |
+| `round_robin` | Cost-unaware built-in baseline |
+
+This is a teaching subset, not a claim that the other SAGA algorithms are less
+useful. Add names from `ncsim --help` to the loop whenever your experiment calls
+for a broader comparison.
+
+---
+
+## Step 3: Run Every Combination
+
+Use `widest_path` so every placement in the line topology can reach its
+dependencies through multi-hop routes:
 
 ```bash
 for scenario in demo_simple parallel_spread bandwidth_contention; do
-  for sched in heft cpop round_robin; do
+  for sched in heft cpop peft minmin round_robin; do
     ncsim --scenario "scenarios/${scenario}.yaml" \
           --output "results/tutorial4/${scenario}_${sched}" \
           --scheduler "$sched" \
@@ -58,261 +103,203 @@ for scenario in demo_simple parallel_spread bandwidth_contention; do
 done
 ```
 
-This produces 9 output directories (3 scenarios x 3 schedulers), each
-containing `metrics.json`, `trace.jsonl`, and `scenario.yaml`.
+This creates 15 output directories. Each contains `scenario.yaml`,
+`trace.jsonl`, and `metrics.json`.
 
-!!! tip "Check the output"
-    After the loop completes, verify that all 9 directories were created:
-
-    ```bash
-    ls results/tutorial4/
-    ```
-
-    You should see directories like `demo_simple_heft`,
-    `demo_simple_cpop`, `demo_simple_round_robin`, and so on.
+!!! important "Routing is part of a fair comparison"
+    With `direct` routing, a scheduler may produce a placement whose dependent
+    tasks have no direct link. Ncsim validates the plan and reports every
+    unreachable transfer instead of silently changing the placement. Keep the
+    routing mode fixed across scheduler runs.
 
 ---
 
-## Step 3: Collect Results
+## Step 4: Aggregate the Results
 
-Use this Python script to extract makespans from all `metrics.json` files
-and build a comparison table:
+Save this as `compare_schedulers.py` in the repository root:
 
 ```python
 import json
-import os
+from pathlib import Path
 
 scenarios = ["demo_simple", "parallel_spread", "bandwidth_contention"]
-schedulers = ["heft", "cpop", "round_robin"]
-base_dir = "results/tutorial4"
+schedulers = ["heft", "cpop", "peft", "minmin", "round_robin"]
+root = Path("results/tutorial4")
 
-# Collect makespans
-results = {}
-for scenario in scenarios:
-    results[scenario] = {}
-    for sched in schedulers:
-        metrics_path = os.path.join(base_dir, f"{scenario}_{sched}", "metrics.json")
-        with open(metrics_path) as f:
-            metrics = json.load(f)
-        results[scenario][sched] = metrics["makespan"]
+header = ["Scenario", *schedulers, "Winner(s)"]
+widths = [24, *([13] * len(schedulers)), 28]
 
-# Print comparison table
-print(f"{'Scenario':<25} {'HEFT':>10} {'CPOP':>10} {'Round Robin':>12} {'Winner':>12}")
-print("-" * 72)
+def row(values):
+    return " ".join(str(value).ljust(width) for value, width in zip(values, widths))
+
+print(row(header))
+print("-" * (sum(widths) + len(widths) - 1))
+
 for scenario in scenarios:
-    makespans = results[scenario]
-    winner = min(makespans, key=makespans.get)
-    print(f"{scenario:<25} {makespans['heft']:>10.3f} {makespans['cpop']:>10.3f} "
-          f"{makespans['round_robin']:>12.3f} {winner:>12}")
+    makespans = {}
+    for scheduler in schedulers:
+        path = root / f"{scenario}_{scheduler}" / "metrics.json"
+        metrics = json.loads(path.read_text(encoding="utf-8"))
+        if metrics["status"] != "completed":
+            raise RuntimeError(f"{scenario}/{scheduler}: {metrics['status']}")
+        makespans[scheduler] = metrics["makespan"]
+
+    best = min(makespans.values())
+    winners = ", ".join(
+        name for name, value in makespans.items() if abs(value - best) < 1e-9
+    )
+    values = [
+        scenario,
+        *(f"{makespans[name]:.6f}" for name in schedulers),
+        winners,
+    ]
+    print(row(values))
 ```
 
-Save this as `compare_schedulers.py` and run it:
+Run it:
 
 ```bash
 python compare_schedulers.py
 ```
 
----
+With Ncsim 1.1.0, SAGA 2.1.0, and seed 42, the verified makespans are:
 
-## Step 4: Analyze Results
+| Scenario | HEFT | CPOP | PEFT | Min-Min | Round Robin |
+|---|---:|---:|---:|---:|---:|
+| `demo_simple` | 3.000000 | 3.000000 | 3.000000 | 3.000000 | 5.501000 |
+| `parallel_spread` | 24.246722 | 24.246722 | 24.246722 | 24.246722 | 24.764472 |
+| `bandwidth_contention` | 2.020000 | 2.020000 | 2.020000 | 2.020000 | 2.020000 |
 
-### Simple Demo (2 tasks, chain)
-
-With only two tasks and two nodes, there is very little room for
-scheduling decisions. HEFT typically assigns both tasks to the faster
-node to avoid transfer overhead. CPOP does the same -- the critical path
-is the entire DAG, and it maps everything to the fastest processor.
-Round Robin cycles tasks across nodes, potentially introducing an
-unnecessary transfer.
-
-**Expected outcome:** HEFT and CPOP produce identical makespans. Round
-Robin may match them or be slightly worse.
-
-### Parallel Spread (10 tasks, fan-out/fan-in)
-
-This scenario has 8 independent parallel tasks between a root and a sink.
-The 5 nodes have heterogeneous compute capacities (80, 90, 100, 90, 80
-units/s). A good scheduler will distribute the 8 parallel tasks across
-all nodes proportionally to their speeds.
-
-- **HEFT** evaluates each task independently using Earliest Finish Time,
-  spreading work across all available nodes.
-- **CPOP** concentrates the critical path on the fastest node. Since the
-  parallel tasks form multiple paths of equal length, the critical path
-  selection may not provide an advantage.
-- **Round Robin** distributes tasks cyclically without considering node
-  speed or transfer costs.
-
-**Expected outcome:** HEFT produces the best makespan by exploiting
-heterogeneity. CPOP is close but may over-concentrate work. Round Robin
-is the worst because it ignores node capacity differences.
-
-### Bandwidth Contention (3 tasks, shared link)
-
-Three tasks with pinned placement force two concurrent transfers through
-a single shared link. The scheduler's choice is constrained by the
-`pinned_to` fields, so all three schedulers produce identical results.
-
-**Expected outcome:** All schedulers produce the same makespan because
-the placement is fully determined by `pinned_to` constraints.
-
-!!! note "Pinned tasks override the scheduler"
-    When tasks have `pinned_to` set, the scheduler cannot change their
-    placement. This scenario tests the simulation engine's bandwidth
-    sharing, not the scheduler's intelligence.
-
-### Summary Table
-
-| Scenario | HEFT | CPOP | Round Robin | Winner |
-|---|---|---|---|---|
-| demo_simple | Best or tied | Best or tied | Same or worse | HEFT / CPOP |
-| parallel_spread | Best | Close second | Worst | HEFT |
-| bandwidth_contention | Tied | Tied | Tied | All equal |
+Your results should match when the scenario files, seed, routing, and dependency
+versions match.
 
 ---
 
-## Step 5: Statistical Comparison with Multiple Seeds
+## Step 5: Interpret the Results
 
-A single run may not tell the full story. When shadow fading or other
-stochastic elements are enabled, running with multiple seeds provides
-statistical confidence. Even for deterministic scenarios, sweeping seeds
-is good practice to verify consistency.
+### Simple Demo
 
-Run each scenario-scheduler combination with seeds 1 through 10:
+HEFT, CPOP, PEFT, and Min-Min all keep the two-task chain on `n0`, avoiding a
+network transfer. Round Robin places `T1` on `n1`, adding a 50 MB transfer and
+running the larger task on the slower node.
+
+### Parallel Spread
+
+The four SAGA heuristics produce different valid task-to-node assignments but
+the same makespan in this symmetric fan-out/fan-in case. Round Robin is slightly
+slower. This is an important experimental lesson: **different placements do not
+necessarily produce different makespans**.
+
+Inspect the assignments and timing rather than relying only on the final scalar:
 
 ```bash
-for scenario in demo_simple parallel_spread; do
-  for sched in heft cpop round_robin; do
-    for seed in $(seq 1 10); do
-      ncsim --scenario "scenarios/${scenario}.yaml" \
-            --output "results/tutorial4/sweep/${scenario}_${sched}_s${seed}" \
-            --scheduler "$sched" \
-            --routing widest_path \
-            --seed "$seed"
-    done
+ncsim --scenario scenarios/parallel_spread.yaml \
+      --output results/tutorial4/parallel_peft_verbose \
+      --scheduler peft --routing widest_path --verbose
+
+python analyze_trace.py \
+       results/tutorial4/parallel_peft_verbose/trace.jsonl --gantt --tasks
+```
+
+### Bandwidth Contention
+
+The tasks have `pinned_to` assignments, so every scheduler receives the same
+placement constraints and produces the same makespan. This scenario evaluates
+execution and bandwidth sharing, not scheduler intelligence.
+
+!!! note "A tie can be the correct result"
+    Never force a ranking when the measurements tie. Report the scenario,
+    routing, seed, scheduler options, and dependency versions alongside the
+    result so another researcher can reproduce it.
+
+---
+
+## Step 6: Use Scheduler-Specific Options
+
+Four SAGA schedulers currently expose constructor settings through Ncsim:
+
+| Scheduler | Option | Type / Range | Default |
+|---|---|---|---|
+| `fcp` | `priority_queue_size` | integer >= 1 or null | library default |
+| `gdl` | `dynamic_level` | `1` or `2` | `2` |
+| `smt` | `epsilon` | number >= 0 | `0.001` |
+| `smt` | `solver_name` | string or null | library default |
+| `wba` | `alpha` | number from 0 to 1 | `0.5` |
+
+Set options in YAML:
+
+```yaml
+config:
+  scheduler: wba
+  scheduler_options:
+    alpha: 0.3
+  routing: widest_path
+  seed: 42
+```
+
+Or override them from the CLI. Repeat `--scheduler-option` for multiple values:
+
+```bash
+ncsim --scenario scenarios/parallel_spread.yaml \
+      --output results/tutorial4/wba_alpha_03 \
+      --scheduler wba \
+      --scheduler-option alpha=0.3 \
+      --routing widest_path
+
+ncsim --scenario scenarios/parallel_spread.yaml \
+      --output results/tutorial4/gdl_level_1 \
+      --scheduler gdl \
+      --scheduler-option dynamic_level=1 \
+      --routing widest_path
+```
+
+Values use YAML scalar parsing, so numbers and booleans keep their types. If the
+CLI changes the scheduler named in the scenario, Ncsim clears options belonging
+to the old scheduler before applying the CLI options.
+
+---
+
+## Step 7: Add Seed Sweeps When They Matter
+
+The three scenarios above are deterministic, so changing the seed does not alter
+their placements or makespans. A seed sweep becomes informative when the scenario
+uses a stochastic feature such as non-zero WiFi shadow fading.
+
+For such a scenario, run multiple seeds and report a distribution:
+
+```bash
+for sched in heft cpop peft minmin; do
+  for seed in $(seq 1 10); do
+    ncsim --scenario scenarios/my_stochastic_wifi.yaml \
+          --output "results/tutorial4/sweep/${sched}_s${seed}" \
+          --scheduler "$sched" \
+          --routing widest_path \
+          --seed "$seed"
   done
 done
 ```
 
-!!! warning "Number of runs"
-    This loop produces 60 simulation runs (2 scenarios x 3 schedulers x
-    10 seeds). Each run completes in under a second, so the total wall
-    time is modest.
-
-### Compute Mean and Standard Deviation
-
-Use this script to aggregate results across seeds:
-
-```python
-import json
-import os
-from statistics import mean, stdev
-
-scenarios = ["demo_simple", "parallel_spread"]
-schedulers = ["heft", "cpop", "round_robin"]
-seeds = range(1, 11)
-base_dir = "results/tutorial4/sweep"
-
-print(f"{'Scenario':<25} {'Scheduler':<14} {'Mean':>10} {'Std Dev':>10} {'Min':>10} {'Max':>10}")
-print("-" * 82)
-
-for scenario in scenarios:
-    for sched in schedulers:
-        makespans = []
-        for seed in seeds:
-            path = os.path.join(
-                base_dir, f"{scenario}_{sched}_s{seed}", "metrics.json"
-            )
-            with open(path) as f:
-                metrics = json.load(f)
-            makespans.append(metrics["makespan"])
-
-        avg = mean(makespans)
-        sd = stdev(makespans) if len(makespans) > 1 else 0.0
-        lo = min(makespans)
-        hi = max(makespans)
-        print(f"{scenario:<25} {sched:<14} {avg:>10.3f} {sd:>10.4f} {lo:>10.3f} {hi:>10.3f}")
-    print()
-```
-
-Save this as `sweep_analysis.py` and run it:
-
-```bash
-python sweep_analysis.py
-```
-
-!!! tip "Interpreting standard deviation"
-    For deterministic scenarios (no shadow fading), all seeds produce the
-    same makespan, so the standard deviation is 0. When
-    `shadow_fading_sigma > 0`, the standard deviation reflects how much
-    the wireless environment affects performance.
-
----
-
-## Step 6: Interpret the Results
-
-### When Does HEFT Win?
-
-HEFT is the best general-purpose scheduler. It evaluates every task on
-every node and selects the placement that minimizes the Earliest Finish
-Time. This makes it particularly strong when:
-
-- The network has **heterogeneous** node capacities
-- The DAG has **multiple independent paths** that can be parallelized
-- Communication costs are significant and co-locating tasks helps
-
-### When Does CPOP Win?
-
-CPOP excels in specific conditions:
-
-- The DAG has a **dominant critical path** (one long chain of dependent
-  tasks that determines the makespan)
-- One node is **significantly faster** than the others
-- Running the critical path entirely on the fastest node avoids
-  inter-node transfer overhead
-
-!!! note "CPOP can underperform HEFT"
-    When the DAG has multiple paths of similar length, CPOP may
-    overload the fast processor with critical-path tasks while leaving
-    other nodes idle. HEFT's per-task EFT evaluation avoids this
-    imbalance.
-
-### When Are They Equivalent?
-
-HEFT and CPOP produce identical results when:
-
-- The scenario is trivially small (1--2 tasks)
-- All tasks are pinned to specific nodes (`pinned_to`)
-- The network is homogeneous (all nodes have equal capacity)
-
-### Round Robin as Baseline
-
-Round Robin assigns tasks in cyclic order without considering compute
-capacity, data dependencies, or transfer costs. It exists solely to
-provide a lower bound on scheduler intelligence. In any non-trivial
-scenario, HEFT and CPOP should outperform Round Robin.
+Record the mean, standard deviation, minimum, and maximum makespan. Keep the same
+seed set for every scheduler so each algorithm sees the same randomized
+environment.
 
 ---
 
 ## Summary
 
-| Scheduler | Strengths | Weaknesses | Best For |
-|---|---|---|---|
-| HEFT | Communication-aware, exploits heterogeneity, parallelism | Slightly higher scheduling overhead | General-purpose default |
-| CPOP | Optimizes dominant critical path, minimizes critical-path transfers | Can overload one node, ignores parallel paths | Single dominant critical path + one fast node |
-| Round Robin | Simple, predictable, fast to compute | Ignores everything -- capacity, data, topology | Baseline comparisons only |
+You learned how to:
 
-**Recommendation:** Use HEFT as the default scheduler. Switch to CPOP
-only when you have a clear dominant critical path and a single fast node.
-Use Round Robin exclusively as a comparison baseline.
-
----
+1. Discover the installed SAGA catalog and two built-in schedulers with `ncsim --help`
+2. Compare a representative scheduler subset with a fixed routing mode
+3. Validate run status before aggregating `metrics.json`
+4. Interpret ties and placement differences instead of assuming a universal winner
+5. Configure FCP, GDL, SMT, and WBA through `scheduler_options`
+6. Reserve seed sweeps for scenarios with stochastic inputs
 
 ## Next Steps
 
-- **[Tutorial 5: Viz Walkthrough](tutorial-5-viz-walkthrough.md)** --
-  Visualize these results in the web UI
-- **[Scheduling Concepts](../concepts/scheduling.md)** -- Deep dive into
-  three representative algorithms: HEFT, CPOP, and Round Robin
-- **[Batch Experiments](../cli/batch-experiments.md)** -- Automate
-  large-scale parameter sweeps
+- **[Tutorial 5: Viz Walkthrough](tutorial-5-viz-walkthrough.md)** -- compare
+  scheduler choices and options in the web UI
+- **[Scheduling Concepts](../concepts/scheduling.md)** -- scheduler design and
+  placement concepts
+- **[Batch Experiments](../cli/batch-experiments.md)** -- larger experiment sweeps

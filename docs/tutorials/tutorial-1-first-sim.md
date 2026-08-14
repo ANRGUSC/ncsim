@@ -29,6 +29,7 @@ Clone the repository and install in editable (development) mode:
 git clone https://github.com/ANRGUSC/ncsim.git
 cd ncsim
 pip install -e .
+python -m pip install "anrg-saga @ git+https://github.com/ANRGUSC/saga.git@v2.1.0"
 ```
 
 Verify the installation:
@@ -46,7 +47,8 @@ ncsim 1.1.0
 !!! info "Dependencies"
     Installing ncsim automatically pulls in its dependencies:
 
-    - **anrg-saga** (>=2.0.4) -- 22 SAGA static batch scheduling algorithms (SAGA 2.1.0 also exposes PEFT)
+    - **anrg-saga** (>=2.0.4) -- 22 static batch scheduling algorithms;
+      the tagged SAGA 2.1.0 installation above adds PEFT as the 23rd
     - **networkx** (>=3.0) -- graph algorithms for routing
     - **pyyaml** (>=6.0) -- YAML scenario parsing
 
@@ -288,12 +290,19 @@ cat results/tutorial1/demo/metrics.json
 
 ## Step 4: Try Different Schedulers
 
-The `--scheduler` flag overrides the scenario's default scheduler. Try CPOP and round-robin:
+The `--scheduler` flag overrides the scenario's default scheduler. Ncsim 1.1.0
+discovers the algorithms supplied by the installed SAGA version. With SAGA 2.1.0
+installed as shown above, it exposes 23 SAGA schedulers plus the built-in
+`round_robin` and `manual` schedulers. Start with CPOP, PEFT, and round-robin:
 
 ```bash
 ncsim --scenario scenarios/demo_simple.yaml \
       --output results/tutorial1/cpop \
       --scheduler cpop
+
+ncsim --scenario scenarios/demo_simple.yaml \
+      --output results/tutorial1/peft \
+      --scheduler peft
 
 ncsim --scenario scenarios/demo_simple.yaml \
       --output results/tutorial1/rr \
@@ -306,6 +315,7 @@ ncsim --scenario scenarios/demo_simple.yaml \
 |-----------|----------|---------|---------|-----------|
 | **heft** | 3.000s | n0 | n0 | No (local) |
 | **cpop** | 3.000s | n0 | n0 | No (local) |
+| **peft** | 3.000s | n0 | n0 | No (local) |
 | **round_robin** | 5.501s | n0 | n1 | Yes (50 MB over l01) |
 
 !!! info "Why does round-robin produce a longer makespan?"
@@ -314,8 +324,14 @@ ncsim --scenario scenarios/demo_simple.yaml \
     T1 can start. The transfer takes 50/100 + 0.001 = 0.501 seconds. Then T1 runs
     on n1, the slower node: 200/50 = 4.0 seconds. Total: 1.0 + 0.501 + 4.0 = 5.501s.
 
-    HEFT and CPOP are smarter -- they recognize that keeping both tasks on the fast
-    node avoids the transfer penalty entirely.
+    HEFT, CPOP, and PEFT recognize that keeping both tasks on the fast node avoids
+    the transfer penalty entirely.
+
+!!! tip "Discover every scheduler"
+    Run `ncsim --help` to see the scheduler list for your installed SAGA version.
+    SAGA 2.0.4 supplies 22 compatible algorithms; SAGA 2.1.0 adds PEFT. Tutorial
+    4 shows the 23-algorithm catalog and how to pass constructor settings with
+    the repeatable `--scheduler-option KEY=VALUE` flag.
 
 The round-robin trace includes transfer events that are absent from the HEFT trace.
 You can see them by examining the trace:
@@ -358,8 +374,8 @@ This scenario has:
 - **8 bidirectional links** connecting adjacent nodes (500 MB/s each)
 - **10 tasks**: a fan-out/fan-in DAG with T_root -> {P0..P7} -> T_sink
 
-HEFT distributes the 8 parallel tasks across 3 nodes (n1, n2, n3), placing 3 tasks
-on n2 (fastest), 3 on n1, and 2 on n3.
+HEFT distributes the 8 parallel tasks across 3 nodes (n1, n2, n3): P4, P5, and
+P7 run on n2; P1 and P3 run on n1; and P0, P2, and P6 run on n3.
 
 ---
 
@@ -379,21 +395,27 @@ python analyze_trace.py results/tutorial1/spread/trace.jsonl --gantt
 
 Time: 0                                                        35.35s
        |============================================================|
-n1     | ###################                                        | P3 (11.111s)
-n1     |                    ###################                     | P4 (11.111s)
-n1     |                                       ###################  | P7 (11.111s)
+n1     | ###################                                        | P1 (11.111s)
+n1     |                    ###################                     | P3 (11.111s)
 n2     |#                                                           | T_root (1.000s)
-n2     | #################                                          | P0 (10.000s)
-n2     |                  #################                         | P2 (10.000s)
-n2     |                                   #################        | P5 (10.000s)
+n2     | #################                                          | P4 (10.000s)
+n2     |                  #################                         | P5 (10.000s)
+n2     |                                   #################        | P7 (10.000s)
 n2     |                                                          ##| T_sink (1.000s)
-n3     | ###################                                        | P1 (11.111s)
-n3     |                    ###################                     | P6 (11.111s)
+n3     | ###################                                        | P0 (11.111s)
+n3     |                    ###################                     | P2 (11.111s)
+n3     |                                       ###################  | P6 (11.111s)
        |------------------------------------------------------------|
-l12    |                    ~                                       | P3->T_sink (0.003s)
-l21    | ~                                                          | T_root->P3 (0.012s)
-l23    | ~                                                          | T_root->P1 (0.009s)
-l32    |                    ~                                       | P1->T_sink (0.003s)
+l12    |                    ~                                       | P1->T_sink (0.003s)
+l12    |                                       ~                    | P3->T_sink (0.003s)
+l21    | ~                                                          | T_root->P1 (0.009s)
+l21    | ~                                                          | T_root->P3 (0.010s)
+l23    | ~                                                          | T_root->P0 (0.012s)
+l23    | ~                                                          | T_root->P2 (0.013s)
+l23    | ~                                                          | T_root->P6 (0.014s)
+l32    |                    ~                                       | P0->T_sink (0.003s)
+l32    |                                       ~                    | P2->T_sink (0.003s)
+l32    |                                                          ~ | P6->T_sink (0.003s)
        |============================================================|
 
 Legend: # = task execution, ~ = data transfer
@@ -404,7 +426,7 @@ The Gantt chart shows:
 - `#` marks indicate task execution on each node
 - `~` marks indicate data transfers on each link
 - Tasks are grouped by the node they run on
-- You can see that n2 runs 3 parallel tasks sequentially (P0, P2, P5) plus T_root and T_sink
+- You can see that n2 runs 3 parallel tasks sequentially (P4, P5, P7) plus T_root and T_sink
 
 ### Timeline
 
@@ -420,9 +442,9 @@ This prints every event in chronological order with details:
 [  0.0000] task_scheduled       T_root on n2
 [  0.0000] task_start           T_root on n2
 [  1.0000] task_complete        T_root on n2 (duration=1.0)
-[  1.0000] task_scheduled       P0 on n2
-[  1.0000] task_start           P0 on n2
-[  1.0000] transfer_start       T_root->P1 via l23 (1.0 MB)
+[  1.0000] task_scheduled       P4 on n2
+[  1.0000] task_start           P4 on n2
+[  1.0000] transfer_start       T_root->P0 via l23 (1.0 MB)
 ...
 [ 35.3483] task_complete        T_sink on n2 (duration=1.0)
 [ 35.3483] sim_end              makespan=35.348333
@@ -438,18 +460,18 @@ This prints per-task information including scheduling, start, and completion tim
 
 ```
 P0:
+  Node: n3
+  Scheduled: 1.012
+  Started: 1.012
+  Completed: 12.123111
+  Duration: 11.111111s
+
+P4:
   Node: n2
   Scheduled: 1.0
   Started: 1.0
   Completed: 11.0
   Duration: 10.000000s
-
-P3:
-  Node: n1
-  Scheduled: 1.012
-  Started: 1.012
-  Completed: 12.123111
-  Duration: 11.111111s
 ...
 ```
 
@@ -478,7 +500,7 @@ reproducible research -- the same scenario and seed always produce the same resu
 
 !!! warning "Changing the seed"
     The seed primarily affects scheduling decisions in algorithms that use
-    randomness. For deterministic schedulers like HEFT and CPOP, the seed has
+    randomness. For deterministic schedulers like HEFT, CPOP, and PEFT, the seed has
     no effect on task placement. It does affect shadow fading values in WiFi
     scenarios (Tutorial 3).
 
@@ -491,7 +513,7 @@ In this tutorial you learned how to:
 1. **Install** ncsim from source with `pip install -e .`
 2. **Run** a simulation with `ncsim --scenario <file> --output <dir>`
 3. **Read** the three output files: `scenario.yaml`, `trace.jsonl`, `metrics.json`
-4. **Compare** three representative schedulers: HEFT and CPOP make communication-aware placement decisions; round-robin provides a simple baseline
+4. **Compare** schedulers: HEFT, CPOP, and PEFT account for workflow and platform costs; round-robin is a simple baseline
 5. **Analyze** traces with `analyze_trace.py` using `--gantt`, `--timeline`, and `--tasks`
 6. **Verify** determinism by running the same scenario twice with the same seed
 
