@@ -23,22 +23,12 @@ for output_file in scenario.yaml trace.jsonl metrics.json; do
   fi
 done
 
-cat <<EOF
+BASHRC="${HOME}/.bashrc"
+BANNER_COMMAND="source \"${SCRIPT_DIR}/terminal-banner.sh\""
 
-NCSim Codespaces setup is ready.
+touch "${BASHRC}"
+if ! grep -Fqx "${BANNER_COMMAND}" "${BASHRC}"; then
+  printf '\n%s\n' "${BANNER_COMMAND}" >>"${BASHRC}"
+fi
 
-UI:
-  The visualization starts automatically on forwarded port 5173.
-  To open it manually, use the bottom Ports tab, hover over port 5173,
-  and select the globe (Open in Browser).
-  If port 5173 is absent, run: bash .devcontainer/start-viz.sh
-
-CLI:
-  ncsim --scenario scenarios/demo_simple.yaml --output results/my-run
-  python analyze_trace.py results/codespaces-demo/trace.jsonl --gantt --timeline --tasks
-
-Demo files:
-  results/codespaces-demo/scenario.yaml
-  results/codespaces-demo/trace.jsonl
-  results/codespaces-demo/metrics.json
-EOF
+bash "${SCRIPT_DIR}/terminal-banner.sh"
