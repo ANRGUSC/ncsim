@@ -115,9 +115,9 @@ def build_trace(
     mobility: half the nodes roam a 100x100 area by random waypoint at
               speeds that cross it in about one M0; links run full within
               50 units, die beyond 80, degrade in steps between.
-    jamming:  a targeted jammer at a random pair's midpoint (radius 40, so
-              the initial cluster falls together) from 0.25 * M0 for
-              0.6 * M0.
+    jamming:  an area jammer at a random pair's midpoint (radius 40, which
+              blankets the clustered five-node deployment: a total
+              blackout) from 0.25 * M0 for 0.6 * M0.
     """
     rng = random.Random(f"trace:{generator}:{seed}")
     pairs = [tuple(sorted(k)) for k in radio_pairs(network) if len(k) == 2]
