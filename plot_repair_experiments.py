@@ -207,6 +207,52 @@ def plot_ladder(table, generators, output, summary):
     plt.close(fig)
 
 
+def _draw_ladder_by_ccr(axes, ccrs, table, generators):
+    """Per-generator panels: policy bars grouped by CCR, with variant dots.
+
+    The CCR-resolved counterpart of _draw_ladder, sharing its x structure
+    with the per-CCR trend row so the two rows read column by column.
+    """
+    group_width = 0.78
+    bar_width = group_width / len(POLICY_STYLE)
+    # Ceiling above the largest mean (flapping/reroute at CCR 5 is 2.68) so
+    # no bar is silently cut; dots beyond the cap pin as triangles.
+    cap = 2.7
+    for ax, generator in zip(axes, generators):
+        for ci, ccr in enumerate(ccrs):
+            for pi, (policy, style) in enumerate(POLICY_STYLE.items()):
+                ratios = oracle_normalized(table, generator, policy, 0.0)
+                values = [v for (inst, c), v in ratios.items() if c == ccr]
+                mean = geo_mean(values)
+                if mean is None:
+                    continue
+                x = ci - group_width / 2 + (pi + 0.5) * bar_width
+                ax.bar(x, mean, width=bar_width * 0.9,
+                       color=lighten(style["color"]), hatch=style["hatch"],
+                       edgecolor=EDGE, linewidth=0.4, zorder=3,
+                       label=policy if (ci == 0 and ax is axes[0]) else None)
+                inside = [v for v in values if v <= cap]
+                clipped = [v for v in values if v > cap]
+                ax.scatter([x] * len(inside), inside, s=1.5,
+                           color="#111111", alpha=0.2, zorder=4, linewidths=0)
+                if clipped:
+                    ax.scatter([x] * len(clipped), [cap] * len(clipped), s=5,
+                               marker="^", color="#111111", alpha=0.5,
+                               zorder=4, linewidths=0)
+        ax.axhline(1.0, color=EDGE, linewidth=0.5, linestyle=(0, (4, 3)),
+                   zorder=2)
+        ax.set_xticks(range(len(ccrs)))
+        ax.set_xticklabels([f"{c:g}" for c in ccrs], fontsize=6.5)
+        ax.set_xlabel("CCR", fontsize=7, color=TEXT_PRIMARY)
+        ax.set_ylim(0, 2.85)
+        ax.set_title(GENERATOR_LABELS.get(generator, generator), fontsize=8,
+                     color=TEXT_PRIMARY)
+        style_axis(ax)
+    axes[0].set_ylabel("Makespan / oracle", fontsize=8, color=TEXT_PRIMARY)
+    for ax in axes[1:]:
+        ax.tick_params(labelleft=False)
+
+
 def plot_cost_sweep(table, generators, costs, output, summary):
     """Lines: normalized makespan vs. per-task repair cost, per generator."""
     costed = [p for p in ("local", "global") if any(
@@ -328,14 +374,18 @@ def plot_ladder_ccr(records, table, generators, output, summary):
     ccrs = sorted({r.get("ccr", 1.0) for r in records})
     if len(ccrs) < 2:
         return
-    fig = plt.figure(figsize=(7.0, 3.3), dpi=200)
-    grid = fig.add_gridspec(2, len(generators), height_ratios=[1.2, 1.0],
-                            hspace=0.5)
-    top = fig.add_subplot(grid[0, :])
-    _draw_ladder(top, table, generators, summary)
+    fig = plt.figure(figsize=(7.0, 3.45), dpi=200)
+    grid = fig.add_gridspec(2, len(generators), height_ratios=[1.15, 1.0],
+                            hspace=0.62)
+    top = [fig.add_subplot(grid[0, i]) for i in range(len(generators))]
+    _draw_ladder_by_ccr(top, ccrs, table, generators)
     bottom = [fig.add_subplot(grid[1, i]) for i in range(len(generators))]
     _draw_ccr(bottom, ccrs, table, generators, summary, legend=True)
-    fig.tight_layout()
+    handles, labels = top[0].get_legend_handles_labels()
+    fig.legend(handles, labels, ncols=len(labels), frameon=False,
+               fontsize=7.5, loc="upper center", bbox_to_anchor=(0.5, 1.0),
+               handlelength=1.6, handleheight=0.9, columnspacing=1.4)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     for ext in ("pdf", "png"):
         fig.savefig(output / f"ladder_ccr.{ext}")
     plt.close(fig)
