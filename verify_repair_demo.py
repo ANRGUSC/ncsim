@@ -243,7 +243,7 @@ for policy in POLICY_SET:
 
 # ---------------------------------------------------------------- gantts
 node_ids = sorted(network.nodes)
-row_h = 0.92 if PAPER else 1.75
+row_h = 1.18 if PAPER else 1.75
 fig, axes = plt.subplots(len(rows), 1,
                          figsize=(7.0 if PAPER else 11, row_h * len(rows)),
                          dpi=200, sharex=True)
@@ -277,15 +277,15 @@ for ax, (name, sim, result, repairs, policy) in zip(axes, rows):
                     linewidth=1.6 if moved else 0.5,
                     hatch="//" if moved else None, zorder=3)
         if not (PAPER and ts.completed_at - ts.started_at < 0.05):
-            # Borderless white disc behind the id; the bars are tall enough
-            # (tight row spacing, full-lane bars) for the circle to sit
-            # entirely inside the rectangle.
-            badge = dict(boxstyle="circle,pad=0.15", facecolor="white",
-                         edgecolor="none") if PAPER else None
+            # Outlined white circle behind the id; the lanes are sized (via
+            # row_h) so even the widest three-char badge sits fully inside
+            # its bar.
+            badge = dict(boxstyle="circle,pad=0.18", facecolor="white",
+                         edgecolor="#262626", linewidth=0.4) if PAPER else None
             ax.annotate(tid,
                         (ts.started_at + (ts.completed_at - ts.started_at) / 2, y),
                         ha="center", va="center", color="#1a1a1a",
-                        fontsize=4.6 if PAPER else 6, zorder=4, bbox=badge)
+                        fontsize=5 if PAPER else 6, zorder=4, bbox=badge)
     if policy is not None:  # every disrupted run shows the failure window
         fail_c = "#b5573f" if PAPER else "#e34948"
         recover_c = "#3f8264" if PAPER else "#1baf7a"
