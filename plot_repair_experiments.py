@@ -391,9 +391,9 @@ def plot_ladder_ccr(records, table, generators, output, summary):
     ccrs = sorted({r.get("ccr", 1.0) for r in records})
     if len(ccrs) < 2:
         return
-    fig = plt.figure(figsize=(7.0, 3.45), dpi=200)
+    fig = plt.figure(figsize=(7.0, 3.32), dpi=200)
     grid = fig.add_gridspec(2, len(generators), height_ratios=[1.15, 1.0],
-                            hspace=0.62)
+                            hspace=0.56)
     top = [fig.add_subplot(grid[0, i]) for i in range(len(generators))]
     _draw_ladder_by_ccr(top, ccrs, table, generators)
     bottom = [fig.add_subplot(grid[1, i]) for i in range(len(generators))]
@@ -461,6 +461,23 @@ def main() -> int:
     args = parser.parse_args()
 
     records = load_records(Path(args.records))
+
+    # Exhaustive single-failure sweep records (swept = true) cover every
+    # (pair, time) cell, most of which hit idle links and cost nothing
+    # under any policy. Aggregates condition on the biting cells, where
+    # wait's makespan exceeds M0 (a policy-independent criterion), and the
+    # bite rate is reported alongside.
+    swept_cells = {(r["instance"], r.get("ccr", 1.0))
+                   for r in records if r.get("swept")}
+    if swept_cells:
+        biting = {(r["instance"], r.get("ccr", 1.0)) for r in records
+                  if r.get("swept") and r["policy"] == "wait"
+                  and r["makespan"] > 1.001 * r["m0"]}
+        records = [r for r in records if not r.get("swept")
+                   or (r["instance"], r.get("ccr", 1.0)) in biting]
+        print(f"single-failure sweep: {len(biting)}/{len(swept_cells)} "
+              f"biting cells kept "
+              f"({100.0 * len(biting) / len(swept_cells):.1f}%)")
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
 
