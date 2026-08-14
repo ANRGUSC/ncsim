@@ -51,6 +51,10 @@ def main() -> int:
                         default=["wait", "reroute", "local", "global", "oracle"])
     parser.add_argument("--repair-costs", nargs="+", type=float, default=[0.0])
     parser.add_argument("--duration-frac", type=float, default=0.5)
+    parser.add_argument("--time-fracs", nargs="+", type=float,
+                        default=list(TIME_FRACS),
+                        help="Failure start times as fractions of M0; a "
+                             "coarser grid keeps duration sweeps affordable")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
@@ -71,7 +75,7 @@ def main() -> int:
                     pairs = sorted(tuple(sorted(k))
                                    for k in radio_pairs(network) if len(k) == 2)
                     for pair in pairs:
-                        for tf in TIME_FRACS:
+                        for tf in args.time_fracs:
                             trace = single_failure_trace(
                                 network, pair, time=tf * m0,
                                 duration=args.duration_frac * m0)
@@ -94,6 +98,7 @@ def main() -> int:
                                         "swept": True,
                                         "pair": f"{pair[0]}-{pair[1]}",
                                         "time_frac": tf,
+                                        "duration_frac": args.duration_frac,
                                         "ccr": ccr,
                                         "structure": structure,
                                         "seed": seed,
