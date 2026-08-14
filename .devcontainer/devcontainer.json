@@ -18,9 +18,12 @@
       ]
     }
   },
+  "remoteEnv": {
+    "PATH": "${containerWorkspaceFolder}:${containerEnv:PATH}"
+  },
   "updateContentCommand": "bash .devcontainer/setup.sh",
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "postStartCommand": "bash .devcontainer/start-viz.sh",
+  "postAttachCommand": "bash .devcontainer/start-viz.sh",
   "forwardPorts": [5173],
   "portsAttributes": {
     "5173": {

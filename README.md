@@ -4,6 +4,8 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19138224.svg)](https://doi.org/10.5281/zenodo.19138224)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ANRGUSC/ncsim?quickstart=1)
 
+> **Codespaces:** The web UI should open automatically. If it does not, type `start-viz` in the terminal, then open port **5173** from the **Ports** tab. Port 8000 is the internal API and is not the UI.
+
 **Networked Compute Simulator** — a headless discrete-event simulator for evaluating task scheduling algorithms on heterogeneous networked systems.
 
 ncsim models compute nodes, network links with WiFi interference, and DAG task graphs. It produces detailed JSONL traces and JSON metrics for analysis.
@@ -30,11 +32,13 @@ ncsim --scenario scenarios/demo_simple.yaml --output results/codespaces-demo
 python analyze_trace.py results/codespaces-demo/trace.jsonl --gantt --timeline --tasks
 ```
 
-If the UI does not open automatically, select the **Ports** tab at the bottom of Codespaces, hover over port 5173, and select the globe (**Open in Browser**). If port 5173 is not listed, restart the visualization servers:
+If the UI does not open automatically, start or restart it with:
 
 ```bash
-bash .devcontainer/start-viz.sh
+start-viz
 ```
+
+Then select the **Ports** tab at the bottom of Codespaces, hover over port 5173, and select the globe (**Open in Browser**).
 
 ## Installation
 

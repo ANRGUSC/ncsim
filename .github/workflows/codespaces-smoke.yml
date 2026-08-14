@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.devcontainer/**'
+      - 'start-viz'
       - '.github/workflows/codespaces-smoke.yml'
       - 'ncsim/**'
       - 'scenarios/demo_simple.yaml'
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - '.devcontainer/**'
+      - 'start-viz'
       - '.github/workflows/codespaces-smoke.yml'
       - 'ncsim/**'
       - 'scenarios/demo_simple.yaml'
@@ -54,13 +56,15 @@ jobs:
 
       - name: Validate and run Codespaces prebuild setup
         run: |
-          bash -n .devcontainer/setup.sh .devcontainer/post-create.sh .devcontainer/start-viz.sh
+          bash -n start-viz .devcontainer/setup.sh .devcontainer/post-create.sh .devcontainer/start-viz.sh .devcontainer/terminal-banner.sh
           bash .devcontainer/setup.sh
           bash .devcontainer/post-create.sh
+          test -x start-viz
+          grep -Fq '.devcontainer/terminal-banner.sh' "${HOME}/.bashrc"
 
       - name: Validate Codespaces services
         run: |
-          bash .devcontainer/start-viz.sh
+          PATH="${PWD}:${PATH}" start-viz
           curl --fail --silent --show-error http://127.0.0.1:8000/api/experiments > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:5173 > /dev/null
 
