@@ -99,9 +99,9 @@ def percentile(values, q):
     return ordered[lo] + (ordered[hi] - ordered[lo]) * (pos - lo)
 
 
-def spread_whisker(ax, x, values, cap, lo_q=0.25, hi_q=0.75):
-    """Interquartile whisker at x; an arrowhead marks a clipped top."""
-    lo, hi = percentile(values, lo_q), percentile(values, hi_q)
+def spread_whisker(ax, x, values, cap):
+    """10th-90th percentile whisker at x; an arrow marks a clipped top."""
+    lo, hi = percentile(values, 0.10), percentile(values, 0.90)
     if lo is None:
         return
     top = min(hi, cap)
@@ -220,18 +220,17 @@ def plot_ladder(table, generators, output, summary):
 
 
 def _draw_ladder_by_ccr(axes, ccrs, table, generators):
-    """Per-generator panels: policy bars grouped by CCR, rising from the
-    oracle baseline at 1.0, with 10th-90th percentile whiskers.
+    """Per-generator panels: policy bars grouped by CCR, with variant dots.
 
-    Per-panel y scales keep the orderings legible (flapping's blow-up would
-    otherwise flatten every other panel), sized to contain the whiskers so
-    clipping stays exceptional. No variant lands below the oracle at the
-    25th percentile, so nothing hides under the baseline.
+    The CCR-resolved counterpart of _draw_ladder, sharing its x structure
+    with the per-CCR trend row so the two rows read column by column.
     """
     group_width = 0.78
     bar_width = group_width / len(POLICY_STYLE)
+    # Ceiling above the largest mean (flapping/reroute at CCR 5 is 2.68) so
+    # no bar is silently cut; a whisker past the cap gets an arrowhead.
+    cap = 2.7
     for ax, generator in zip(axes, generators):
-        cells = []
         for ci, ccr in enumerate(ccrs):
             for pi, (policy, style) in enumerate(POLICY_STYLE.items()):
                 ratios = oracle_normalized(table, generator, policy, 0.0)
@@ -240,27 +239,23 @@ def _draw_ladder_by_ccr(axes, ccrs, table, generators):
                 if mean is None:
                     continue
                 x = ci - group_width / 2 + (pi + 0.5) * bar_width
-                cells.append((x, mean, values, policy, style, ci))
-        hi_whisker = max(percentile(v, 0.75) for _, _, v, _, _, _ in cells)
-        top = max(1.0 + (max(m for _, m, _, _, _, _ in cells) - 1.0) * 1.15,
-                  hi_whisker * 1.04)
-        for x, mean, values, policy, style, ci in cells:
-            ax.bar(x, mean - 1.0, bottom=1.0, width=bar_width * 0.9,
-                   color=lighten(style["color"]), hatch=style["hatch"],
-                   edgecolor=EDGE, linewidth=0.4, zorder=3,
-                   label=policy if (ci == 0 and ax is axes[0]) else None)
-            spread_whisker(ax, x, values, cap=top)
+                ax.bar(x, mean, width=bar_width * 0.9,
+                       color=lighten(style["color"]), hatch=style["hatch"],
+                       edgecolor=EDGE, linewidth=0.4, zorder=3,
+                       label=policy if (ci == 0 and ax is axes[0]) else None)
+                spread_whisker(ax, x, values, cap)
         ax.axhline(1.0, color=EDGE, linewidth=0.5, linestyle=(0, (4, 3)),
                    zorder=2)
         ax.set_xticks(range(len(ccrs)))
         ax.set_xticklabels([f"{c:g}" for c in ccrs], fontsize=6.5)
         ax.set_xlabel("CCR", fontsize=7, color=TEXT_PRIMARY)
-        ax.set_ylim(0.99, top)
-        ax.tick_params(axis="y", labelsize=6.5)
+        ax.set_ylim(0, 2.85)
         ax.set_title(GENERATOR_LABELS.get(generator, generator), fontsize=8,
                      color=TEXT_PRIMARY)
         style_axis(ax)
     axes[0].set_ylabel("Makespan / oracle", fontsize=8, color=TEXT_PRIMARY)
+    for ax in axes[1:]:
+        ax.tick_params(labelleft=False)
 
 
 def plot_cost_sweep(table, generators, costs, output, summary):
@@ -384,18 +379,18 @@ def plot_ladder_ccr(records, table, generators, output, summary):
     ccrs = sorted({r.get("ccr", 1.0) for r in records})
     if len(ccrs) < 2:
         return
-    fig, axes = plt.subplots(1, len(generators), figsize=(7.0, 1.95),
-                             dpi=200)
-    if len(generators) == 1:
-        axes = [axes]
-    _draw_ladder_by_ccr(axes, ccrs, table, generators)
-    # ccr_trend summary values still come from the standalone trend figure;
-    # keep them populated even though the paper figure is bars-only now.
-    handles, labels = axes[0].get_legend_handles_labels()
+    fig = plt.figure(figsize=(7.0, 3.45), dpi=200)
+    grid = fig.add_gridspec(2, len(generators), height_ratios=[1.15, 1.0],
+                            hspace=0.62)
+    top = [fig.add_subplot(grid[0, i]) for i in range(len(generators))]
+    _draw_ladder_by_ccr(top, ccrs, table, generators)
+    bottom = [fig.add_subplot(grid[1, i]) for i in range(len(generators))]
+    _draw_ccr(bottom, ccrs, table, generators, summary, legend=True)
+    handles, labels = top[0].get_legend_handles_labels()
     fig.legend(handles, labels, ncols=len(labels), frameon=False,
                fontsize=7.5, loc="upper center", bbox_to_anchor=(0.5, 1.0),
                handlelength=1.6, handleheight=0.9, columnspacing=1.4)
-    fig.tight_layout(rect=(0, 0, 1, 0.89))
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     for ext in ("pdf", "png"):
         fig.savefig(output / f"ladder_ccr.{ext}")
     plt.close(fig)
