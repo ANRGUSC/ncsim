@@ -5,6 +5,9 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 DEMO_OUTPUT="${REPO_ROOT}/results/codespaces-demo"
+PYTHON_USER_BIN="$(python -m site --user-base)/bin"
+
+export PATH="${PYTHON_USER_BIN}:${REPO_ROOT}:${PATH}"
 
 if ! command -v ncsim >/dev/null 2>&1; then
   echo "ERROR: The ncsim CLI is unavailable. Run: bash .devcontainer/setup.sh" >&2
