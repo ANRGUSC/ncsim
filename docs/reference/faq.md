@@ -20,7 +20,7 @@ with data dependencies.
 
 A: ncsim is developed by the Autonomous Networks Research Group (ANRG) at
 the University of Southern California. Contributors: Bhaskar
-Krishnamachari, Maya Gutierrez.
+Krishnamachari, Maya Gutierrez, Jared Coleman.
 
 ---
 
@@ -39,9 +39,10 @@ A: Python 3.12 or later. Check your version with `python --version`.
 
 **Q: How do I cite ncsim?**
 
-A: See the `CITATION.cff` file in the repository root for the
-recommended citation format. The repository also has a Zenodo DOI for
-versioned citations.
+A: Cite the [ncsim paper](https://arxiv.org/abs/2605.01094) and the
+[versioned software release](https://doi.org/10.5281/zenodo.19138224).
+The `CITATION.cff` file in the repository root provides machine-readable
+citation metadata.
 
 ---
 
