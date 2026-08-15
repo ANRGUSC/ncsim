@@ -31,8 +31,6 @@ authors:
     affiliation: "University of Southern California"
   - family-names: Gutierrez
     given-names: Maya
-  - family-names: Coleman
-    given-names: Jared
 preferred-citation:
   type: article
   title: "ncsim: A Lightweight Simulator for Networked Edge Computing with Wireless Interference Modeling"

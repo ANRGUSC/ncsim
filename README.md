@@ -271,7 +271,7 @@ If you use ncsim in your research, please cite the paper and the software releas
 }
 
 @software{krishnamachari2026ncsimsoftware,
-  author    = {Krishnamachari, Bhaskar and Gutierrez, Maya and Coleman, Jared},
+  author    = {Krishnamachari, Bhaskar and Gutierrez, Maya},
   title     = {ncsim: A Lightweight Simulator for Networked Edge Computing with Wireless Interference Modeling},
   version   = {1.1.0},
   year      = {2026},
@@ -295,4 +295,4 @@ pull request guidance. Release history is recorded in
 [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributors
-**Bhaskar Krishnamachari, Maya Gutierrez, Jared Coleman** — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California
+**Bhaskar Krishnamachari, Maya Gutierrez** — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California

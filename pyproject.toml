@@ -12,7 +12,6 @@ license = "MIT"
 authors = [
     {name = "Bhaskar Krishnamachari", email = "bkrishna@usc.edu"},
     {name = "Maya Gutierrez"},
-    {name = "Jared Coleman"},
 ]
 keywords = [
     "simulation",

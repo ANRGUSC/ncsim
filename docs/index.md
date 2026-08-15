@@ -131,7 +131,7 @@ graph LR
 | **Software DOI** | [10.5281/zenodo.19138224](https://doi.org/10.5281/zenodo.19138224) |
 | **License** | MIT |
 | **Python** | 3.12+ |
-| **Contributors** | Bhaskar Krishnamachari, Maya Gutierrez, Jared Coleman |
+| **Contributors** | Bhaskar Krishnamachari, Maya Gutierrez |
 | **Organization** | [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California |
 
 !!! note "Cite ncsim"

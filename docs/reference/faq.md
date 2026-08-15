@@ -20,7 +20,7 @@ with data dependencies.
 
 A: ncsim is developed by the Autonomous Networks Research Group (ANRG) at
 the University of Southern California. Contributors: Bhaskar
-Krishnamachari, Maya Gutierrez, Jared Coleman.
+Krishnamachari, Maya Gutierrez.
 
 ---
 
