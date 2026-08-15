@@ -270,6 +270,10 @@ If you use ncsim in your research, please cite it:
 }
 ```
 
+## Acknowledgements
+
+This work was supported in part by Army Research Laboratory under Cooperative Agreement W911NF-17-2-0196.
+
 ## License
 
 [MIT](LICENSE)
