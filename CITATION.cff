@@ -1,7 +1,11 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
-title: "ncsim: Headless Discrete Event Simulator for Networked Computing Research"
+title: "ncsim: A Lightweight Simulator for Networked Edge Computing with Wireless Interference Modeling"
+abstract: >-
+  A lightweight discrete-event simulator for DAG scheduling over heterogeneous
+  networked systems with multi-hop routing and realistic Wi-Fi interference
+  modeling.
 version: 1.1.0
 date-released: "2026-08-14"
 license: MIT
@@ -14,8 +18,28 @@ keywords:
   - dag
   - scheduling
   - networked computing
+  - edge computing
+  - wireless
+  - Wi-Fi
+  - workflow
+  - task scheduling
+  - CSMA
 authors:
   - family-names: Krishnamachari
     given-names: Bhaskar
     email: bkrishna@usc.edu
     affiliation: "University of Southern California"
+  - family-names: Gutierrez
+    given-names: Maya
+preferred-citation:
+  type: article
+  title: "ncsim: A Lightweight Simulator for Networked Edge Computing with Wireless Interference Modeling"
+  authors:
+    - family-names: Krishnamachari
+      given-names: Bhaskar
+    - family-names: Gutierrez
+      given-names: Maya
+    - family-names: Coleman
+      given-names: Jared
+  year: 2026
+  url: "https://arxiv.org/abs/2605.01094"

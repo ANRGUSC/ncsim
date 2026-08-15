@@ -1,11 +1,19 @@
-"""
-ncsim - Headless Discrete Event Simulator for Networked Computing Research
+"""Lightweight simulation of DAG scheduling over networked systems.
 
-This package provides a deterministic DES for simulating DAG execution
-on heterogeneous networked compute nodes.
+ncsim provides a deterministic discrete-event simulator for heterogeneous
+compute nodes, multi-hop networks, and realistic Wi-Fi interference.
 """
 
-__version__ = "1.1.0"
+from importlib.metadata import PackageNotFoundError, version
+
+
+try:
+    __version__ = version("anrg-ncsim")
+except PackageNotFoundError:
+    # A source checkout is expected to be installed (normally with
+    # ``pip install -e .``), but keep imports usable for tooling that reads the
+    # package before installation.
+    __version__ = "0+unknown"
 
 from ncsim.core.simulation import Simulation
 from ncsim.models.network import Node, Link, Network
@@ -21,4 +29,5 @@ __all__ = [
     "Edge",
     "Task",
     "load_scenario",
+    "__version__",
 ]

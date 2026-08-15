@@ -1,6 +1,9 @@
 # ncsim Documentation
 
-**ncsim** (Networked Compute Simulator) is a headless discrete-event simulator for evaluating task scheduling algorithms on heterogeneous networked systems. It models compute nodes, network links with WiFi interference, and DAG task graphs, producing detailed JSONL traces and JSON metrics for analysis.
+**ncsim** (Networked Compute Simulator) is a lightweight simulator for DAG
+scheduling over heterogeneous networked systems with multi-hop routing and
+realistic Wi-Fi interference modeling. It produces detailed JSONL traces and
+JSON metrics for analysis.
 
 Developed by the [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/) at the University of Southern California.
 
@@ -124,10 +127,16 @@ graph LR
 |---|---|
 | **Repository** | [github.com/ANRGUSC/ncsim](https://github.com/ANRGUSC/ncsim) |
 | **PyPI package** | [anrg-ncsim](https://pypi.org/project/anrg-ncsim/) |
+| **Paper** | [arXiv:2605.01094](https://arxiv.org/abs/2605.01094) |
+| **Software DOI** | [10.5281/zenodo.19138224](https://doi.org/10.5281/zenodo.19138224) |
 | **License** | MIT |
 | **Python** | 3.12+ |
 | **Contributors** | Bhaskar Krishnamachari, Maya Gutierrez |
 | **Organization** | [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California |
 
-!!! note "Citation"
-    If you use ncsim in your research, please cite it. See the [CITATION.cff](https://github.com/ANRGUSC/ncsim/blob/main/CITATION.cff) file in the repository for the recommended citation format.
+!!! note "Cite ncsim"
+    If you use ncsim in your research, cite the
+    [ncsim paper](https://arxiv.org/abs/2605.01094) and the versioned
+    [software release](https://doi.org/10.5281/zenodo.19138224). The repository's
+    [CITATION.cff](https://github.com/ANRGUSC/ncsim/blob/main/CITATION.cff)
+    contains machine-readable citation metadata.

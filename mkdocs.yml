@@ -1,5 +1,5 @@
 site_name: ncsim Documentation
-site_description: Comprehensive guide to the Networked Compute Simulator
+site_description: DAG scheduling over heterogeneous networked systems with realistic Wi-Fi interference
 site_url: https://anrgusc.github.io/ncsim/
 repo_url: https://github.com/ANRGUSC/ncsim
 repo_name: ANRGUSC/ncsim

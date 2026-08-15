@@ -4,9 +4,11 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19138224.svg)](https://doi.org/10.5281/zenodo.19138224)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ANRGUSC/ncsim?quickstart=1)
 
+[Why ncsim?](https://anrgusc.github.io/ncsim/intro.html) · [Documentation](https://anrgusc.github.io/ncsim/) · [Codespaces](https://codespaces.new/ANRGUSC/ncsim?quickstart=1) · [Paper](https://arxiv.org/abs/2605.01094) · [Software DOI](https://doi.org/10.5281/zenodo.19138224)
+
 > **Codespaces:** The web UI should open automatically. If it does not, type `start-viz` in the terminal, then open port **5173** from the **Ports** tab. Port 8000 is the internal API and is not the UI.
 
-**Networked Compute Simulator** — a headless discrete-event simulator for evaluating task scheduling algorithms on heterogeneous networked systems.
+**ncsim** is a lightweight simulator for DAG scheduling over heterogeneous networked systems with multi-hop routing and realistic Wi-Fi interference modeling.
 
 ncsim models compute nodes, network links with WiFi interference, and DAG task graphs. It produces detailed JSONL traces and JSON metrics for analysis.
 
@@ -19,7 +21,7 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 - **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (capture-aware)
 - **Fair bandwidth sharing** when multiple transfers share a link
 - **Experiment scripts** for interference verification and routing comparison
-- **Documentation**: [installation guide](docs/getting-started/installation.md), [quick start](docs/getting-started/quickstart.md), [architecture overview](docs/concepts/architecture.md), and [WiFi interference model](docs/wifi_interference_model.pdf)
+- **Documentation**: [installation guide](https://anrgusc.github.io/ncsim/getting-started/installation/), [quick start](https://anrgusc.github.io/ncsim/getting-started/quickstart/), [architecture overview](https://anrgusc.github.io/ncsim/concepts/architecture/), and [Wi-Fi interference model](docs/wifi_interference_model.pdf)
 
 ## Try in GitHub Codespaces
 
@@ -153,7 +155,7 @@ python analyze_trace.py results/trace.jsonl --gantt --timeline --tasks
 python -m pytest tests/ -v
 ```
 
-More than 300 tests across 14 modules cover the event queue, execution engine, scheduling, routing, WiFi physics, visualization API, and acceptance criteria.
+An extensive unit and integration suite covers the event queue, execution engine, scheduling, routing, Wi-Fi physics, visualization API, and acceptance criteria.
 
 ## Architecture
 
@@ -180,8 +182,8 @@ ncsim/                  # Python package
     ├── trace_writer.py
     └── results_writer.py
 
-scenarios/              # Example scenario YAML files (10 examples)
-tests/                  # Unit and integration tests (14 test modules)
+scenarios/              # Example scenario YAML files
+tests/                  # Unit and integration test suite
 docs/                   # MkDocs documentation source
 ```
 
@@ -255,14 +257,22 @@ viz/                    # Web visualization (React + FastAPI)
 
 ---
 
-## Citation
+## Cite ncsim
 
-If you use ncsim in your research, please cite it:
+If you use ncsim in your research, please cite the paper and the software release:
 
 ```bibtex
-@software{krishnamachari2026ncsim,
-  author    = {Krishnamachari, Bhaskar},
-  title     = {ncsim: Headless Discrete Event Simulator for Networked Computing Research},
+@article{krishnamachari2026ncsimpaper,
+  author  = {Krishnamachari, Bhaskar and Gutierrez, Maya and Coleman, Jared},
+  title   = {ncsim: A Lightweight Simulator for Networked Edge Computing with Wireless Interference Modeling},
+  year    = {2026},
+  url     = {https://arxiv.org/abs/2605.01094},
+  note    = {arXiv:2605.01094}
+}
+
+@software{krishnamachari2026ncsimsoftware,
+  author    = {Krishnamachari, Bhaskar and Gutierrez, Maya},
+  title     = {ncsim: A Lightweight Simulator for Networked Edge Computing with Wireless Interference Modeling},
   version   = {1.1.0},
   year      = {2026},
   url       = {https://github.com/ANRGUSC/ncsim},
@@ -278,5 +288,11 @@ This work was supported in part by Army Research Laboratory under Cooperative Ag
 
 [MIT](LICENSE)
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, validation, and
+pull request guidance. Release history is recorded in
+[CHANGELOG.md](CHANGELOG.md).
+
 ## Contributors
-**Bhaskar Krishnamachari, Maya Gutierrez**  — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California
+**Bhaskar Krishnamachari, Maya Gutierrez** — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California

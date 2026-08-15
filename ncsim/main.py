@@ -13,6 +13,7 @@ from pathlib import Path
 
 import yaml
 
+from ncsim import __version__
 from ncsim.io.scenario_loader import load_scenario
 from ncsim.io.trace_writer import TraceWriter, TraceEventAdapter
 from ncsim.io.results_writer import write_results
@@ -166,7 +167,10 @@ def main(args: list = None) -> int:
     """
     parser = argparse.ArgumentParser(
         prog="ncsim",
-        description="Headless Discrete Event Simulator for Networked Computing"
+        description=(
+            "Lightweight simulator for DAG scheduling over heterogeneous "
+            "networked systems"
+        )
     )
     parser.add_argument(
         "--scenario",
@@ -255,7 +259,7 @@ def main(args: list = None) -> int:
     parser.add_argument(
         "--version",
         action="version",
-        version="ncsim 1.1.0"
+        version=f"ncsim {__version__}"
     )
 
     parsed = parser.parse_args(args)

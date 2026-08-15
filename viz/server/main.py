@@ -18,9 +18,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from ncsim import __version__
 from ncsim.scheduler.saga_adapter import scheduler_catalog
 
-app = FastAPI(title="ncsim-viz API", version="1.1.0")
+app = FastAPI(title="ncsim-viz API", version=__version__)
 
 app.add_middleware(
     CORSMiddleware,
