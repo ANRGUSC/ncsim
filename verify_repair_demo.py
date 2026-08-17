@@ -336,6 +336,6 @@ if not PAPER:
 fig.tight_layout(h_pad=0.3 if PAPER else 1.08)
 fig.savefig(OUT / "3_gantts.png")
 if PAPER:
-    fig.savefig(OUT / "gantt_example.pdf")
+    fig.savefig(OUT / "gantt_example.pdf", bbox_inches="tight", pad_inches=0.04)
 plt.close(fig)
 print(f"\nfigures -> {OUT}")

@@ -123,7 +123,7 @@ def main() -> int:
     axes[0].set_ylabel("radio pair", fontsize=7.5, color=TEXT)
     fig.tight_layout()
     for ext in ("pdf", "png"):
-        fig.savefig(output / f"trace_gallery.{ext}")
+        fig.savefig(output / f"trace_gallery.{ext}", bbox_inches="tight", pad_inches=0.04)
     plt.close(fig)
     print(f"figures -> {output} (M0={m0:.3f})")
     return 0
