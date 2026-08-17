@@ -16,6 +16,8 @@ matplotlib.rcParams.update({
     "axes.linewidth": 0.6,
     "xtick.major.width": 0.6,
     "ytick.major.width": 0.6,
+    "pdf.fonttype": 42,
+    "ps.fonttype": 42,
 })
 import matplotlib.pyplot as plt
 import networkx as nx

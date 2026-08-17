@@ -44,6 +44,8 @@ matplotlib.rcParams.update({
     "xtick.major.size": 2.5,
     "ytick.major.size": 2.5,
     "hatch.linewidth": 0.5,
+    "pdf.fonttype": 42,
+    "ps.fonttype": 42,
 })
 
 POLICY_STYLE = {
@@ -215,7 +217,7 @@ def plot_ladder(table, generators, output, summary):
     _draw_ladder(ax, table, generators, summary)
     fig.tight_layout()
     for ext in ("pdf", "png"):
-        fig.savefig(output / f"repair_ladder.{ext}")
+        fig.savefig(output / f"repair_ladder.{ext}", bbox_inches="tight", pad_inches=0.04)
     plt.close(fig)
 
 
@@ -317,7 +319,7 @@ def plot_cost_sweep(table, generators, costs, output, summary):
     axes[-1].legend(frameon=False, fontsize=7, loc="best", handlelength=1.7)
     fig.tight_layout()
     for ext in ("pdf", "png"):
-        fig.savefig(output / f"cost_sweep.{ext}")
+        fig.savefig(output / f"cost_sweep.{ext}", bbox_inches="tight", pad_inches=0.04)
     plt.close(fig)
 
 
@@ -378,7 +380,7 @@ def plot_ccr_trend(records, table, generators, output, summary):
     _draw_ccr(axes, ccrs, table, generators, summary)
     fig.tight_layout()
     for ext in ("pdf", "png"):
-        fig.savefig(output / f"ccr_trend.{ext}")
+        fig.savefig(output / f"ccr_trend.{ext}", bbox_inches="tight", pad_inches=0.04)
     plt.close(fig)
 
 
@@ -404,7 +406,7 @@ def plot_ladder_ccr(records, table, generators, output, summary):
                handlelength=1.6, handleheight=0.9, columnspacing=1.4)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     for ext in ("pdf", "png"):
-        fig.savefig(output / f"ladder_ccr.{ext}")
+        fig.savefig(output / f"ladder_ccr.{ext}", bbox_inches="tight", pad_inches=0.04)
     plt.close(fig)
 
 
