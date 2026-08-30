@@ -132,6 +132,10 @@ See [scenarios/](scenarios/) for more examples including WiFi interference, mult
 
 ## Experiment Scripts
 
+The paper-specific scenarios, recorded results, and reproduction instructions
+for the IEEE MILCOM 2026 study are in
+[`experiments/milcom26/`](experiments/milcom26/).
+
 Two standalone scripts for running structured experiments:
 
 ```bash
