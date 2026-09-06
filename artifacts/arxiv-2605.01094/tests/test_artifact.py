@@ -44,8 +44,9 @@ def test_bounded_commands(isolated, args, message):
     assert result.returncode == 0, result.stdout + result.stderr
     assert message in result.stdout
 
-def test_rejects_artifact_output(isolated):
-    result = command(isolated, 'paper', '--output', str(isolated / 'artifacts/arxiv-2605.01094'))
+@pytest.mark.parametrize('folder', ['artifacts/arxiv-2605.01094', 'arxiv-old', 'ncsim'])
+def test_rejects_artifact_output(isolated, folder):
+    result = command(isolated, 'paper', '--output', str(isolated / folder))
     assert result.returncode != 0 and 'must be separate' in result.stderr
 
 def test_rejects_changed_and_missing_input(isolated):

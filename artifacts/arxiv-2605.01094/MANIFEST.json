@@ -31,7 +31,8 @@
     "manuscript/generated/packet_rate_table.tex": "376e9bc7ae0f0e0287de62b19625357f80c2a98fb8d6e8abc16a218736640a9f",
     "manuscript/generated/routing_rows.tex": "c480f71a8771b41d917cf3c9ac41448afda2636170b336fc1524a6fcd9336d16",
     "manuscript/generated/winner_rows.tex": "9a00d9a6a3a7e2358dfaddfe081c70b81cc66eb5a61efe3195d915109f7a5976",
-    "manuscript/ncsim_paper.tex": "e0b877266ed5db0b0b6b144afa995ed1c12463ff4fd03c9afdc647e87ea3a136",
+    "manuscript/ncsim_paper.tex": "1e70056b8e4cb1d7052b5bef5327252821d8322d623e6c398417167b972102b5",
+    "ncsim_arxiv.pdf": "d28fd8e85104f6276ef9c565a09c791f7299b511535ddd31aeed8f402e27492b",
     "ns3/additional/asymmetric_overlap.cc": "439d27f6d5145768490b71a70a0f4654a28e4025b30cdb7c3f34d004d388f4fc",
     "ns3/additional/contention_scaling.cc": "570306809ed9cddeb0d71974ca37fbd62ca5a3e18f03655a606766972df8034e",
     "ns3/additional/dynamic_udp_validation.cc": "35991c633023a1a7a3600a26136a0e9f68edb11819a8b1ac897f5f1ba29e82b8",
@@ -44,8 +45,8 @@
     "provenance/recorded-simulator.zip": "11b2d719249d57a28328ffe29c929e953003594cdad750dab4ecf5d25a5e3438",
     "provenance/recorded-source.json": "c68da687c6f9fa21b6117ba623c340b4167a6e47ba5acec477668328009a89df",
     "provenance.json": "8a65fe4c1975fc6492595b37cf7fdd09ff7d6c7acf386b46951af705c0605f79",
-    "README.md": "dbd0960f8a305bb88e64a6e9c5d23550b7b4497fc0390f327ae1289c5198c6a9",
-    "reproduce.py": "a071656290f9d1eed551373a773f15a654abb898ccdb2051048b754a84a78fb2",
+    "README.md": "c3555bf4e04e982839796448f9afc897c6c15c6dd41465d8d07518e5b877c664",
+    "reproduce.py": "a5558a91f0a70e935d10c24ad4475b19a0c9ea38ef3a017ee0b72bcbcbcde04a",
     "requirements.txt": "3b47fcce8ec8b327dfe3b72291a7df19ec7dd06ba63002c3bf08ab8c134653e6",
     "results/evidence.json": "57cbc67440f7ae51c65366c7a8bb526878b54b4e602713e29edb7d0d163342ff",
     "results/packet/dynamic/dynamic_s40_seed1.csv": "840d6bf838572b87983f2073f68247b4852c746845940c887ccae29693b45bdc",
@@ -838,7 +839,7 @@
     "scripts/statistics_helpers.py": "12aafdaf61782d08156206305df9be5b01c7275944ba604e03b965d8513865d0",
     "scripts/study_workflows.py": "e20b2e030bfbd69b4f850f558eb0af568012105b82c986e79cad729027c10797",
     "scripts/workflow_core.py": "dc8f10bab009ffa631378ffc312074e9170d77b307431ac2e13165f2f82c86b0",
-    "tests/test_artifact.py": "eef5ea4194b0664b3c45a03818d196c1072ddd8d466595c960a7b32ff86120ff"
+    "tests/test_artifact.py": "4b179f72906c00c3b93d6e9a385a98725ac1983dbb5e47b27e06c5fb26f2fa36"
   },
   "repository_files": {
     "LICENSE": "8b805281a721821c66187a332c7a4df82bd3d3e34b085cfaa2b3e4214527b7af",

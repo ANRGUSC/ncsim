@@ -5,6 +5,10 @@ This directory preserves the former `paper/` tree from commit
 conference material. Its existing files are unchanged. It is not the current
 manuscript or the source for the current SEC submission.
 
+`legacy-docs-ncsim_paper.tex` preserves the additional old manuscript previously
+stored under `docs/`. The obsolete generated `site/` tree was removed from the
+branch; its contents remain in the starting commit's history.
+
 The current paper and curated study are in
 [`../artifacts/arxiv-2605.01094/`](../artifacts/arxiv-2605.01094/).
 Historical scripts here may assume the old `paper/` paths and older simulator;

@@ -10,6 +10,7 @@ the provenance records identify the recovered observation-producing source.
 
 ## Layout
 
+- `ncsim_arxiv.pdf`: current compiled manuscript.
 - `inputs/`: frozen topology/workload generators and packet settings.
 - `results/workflows.json`: 108 grid, 42 payload-sensitivity, and ten concurrent-workflow observations.
 - `results/packet/`: seed-level CSV observations, separated by measurement configuration.
@@ -114,6 +115,6 @@ bounded replay, not asserted from an identical source snapshot. Packet CSVs,
 workflow observations, scientific manuscript text, and supplied numeric tables
 are preserved. A smoke replay is not a full research-campaign reproduction.
 
-Artifact checks can be run with `python -m pytest
-artifacts/arxiv-2605.01094/tests` from the repository root (requires pytest).
+Run `python -m pytest artifacts/arxiv-2605.01094/tests` from the repository
+root for artifact checks (requires pytest).
 No public link or tag is claimed by this local package.

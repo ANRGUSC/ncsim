@@ -161,7 +161,7 @@ def main():
     if args.command == 'verify':
         return 0
     output = args.output.resolve()
-    protected = [HERE, REPO / 'ncsim', REPO / 'paper', REPO / 'experiments', REPO / 'tests', REPO / '.git']
+    protected = [HERE, REPO / 'ncsim', REPO / 'paper', REPO / 'arxiv-old', REPO / 'experiments', REPO / 'tests', REPO / '.git']
     if output == REPO or any(output.is_relative_to(p) or p.is_relative_to(output) for p in protected):
         parser.error('--output must be separate from source, saved data, and the repository root')
     output.mkdir(parents=True, exist_ok=True)
