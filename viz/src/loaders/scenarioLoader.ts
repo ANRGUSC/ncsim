@@ -35,6 +35,7 @@ export function parseScenario(yamlText: string): Scenario {
         to: l.to as string,
         bandwidth: l.bandwidth ?? 100,
         latency: l.latency ?? 0.001,
+        derive_bandwidth: l.bandwidth == null,
       })),
     },
     dags: dags.map((d: any) => ({

@@ -11,12 +11,15 @@ import shutil
 import sys
 from pathlib import Path
 
+import yaml
+
+from ncsim import __version__
 from ncsim.io.scenario_loader import load_scenario
 from ncsim.io.trace_writer import TraceWriter, TraceEventAdapter
 from ncsim.io.results_writer import write_results
 from ncsim.models.dag import SingleDAGSource, MultiDAGSource
 from ncsim.core.simulation import Simulation
-from ncsim.scheduler.saga_adapter import create_scheduler
+from ncsim.scheduler.saga_adapter import available_scheduler_names, create_scheduler
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -29,8 +32,20 @@ def setup_logging(verbose: bool = False) -> None:
     )
 
 
+def _scheduler_option(value: str) -> tuple[str, object]:
+    """Parse a KEY=VALUE scheduler option using YAML scalar types."""
+    key, separator, raw_value = value.partition("=")
+    if not separator or not key.strip():
+        raise argparse.ArgumentTypeError("scheduler options must use KEY=VALUE")
+    try:
+        parsed_value = yaml.safe_load(raw_value)
+    except yaml.YAMLError as exc:
+        raise argparse.ArgumentTypeError(f"invalid scheduler option value: {exc}") from exc
+    return key.strip(), parsed_value
+
+
 def _setup_wifi_model(scenario, parsed, seed, logger):
-    """Set up 802.11 WiFi link model (csma_clique or csma_bianchi).
+    """Set up a canonical 802.11 comparison mode.
 
     Builds RFConfig, conflict graph, computes PHY rates, overwrites
     link bandwidths, and creates the appropriate interference model.
@@ -40,11 +55,19 @@ def _setup_wifi_model(scenario, parsed, seed, logger):
     """
     from ncsim.models.wifi import (
         RFConfig, build_conflict_graph, compute_link_phy_rates,
-        generate_shadow_fading_map, carrier_sensing_range,
+        generate_shadow_fading_map, carrier_sensing_range, bianchi_efficiency,
     )
-    from ncsim.models.interference import create_interference_model
+    from ncsim.models.interference import (
+        canonicalize_wireless_mode, create_interference_model,
+    )
 
-    interference_type = parsed.interference if parsed.interference else scenario.config.interference
+    requested_type = (
+        parsed.interference if parsed.interference else scenario.config.interference
+    )
+    interference_type = canonicalize_wireless_mode(requested_type)
+    hidden_model = getattr(parsed, "hidden_terminal_model", "effective_rate")
+    if hidden_model != "effective_rate" and interference_type != "full_wireless":
+        raise ValueError("--hidden-terminal-model requires --interference full_wireless")
 
     # Build RFConfig from YAML rf: section + CLI overrides
     rf_yaml = scenario.config.rf_config or {}
@@ -58,6 +81,14 @@ def _setup_wifi_model(scenario, parsed, seed, logger):
         wifi_standard=parsed.wifi_standard if parsed.wifi_standard is not None else rf_yaml.get("wifi_standard", "ax"),
         shadow_fading_sigma=float(rf_yaml.get("shadow_fading_sigma", 0.0)),
         rts_cts=parsed.rts_cts if parsed.rts_cts else rf_yaml.get("rts_cts", False),
+        capture_margin_dB=(
+            parsed.capture_margin_db
+            if getattr(parsed, "capture_margin_db", None) is not None
+            else float(rf_yaml.get("capture_margin_dB", 5.0))
+        ),
+        interference_cutoff_dBm=float(
+            rf_yaml.get("interference_cutoff_dBm", -105.0)
+        ),
     )
 
     logger.info(f"RF config: tx_power={rf.tx_power_dBm}dBm, freq={rf.freq_ghz}GHz, "
@@ -76,6 +107,10 @@ def _setup_wifi_model(scenario, parsed, seed, logger):
 
     # Compute per-link PHY rates
     phy_rates = compute_link_phy_rates(scenario.network, rf, shadow_map)
+    # An explicit scenario bandwidth is the link's clean nominal rate. It must
+    # still receive the same MAC normalization in solo and full modes.
+    for link_id in scenario.explicit_bandwidth_links:
+        phy_rates[link_id] = scenario.network.links[link_id].bandwidth
 
     # Build conflict graph
     conflict_graph = build_conflict_graph(scenario.network, rf, shadow_map)
@@ -87,38 +122,56 @@ def _setup_wifi_model(scenario, parsed, seed, logger):
 
     # Overwrite link bandwidths with PHY-derived rates
     for link_id, link in scenario.network.links.items():
-        if link_id in scenario.explicit_bandwidth_links:
-            logger.debug(f"Link {link_id}: keeping explicit bandwidth {link.bandwidth:.2f} MB/s")
-            continue
-
         rate = phy_rates[link_id]
         if rate <= 0:
-            logger.warning(f"Link {link_id}: out of range (PHY rate = 0), using minimum 0.001 MB/s")
-            rate = 0.001
+            logger.warning(
+                f"Link {link_id}: out of range (PHY rate = 0); "
+                "a transfer on this link will be reported as a wireless outage"
+            )
 
-        if interference_type == "csma_clique":
+        if requested_type == "csma_clique":
             clique_size = conflict_graph.max_clique_sizes.get(link_id, 1)
             link.bandwidth = rate / clique_size
             logger.debug(f"Link {link_id}: PHY={rate:.2f} MB/s, "
                          f"clique={clique_size}, effective={link.bandwidth:.2f} MB/s")
-        else:  # csma_bianchi
+        elif interference_type in ("solo_80211", "full_wireless"):
+            link.bandwidth = (
+                rate * bianchi_efficiency(1, rate * 8, rts_cts=rf.rts_cts)
+                if rate > 0 else 0.0
+            )
+            logger.debug(
+                f"Link {link_id}: PHY={rate:.2f} MB/s, "
+                f"solo 802.11={link.bandwidth:.2f} MB/s"
+            )
+        else:
             link.bandwidth = rate
             logger.debug(f"Link {link_id}: base PHY={link.bandwidth:.2f} MB/s")
 
     # Create interference model
-    if interference_type == "csma_clique":
+    if requested_type == "csma_clique":
         interference_model = create_interference_model(
             "csma_clique",
             conflict_graph=conflict_graph,
         )
-    else:
+    elif interference_type == "full_wireless":
+        components = getattr(parsed, "wireless_components", "combined")
         interference_model = create_interference_model(
-            "csma_bianchi",
+            "full_wireless",
             conflict_graph=conflict_graph,
             rf_config=rf,
             network=scenario.network,
             shadow_fading_map=shadow_map,
+            contention_enabled=components != "hidden-only",
+            hidden_terminals_enabled=components != "contention-only",
+            outage_floor_factor=getattr(parsed, "outage_floor_factor", None),
+            base_rates=phy_rates,
+            hidden_terminal_model=hidden_model,
         )
+    else:
+        interference_model = create_interference_model(interference_type)
+        # The enabled scheduler can use the same structural conflict graph
+        # even when runtime degradation is disabled or MAC-normalized.
+        interference_model.conflict_graph = conflict_graph
 
     # Extra metrics for results output
     extra_metrics = {
@@ -132,12 +185,32 @@ def _setup_wifi_model(scenario, parsed, seed, logger):
             "wifi_standard": rf.wifi_standard,
             "shadow_fading_sigma": rf.shadow_fading_sigma,
             "rts_cts": rf.rts_cts,
+            "capture_margin_dB": rf.capture_margin_dB,
+            "interference_cutoff_dBm": rf.interference_cutoff_dBm,
         },
+        "wireless_mode_requested": requested_type,
+        "wireless_mode_canonical": interference_type,
+        "wireless_components": getattr(parsed, "wireless_components", "combined"),
+        "outage_policy": (
+            "diagnostic_floor"
+            if getattr(parsed, "outage_floor_factor", None) is not None
+            else "stall_until_active_set_changes"
+        ),
+        "outage_floor_factor": getattr(parsed, "outage_floor_factor", None),
         "carrier_sensing_range_m": round(cs_range, 2),
         "link_phy_rates_MBps": {k: round(v, 4) for k, v in phy_rates.items()},
+        "link_solo_80211_rates_MBps": {
+            k: round(v * bianchi_efficiency(1, v * 8, rts_cts=rf.rts_cts), 4)
+            if v > 0 else 0.0
+            for k, v in phy_rates.items()
+        },
         "max_clique_sizes": conflict_graph.max_clique_sizes,
     }
 
+    if hidden_model != "effective_rate":
+        extra_metrics["hidden_terminal_model"] = hidden_model
+        extra_metrics["hidden_terminal_model_version"] = 1
+        extra_metrics["hidden_terminal_model_scope"] = "fixed-MCS isolated hidden pairs; ax/20MHz; no RTS/CTS"
     return interference_model, extra_metrics
 
 
@@ -152,7 +225,10 @@ def main(args: list = None) -> int:
     """
     parser = argparse.ArgumentParser(
         prog="ncsim",
-        description="Headless Discrete Event Simulator for Networked Computing"
+        description=(
+            "Lightweight simulator for DAG scheduling over heterogeneous "
+            "networked systems"
+        )
     )
     parser.add_argument(
         "--scenario",
@@ -172,21 +248,35 @@ def main(args: list = None) -> int:
     )
     parser.add_argument(
         "--scheduler",
-        choices=["heft", "cpop", "round_robin", "manual"],
+        choices=available_scheduler_names(),
         default=None,
         help="Scheduling algorithm (overrides scenario config)"
     )
     parser.add_argument(
+        "--scheduler-option",
+        action="append",
+        type=_scheduler_option,
+        default=[],
+        metavar="KEY=VALUE",
+        help="Scheduler constructor option; repeat to set multiple options"
+    )
+    parser.add_argument(
         "--routing",
-        choices=["direct", "widest_path", "shortest_path"],
+        choices=["direct", "widest_path", "shortest_path", "minimum_hop"],
         default=None,
         help="Routing algorithm (overrides scenario config)"
     )
     parser.add_argument(
         "--interference",
-        choices=["none", "proximity", "csma_clique", "csma_bianchi"],
+        choices=[
+            "raw_phy", "solo_80211", "full_wireless",
+            "none", "csma_bianchi", "proximity", "csma_clique",
+        ],
         default=None,
-        help="Inter-link interference model (overrides scenario config)"
+        help=(
+            "Wireless comparison mode. 'none' aliases raw_phy and "
+            "'csma_bianchi' aliases full_wireless."
+        )
     )
     parser.add_argument(
         "--interference-radius",
@@ -226,6 +316,33 @@ def main(args: list = None) -> int:
         help="Enable RTS/CTS (extends conflict graph to protect receivers)"
     )
     parser.add_argument(
+        "--wireless-components",
+        choices=["combined", "contention-only", "hidden-only"],
+        default="combined",
+        help="Full-wireless ablation components (default: combined)"
+    )
+    parser.add_argument(
+        "--hidden-terminal-model",
+        choices=["effective_rate", "fixed_capture_overlap"],
+        default="effective_rate",
+        help="Hidden-node rule: unchanged effective_rate default, or experimental fixed-MCS isolated-pair overlap"
+    )
+    parser.add_argument(
+        "--capture-margin-db",
+        type=float,
+        default=None,
+        help="Effective-MCS decode margin in dB (default: 5)"
+    )
+    parser.add_argument(
+        "--outage-floor-factor",
+        type=float,
+        default=None,
+        help=(
+            "Diagnostic-only throughput factor for below-minimum SINR; "
+            "the default stalls zero-rate transfers and reports any modeled deadlock"
+        )
+    )
+    parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable verbose logging"
@@ -233,7 +350,7 @@ def main(args: list = None) -> int:
     parser.add_argument(
         "--version",
         action="version",
-        version="ncsim 1.0.0"
+        version=f"ncsim {__version__}"
     )
 
     parsed = parser.parse_args(args)
@@ -252,6 +369,10 @@ def main(args: list = None) -> int:
         # Override config if specified
         seed = parsed.seed if parsed.seed is not None else scenario.config.seed
         scheduler_algo = parsed.scheduler if parsed.scheduler else scenario.config.scheduler
+        scheduler_options = dict(scenario.config.scheduler_options)
+        if parsed.scheduler and parsed.scheduler != scenario.config.scheduler:
+            scheduler_options = {}
+        scheduler_options.update(dict(parsed.scheduler_option))
         routing_type = parsed.routing if parsed.routing else scenario.config.routing
 
         # Create routing model
@@ -262,16 +383,27 @@ def main(args: list = None) -> int:
         elif routing_type == "shortest_path":
             from ncsim.models.routing import ShortestPathRouting
             routing_model = ShortestPathRouting()
+        elif routing_type == "minimum_hop":
+            from ncsim.models.routing import MinimumHopRouting
+            routing_model = MinimumHopRouting()
         else:
             from ncsim.models.routing import DirectLinkRouting
             routing_model = DirectLinkRouting()
 
         # Create interference model
         interference_type = parsed.interference if parsed.interference else scenario.config.interference
+        from ncsim.models.interference import canonicalize_wireless_mode
+        canonical_interference_type = canonicalize_wireless_mode(interference_type)
+        if parsed.hidden_terminal_model != "effective_rate" and canonical_interference_type != "full_wireless":
+            raise ValueError("--hidden-terminal-model requires --interference full_wireless")
         interference_model = None
         extra_metrics = None
 
-        if interference_type in ("csma_clique", "csma_bianchi"):
+        if (
+            canonical_interference_type in
+            ("raw_phy", "solo_80211", "full_wireless")
+            or interference_type == "csma_clique"
+        ):
             # 802.11 WiFi model
             interference_model, extra_metrics = _setup_wifi_model(
                 scenario, parsed, seed, logger
@@ -288,11 +420,22 @@ def main(args: list = None) -> int:
             logger.info("Interference model: none")
 
         # Create scheduler (pass routing model for SAGA bandwidth awareness)
-        logger.info(f"Creating scheduler: {scheduler_algo}")
-        if routing_type in ("widest_path", "shortest_path"):
-            scheduler = create_scheduler(scheduler_algo, routing=routing_model)
+        logger.info(f"Creating scheduler: {scheduler_algo} (options={scheduler_options})")
+        if routing_type in ("widest_path", "shortest_path", "minimum_hop"):
+            scheduler = create_scheduler(
+                scheduler_algo,
+                routing=routing_model,
+                scheduler_options=scheduler_options,
+                conflict_graph=getattr(interference_model, "conflict_graph", None),
+                wireless_model=interference_model,
+            )
         else:
-            scheduler = create_scheduler(scheduler_algo)
+            scheduler = create_scheduler(
+                scheduler_algo,
+                scheduler_options=scheduler_options,
+                conflict_graph=getattr(interference_model, "conflict_graph", None),
+                wireless_model=interference_model,
+            )
 
         # Create DAG source
         if len(scenario.dags) == 1:
@@ -371,9 +514,13 @@ def main(args: list = None) -> int:
         print(f"\n=== Simulation Complete ===")
         print(f"Scenario: {scenario.name}")
         print(f"Scheduler: {scheduler_algo}")
+        if scheduler_options:
+            print(f"Scheduler options: {scheduler_options}")
         print(f"Routing: {routing_type}")
-        print(f"Interference: {interference_type}")
-        if interference_type in ("csma_clique", "csma_bianchi") and extra_metrics:
+        print(f"Interference: {canonical_interference_type}")
+        if interference_type != canonical_interference_type:
+            print(f"  requested alias: {interference_type}")
+        if extra_metrics:
             rf = extra_metrics["rf_config"]
             print(f"  WiFi: {rf['wifi_standard']} @ {rf['freq_ghz']}GHz, "
                   f"TX={rf['tx_power_dBm']}dBm, n={rf['path_loss_exponent']}")
@@ -387,7 +534,7 @@ def main(args: list = None) -> int:
         print(f"Total events: {result.total_events}")
         print(f"Status: {result.status}")
 
-        if result.status == "error":
+        if result.status != "completed":
             print(f"Error: {result.error_message}")
             return 1
 

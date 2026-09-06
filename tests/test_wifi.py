@@ -235,6 +235,22 @@ class TestCarrierSensingRange:
 # ─── Conflict Graph ──────────────────────────────────────────────
 
 class TestConflictGraph:
+    def test_shared_endpoint_and_reverse_links_conflict(self):
+        """A half-duplex radio cannot serve two directed links at once."""
+        net = _make_network(
+            [("n0", 0, 0), ("n1", 10000, 0), ("n2", 20000, 0)],
+            [
+                ("l01", "n0", "n1"),
+                ("l10", "n1", "n0"),
+                ("l12", "n1", "n2"),
+            ],
+        )
+        cg = build_conflict_graph(net, RFConfig())
+
+        assert cg.conflicts["l01"] == {"l10", "l12"}
+        assert "l01" in cg.conflicts["l10"]
+        assert "l01" in cg.conflicts["l12"]
+
     def test_nearby_links_conflict(self):
         """Two links 10m apart should conflict (CS range >> 10m)."""
         net = _make_network(

@@ -9,12 +9,13 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
 
 from ncsim.core.event_queue import EventQueue, Event, EventType, round_time
-from ncsim.core.execution_engine import ExecutionEngine
+from ncsim.core.execution_engine import ExecutionEngine, UnroutableTransferError
+from ncsim.models.task import TaskStatus
 from ncsim.core.telemetry import TelemetryCollector, TraceOnlyCollector
 from ncsim.models.network import Network
 from ncsim.models.dag import DAG, DAGSource, SingleDAGSource
 from ncsim.models.routing import RoutingModel
-from ncsim.models.interference import InterferenceModel
+from ncsim.models.interference import InterferenceModel, WirelessOutageError
 from ncsim.scheduler.base import Scheduler
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class SimulationResult:
     Attributes:
         makespan: Time of last task completion
         total_events: Number of events processed
-        status: "completed" or "error"
+        status: completed, unroutable, blocked_wireless, limit_reached, or error
         error_message: Error description if status is "error"
         node_utilization: Per-node utilization (0.0 to 1.0)
         link_utilization: Per-link utilization (0.0 to 1.0)
@@ -124,7 +125,8 @@ class Simulation:
         )
         logger.info(f"Scheduled DAG {dag.id} for injection at t={inject_at}")
 
-    def run(self, max_events: Optional[int] = None) -> SimulationResult:
+    def run(self, max_events: Optional[int] = None,
+            max_sim_time: Optional[float] = None) -> SimulationResult:
         """Run the simulation until completion.
 
         Args:
@@ -143,15 +145,24 @@ class Simulation:
                 self.inject_dag(dag, inject_time)
                 injection = self.dag_source.get_next_injection(inject_time + 0.000001)
 
-        # Process events
+        if max_events is not None and max_events < 0:
+            raise ValueError("max_events must be nonnegative")
+        if max_sim_time is not None and max_sim_time < 0:
+            raise ValueError("max_sim_time must be nonnegative")
+        limit_reached = False
         try:
             while not self.event_queue.is_empty():
-                if max_events and self._events_processed >= max_events:
+                if max_events is not None and self._events_processed >= max_events:
                     logger.warning(f"Reached max events limit: {max_events}")
+                    limit_reached = True
                     break
 
                 event = self.event_queue.pop()
                 if event is None:
+                    break
+                if max_sim_time is not None and event.sim_time > max_sim_time:
+                    self.engine.sim_time = max_sim_time
+                    limit_reached = True
                     break
 
                 self.engine.handle_event(event)
@@ -160,6 +171,26 @@ class Simulation:
             makespan = self.engine.get_makespan()
             status = "completed"
             error_message = None
+            if limit_reached:
+                status = "limit_reached"
+                error_message = "Execution stopped at the configured event/time limit"
+            elif any(task.status != TaskStatus.COMPLETED
+                     for task in self.engine.task_states.values()):
+                active = self.engine._get_active_link_ids()
+                status = "blocked_wireless" if active else "error"
+                error_message = ("Unfinished backlogged transfers with no future event"
+                                 if active else "Unfinished tasks with no future event")
+
+        except UnroutableTransferError as e:
+            makespan = self.engine.sim_time
+            status = "unroutable"
+            error_message = str(e)
+
+        except WirelessOutageError as e:
+            logger.warning(f"Simulation stopped by modeled wireless outage: {e}")
+            makespan = self.engine.sim_time
+            status = "blocked_wireless"
+            error_message = str(e)
 
         except Exception as e:
             logger.exception(f"Simulation error: {e}")

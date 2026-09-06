@@ -1,0 +1,35 @@
+scenario:
+  name: "Optional fixed-capture validation pair"
+  description: >
+    Two pinned 30 m links separated by 80 m. Select the optional mode with
+    --hidden-terminal-model fixed_capture_overlap. Without that flag this
+    scenario runs the unchanged full_wireless default.
+  network:
+    nodes:
+      - {id: t0, compute_capacity: 1, position: {x: 0, y: 0}}
+      - {id: r0, compute_capacity: 1, position: {x: 30, y: 0}}
+      - {id: t1, compute_capacity: 1, position: {x: 0, y: 80}}
+      - {id: r1, compute_capacity: 1, position: {x: 30, y: 80}}
+    links:
+      - {id: l0, from: t0, to: r0, latency: 0}
+      - {id: l1, from: t1, to: r1, latency: 0}
+  dags:
+    - id: pair
+      inject_at: 0
+      tasks:
+        - {id: a0, compute_cost: 0, pinned_to: t0}
+        - {id: b0, compute_cost: 0, pinned_to: r0}
+        - {id: a1, compute_cost: 0, pinned_to: t1}
+        - {id: b1, compute_cost: 0, pinned_to: r1}
+      edges:
+        - {from: a0, to: b0, data_size: 10}
+        - {from: a1, to: b1, data_size: 10}
+  config:
+    scheduler: round_robin
+    seed: 42
+    interference: full_wireless
+    rf:
+      wifi_standard: ax
+      channel_width_mhz: 20
+      shadow_fading_sigma: 0
+      rts_cts: false

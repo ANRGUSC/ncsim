@@ -20,6 +20,7 @@ interface Props {
   links: LinkDef[];
   rfParams?: RFParams;
   seed?: number;
+  deriveWirelessRates?: boolean;
   onPresetChange: (preset: TopologyPreset) => void;
   onParamsChange: (params: TopologyParams) => void;
   onNodesChange: (nodes: NodeDef[]) => void;
@@ -27,7 +28,7 @@ interface Props {
 }
 
 export function TopologySection({
-  preset, params, nodes, links, rfParams, seed,
+  preset, params, nodes, links, rfParams, seed, deriveWirelessRates = false,
   onPresetChange, onParamsChange, onNodesChange, onLinksChange,
 }: Props) {
   const handlePresetChange = (newPreset: TopologyPreset) => {
@@ -71,12 +72,22 @@ export function TopologySection({
     onNodesChange(nodes.filter((_, i) => i !== idx));
   };
 
-  const updateLink = (idx: number, field: keyof LinkDef, value: string | number) => {
+  const updateLink = (
+    idx: number,
+    field: Exclude<keyof LinkDef, 'derive_bandwidth'>,
+    value: string | number,
+  ) => {
     const updated = [...links];
     const link = { ...updated[idx] };
     if (field === 'bandwidth' || field === 'latency') link[field] = Number(value);
     else link[field] = String(value);
     updated[idx] = link;
+    onLinksChange(updated);
+  };
+
+  const updateBandwidthMode = (idx: number, deriveBandwidth: boolean) => {
+    const updated = [...links];
+    updated[idx] = { ...updated[idx], derive_bandwidth: deriveBandwidth };
     onLinksChange(updated);
   };
 
@@ -183,7 +194,7 @@ export function TopologySection({
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>ID</th><th>From</th><th>To</th><th>BW (MB/s)</th><th>Latency (s)</th><th></th>
+                  <th>ID</th><th>From</th><th>To</th><th>Rate source</th><th>BW (MB/s)</th><th>Latency (s)</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -192,7 +203,28 @@ export function TopologySection({
                     <td><input value={l.id} onChange={(e) => updateLink(i, 'id', e.target.value)} className="input-cell" /></td>
                     <td><input value={l.from} onChange={(e) => updateLink(i, 'from', e.target.value)} className="input-cell w-16" /></td>
                     <td><input value={l.to} onChange={(e) => updateLink(i, 'to', e.target.value)} className="input-cell w-16" /></td>
-                    <td><input type="number" value={l.bandwidth} onChange={(e) => updateLink(i, 'bandwidth', e.target.value)} className="input-cell" /></td>
+                    <td>
+                      <select
+                        value={l.derive_bandwidth ? 'auto' : 'fixed'}
+                        onChange={(e) => updateBandwidthMode(i, e.target.value === 'auto')}
+                        className="input-cell"
+                      >
+                        <option value="auto">
+                          {deriveWirelessRates ? 'Auto (RF)' : 'Auto (default)'}
+                        </option>
+                        <option value="fixed">Fixed</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={l.derive_bandwidth ? '' : l.bandwidth}
+                        placeholder={deriveWirelessRates ? 'RF-derived' : `Default ${l.bandwidth}`}
+                        disabled={l.derive_bandwidth}
+                        onChange={(e) => updateLink(i, 'bandwidth', e.target.value)}
+                        className="input-cell disabled:opacity-70"
+                      />
+                    </td>
                     <td><input type="number" step={0.001} value={l.latency} onChange={(e) => updateLink(i, 'latency', e.target.value)} className="input-cell" /></td>
                     <td><button onClick={() => removeLink(i)} className="text-red-400 hover:text-red-300 p-1"><Trash2 size={14} /></button></td>
                   </tr>

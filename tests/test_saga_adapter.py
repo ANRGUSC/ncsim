@@ -6,8 +6,17 @@ import pytest
 from ncsim.models.network import Node, Link, Network
 from ncsim.models.task import Task
 from ncsim.models.dag import DAG, Edge
+from ncsim.models.wifi import ConflictGraph
 from ncsim.scheduler.base import NetworkSnapshot, RoundRobinScheduler
-from ncsim.scheduler.saga_adapter import SagaScheduler, create_scheduler, SAGA_AVAILABLE
+from ncsim.scheduler.saga_adapter import (
+    SAGA_AVAILABLE,
+    SAGA_SCHEDULERS,
+    SagaScheduler,
+    ConflictAwareHeftScheduler,
+    available_scheduler_names,
+    create_scheduler,
+    scheduler_catalog,
+)
 
 
 @pytest.fixture
@@ -83,9 +92,22 @@ class TestSagaScheduler:
         scheduler = SagaScheduler(algorithm="cpop")
         assert scheduler.algorithm == "cpop"
 
-    def test_defaults_to_heft_for_unknown(self):
-        scheduler = SagaScheduler(algorithm="unknown")
-        assert scheduler.algorithm == "heft"
+    def test_rejects_unknown_scheduler(self):
+        with pytest.raises(ValueError, match="Unknown SAGA scheduler"):
+            SagaScheduler(algorithm="unknown")
+
+    def test_rejects_unknown_option(self):
+        with pytest.raises(ValueError, match="Unknown option"):
+            SagaScheduler(algorithm="heft", scheduler_options={"alpha": 0.5})
+
+    def test_accepts_scheduler_options(self):
+        scheduler = SagaScheduler(algorithm="wba", scheduler_options={"alpha": 0.75})
+        assert scheduler.scheduler_options == {"alpha": 0.75}
+
+    @pytest.mark.parametrize("options", ({"alpha": "high"}, {"alpha": -0.1}, {"alpha": 1.1}))
+    def test_rejects_invalid_scheduler_option_value(self, options):
+        with pytest.raises(ValueError, match="Option 'alpha'"):
+            SagaScheduler(algorithm="wba", scheduler_options=options)
 
     def test_schedules_simple_dag(self, simple_network, simple_dag):
         scheduler = SagaScheduler(algorithm="heft")
@@ -125,6 +147,42 @@ class TestSagaScheduler:
         assert "T0" in plan.assignments
         assert "T1" in plan.assignments
 
+    @pytest.mark.parametrize("algorithm", tuple(SAGA_SCHEDULERS))
+    def test_every_registered_scheduler_assigns_all_tasks(
+        self, algorithm, simple_network, simple_dag
+    ):
+        scheduler = SagaScheduler(algorithm=algorithm)
+        snapshot = NetworkSnapshot.from_network(simple_network)
+
+        plan = scheduler.on_dag_inject(simple_dag, snapshot)
+
+        assert set(plan.assignments) == set(simple_dag.tasks)
+        assert set(plan.assignments.values()).issubset(simple_network.nodes)
+
+
+class TestSchedulerRegistry:
+    def test_exposes_all_static_batch_schedulers(self):
+        expected = {
+            "bil", "brute_force", "cpop", "dps", "duplex", "etf",
+            "fastest_node", "fcp", "flb", "gdl", "hbmct", "heft",
+            "maxmin", "mct", "met", "minmin", "msbc", "mst", "olb",
+            "smt", "sufferage", "wba",
+        }
+        assert expected <= set(SAGA_SCHEDULERS) <= expected | {"peft"}
+        assert "hybrid" not in SAGA_SCHEDULERS
+        assert set(available_scheduler_names()) == set(SAGA_SCHEDULERS) | {
+            "round_robin", "manual", "conflict_aware_heft",
+            "uniform_discount_heft", "all_on_fastest"
+        }
+
+    def test_catalog_has_typed_options_and_defaults(self):
+        catalog = {entry["name"]: entry for entry in scheduler_catalog()}
+
+        assert catalog["heft"]["options"] == []
+        assert catalog["gdl"]["options"][0]["default"] == 2
+        assert catalog["wba"]["options"][0]["default"] == 0.5
+        assert catalog["smt"]["options"][0]["type"] == "number"
+
 
 class TestCreateScheduler:
     """Tests for create_scheduler factory function."""
@@ -144,6 +202,22 @@ class TestCreateScheduler:
         scheduler = create_scheduler("cpop")
         assert isinstance(scheduler, SagaScheduler)
         assert scheduler.algorithm == "cpop"
+
+    @pytest.mark.skipif(not SAGA_AVAILABLE, reason="SAGA not installed")
+    def test_conflict_aware_heft_records_structural_cost(self, simple_network, simple_dag):
+        graph = ConflictGraph(
+            conflicts={"l01": {"other"}},
+            max_clique_sizes={"l01": 2},
+        )
+        scheduler = create_scheduler(
+            "conflict_aware_heft", conflict_graph=graph
+        )
+        assert isinstance(scheduler, ConflictAwareHeftScheduler)
+        plan = scheduler.on_dag_inject(
+            simple_dag, NetworkSnapshot.from_network(simple_network)
+        )
+        assert plan.metadata["algorithm"] == "conflict_aware_heft"
+        assert plan.metadata["conflict_degrees"]["l01"] == 1
 
 
 class TestNetworkSnapshot:

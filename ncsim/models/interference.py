@@ -24,6 +24,33 @@ if TYPE_CHECKING:
     from ncsim.models.wifi import ConflictGraph, RFConfig
 
 
+WIRELESS_MODE_ALIASES = {
+    "none": "raw_phy",
+    "raw_phy": "raw_phy",
+    "solo_80211": "solo_80211",
+    "csma_bianchi": "full_wireless",
+    "full_wireless": "full_wireless",
+}
+
+
+def canonicalize_wireless_mode(model_type: str) -> str:
+    """Return the canonical name for a wireless comparison mode."""
+    return WIRELESS_MODE_ALIASES.get(model_type, model_type)
+
+
+class WirelessOutageError(RuntimeError):
+    """Raised when active interference makes a link undecodable."""
+
+    def __init__(self, link_id: str, sinr_dB: float, minimum_sinr_dB: float):
+        self.link_id = link_id
+        self.sinr_dB = sinr_dB
+        self.minimum_sinr_dB = minimum_sinr_dB
+        super().__init__(
+            f"link {link_id} is in wireless outage: SINR={sinr_dB:.3f} dB, "
+            f"minimum={minimum_sinr_dB:.3f} dB"
+        )
+
+
 class InterferenceModel(ABC):
     """Abstract base class for inter-link interference models."""
 
@@ -73,12 +100,38 @@ class InterferenceModel(ABC):
 class NoInterference(InterferenceModel):
     """No inter-link interference. Always returns factor 1.0."""
 
+    canonical_mode = "raw_phy"
+
     def get_interference_factor(
         self,
         link_id: str,
         active_link_ids: Set[str],
         network: "Network"
     ) -> float:
+        return 1.0
+
+    def get_affected_links(
+        self,
+        changed_link_id: str,
+        active_link_ids: Set[str],
+        network: "Network"
+    ) -> Set[str]:
+        return set()
+
+
+class Solo80211Interference(InterferenceModel):
+    """No concurrent-link degradation on a MAC-normalized link matrix."""
+
+    canonical_mode = "solo_80211"
+
+    def get_interference_factor(
+        self,
+        link_id: str,
+        active_link_ids: Set[str],
+        network: "Network"
+    ) -> float:
+        if link_id not in active_link_ids:
+            return 1.0
         return 1.0
 
     def get_affected_links(
@@ -186,28 +239,26 @@ class CsmaCliqueInterference(InterferenceModel):
         return set()
 
 
+
+
 class CsmaBianchiInterference(InterferenceModel):
-    """802.11 CSMA/CA interference: SINR-aware rate + Bianchi MAC efficiency.
+    """Local flow-level approximation of 802.11 wireless goodput.
 
-    Variant 2 (csma_bianchi, default WiFi model): dynamic model that
-    correctly separates two interference mechanisms:
+    The clean rate is selected from SNR. Active conflict-graph neighbors
+    reduce airtime through ``eta(n) / n``. Active non-conflicting transmitters
+    in the local interference neighborhood are combined in linear power, and
+    the resulting SINR selects an effective MCS no faster than the clean MCS.
+    The effective-MCS step approximates inter-frame rate adaptation for
+    sustained bulk transfers.
 
-    1. **Contention domain (conflict graph neighbors)**: CSMA prevents
-       simultaneous transmission. These links share airtime via Bianchi's
-       model. Each of n contending links gets eta(n)/n of the channel.
-       No SINR degradation from these links (they don't transmit together).
-
-    2. **Hidden terminals (active links NOT in conflict graph)**: These
-       may transmit simultaneously, causing SINR degradation at the
-       receiver. MCS is selected based on SINR including only hidden
-       terminal interference.
-
-    The factor is computed as:
-        factor = (sinr_rate / base_rate) * (eta(n) / n)
-
-    where sinr_rate accounts for hidden terminal interference only,
-    and eta(n)/n accounts for contention domain time-sharing.
+    Bianchi's saturated homogeneous-domain model is applied independently to
+    each local neighborhood. For an undirected conflict graph, shares bounded
+    by 1/(degree+1) are fractionally schedulable; overlap alone does not imply
+    infeasibility. Local estimates can nevertheless misestimate DCF throughput
+    and fairness, and the graph can omit physical interference constraints.
     """
+
+    canonical_mode = "full_wireless"
 
     def __init__(
         self,
@@ -215,17 +266,57 @@ class CsmaBianchiInterference(InterferenceModel):
         rf_config: "RFConfig",
         network: "Network",
         shadow_fading_map: Optional[Dict[Tuple[str, str], float]] = None,
+        contention_enabled: bool = True,
+        hidden_terminals_enabled: bool = True,
+        outage_floor_factor: Optional[float] = None,
+        base_rates: Optional[Dict[str, float]] = None,
     ):
         self.conflict_graph = conflict_graph
         self.rf = rf_config
         self.network_ref = network
         self.shadow_fading_map = shadow_fading_map or {}
+        self.contention_enabled = contention_enabled
+        self.hidden_terminals_enabled = hidden_terminals_enabled
+        if outage_floor_factor is not None and not (0.0 < outage_floor_factor <= 1.0):
+            raise ValueError("outage_floor_factor must be in (0, 1]")
+        self.outage_floor_factor = outage_floor_factor
 
-        # Cache base SNR-only PHY rates (what link.bandwidth is set to)
-        from ncsim.models.wifi import compute_link_phy_rates
-        self._base_rates = compute_link_phy_rates(
-            network, rf_config, shadow_fading_map
+        from ncsim.models.wifi import (
+            compute_link_phy_rates, euclidean_distance, received_power_dBm,
         )
+        self._base_rates = dict(base_rates) if base_rates is not None else (
+            compute_link_phy_rates(network, rf_config, self.shadow_fading_map)
+        )
+
+        # Directed dependency map used for local causal recalculation.
+        self._hidden_neighbors: Dict[str, Set[str]] = {
+            link_id: set() for link_id in network.links
+        }
+        for target_id, target in network.links.items():
+            target_rx = network.nodes[target.to_node]
+            conflicts = self.conflict_graph.conflicts.get(target_id, set())
+            for interferer_id, interferer in network.links.items():
+                if interferer_id == target_id or interferer_id in conflicts:
+                    continue
+                interferer_tx = network.nodes[interferer.from_node]
+                distance = euclidean_distance(
+                    interferer_tx.position, target_rx.position
+                )
+                fading = self.shadow_fading_map.get(
+                    (interferer.from_node, target.to_node), 0.0
+                )
+                power = received_power_dBm(
+                    self.rf.tx_power_dBm, distance, self.rf, fading
+                )
+                if power >= self.rf.interference_cutoff_dBm:
+                    self._hidden_neighbors[target_id].add(interferer_id)
+
+    def _outage_factor(
+        self, link_id: str, link_sinr: float, minimum_sinr: float
+    ) -> float:
+        if self.outage_floor_factor is not None:
+            return self.outage_floor_factor
+        return 0.0
 
     def get_interference_factor(
         self,
@@ -234,92 +325,84 @@ class CsmaBianchiInterference(InterferenceModel):
         network: "Network"
     ) -> float:
         from ncsim.models.wifi import (
-            euclidean_distance, received_power_dBm, sinr_dB,
-            bianchi_efficiency, capture_sinr_threshold,
+            MCS_TABLES, bianchi_efficiency, euclidean_distance,
+            received_power_dBm, sinr_dB, sinr_to_effective_rate_mbps,
         )
 
         if link_id not in active_link_ids:
             return 1.0
 
+        table = MCS_TABLES.get(self.rf.wifi_standard, MCS_TABLES["ax"])
+        minimum_sinr = table[0][0] - self.rf.capture_margin_dB
         base_rate = self._base_rates.get(link_id, 0.0)
-        if base_rate <= 0:
-            return 0.01  # Link not viable
+        if base_rate <= 0.0:
+            return self._outage_factor(link_id, float("-inf"), minimum_sinr)
 
         link = network.links[link_id]
-        rx_node = network.nodes[link.to_node]
-        tx_node = network.nodes[link.from_node]
-        conflict_neighbors = self.conflict_graph.conflicts.get(link_id, set())
+        receiver = network.nodes[link.to_node]
+        transmitter = network.nodes[link.from_node]
+        conflicts = self.conflict_graph.conflicts.get(link_id, set())
+        contending_active = active_link_ids & conflicts
+        hidden_active = active_link_ids & self._hidden_neighbors.get(link_id, set())
 
-        # Separate active links into contention domain vs hidden terminals
-        contending_active = active_link_ids & conflict_neighbors
-        hidden_active = (active_link_ids - conflict_neighbors) - {link_id}
-
-        # Hidden terminal interference: capture-threshold model
-        #
-        # 802.11 frames succeed or fail at their selected MCS — there is no
-        # "partial success" at a lower rate.  When hidden terminals are active,
-        # we compute the SINR and compare it to the decode threshold for the
-        # link's operating MCS.  If SINR >= threshold, the frame is captured
-        # (decoded successfully despite interference).  If SINR < threshold,
-        # the frame fails entirely.
-        #
-        # The simulation's event-driven execution handles temporal dynamics:
-        # this factor is recomputed whenever the set of active links changes,
-        # so the fraction of time with/without interference is modeled by the
-        # simulation itself.
-        #
-        # Refs: Daneshgaran et al. (2008) DOI:10.1109/tcomm.2008.060397
-        #       Zorzi & Rao (1994)        DOI:10.1109/49.329345
-        sinr_factor = 1.0
-        if hidden_active:
-            dist = euclidean_distance(tx_node.position, rx_node.position)
+        hidden_factor = 1.0
+        effective_rate = base_rate
+        if self.hidden_terminals_enabled and hidden_active:
+            distance = euclidean_distance(
+                transmitter.position, receiver.position
+            )
             fading = self.shadow_fading_map.get(
                 (link.from_node, link.to_node), 0.0
             )
             desired_power = received_power_dBm(
-                self.rf.tx_power_dBm, dist, self.rf, fading
+                self.rf.tx_power_dBm, distance, self.rf, fading
             )
-
             interference_powers = []
-            for interferer_id in hidden_active:
+            # Stable summation order prevents process-specific hash ordering
+            # from moving a borderline SINR across an MCS threshold.
+            for interferer_id in sorted(hidden_active):
                 interferer = network.links[interferer_id]
                 interferer_tx = network.nodes[interferer.from_node]
-                i_dist = euclidean_distance(
-                    interferer_tx.position, rx_node.position
+                interferer_distance = euclidean_distance(
+                    interferer_tx.position, receiver.position
                 )
-                i_fading = self.shadow_fading_map.get(
+                interferer_fading = self.shadow_fading_map.get(
                     (interferer.from_node, link.to_node), 0.0
                 )
-                i_power = received_power_dBm(
-                    self.rf.tx_power_dBm, i_dist, self.rf, i_fading
-                )
-                interference_powers.append(i_power)
+                interference_powers.append(received_power_dBm(
+                    self.rf.tx_power_dBm,
+                    interferer_distance,
+                    self.rf,
+                    interferer_fading,
+                ))
 
             link_sinr = sinr_dB(
                 desired_power, interference_powers, self.rf.noise_floor_dBm
             )
-
-            # Capture threshold: minimum SINR for successful decode at the
-            # link's operating MCS (selection threshold - capture margin)
-            base_rate_mbps = base_rate * 8.0  # MBps -> Mbps
-            ct = capture_sinr_threshold(
-                base_rate_mbps, self.rf.wifi_standard,
-                self.rf.channel_width_mhz,
+            effective_rate_mbps = sinr_to_effective_rate_mbps(
+                link_sinr,
+                wifi_standard=self.rf.wifi_standard,
+                channel_width_mhz=self.rf.channel_width_mhz,
+                capture_margin_dB=self.rf.capture_margin_dB,
             )
-
-            if link_sinr >= ct:
-                sinr_factor = 1.0   # Capture: frame decoded despite interference
+            effective_rate = min(base_rate, effective_rate_mbps / 8.0)
+            if effective_rate <= 0.0:
+                return self._outage_factor(
+                    link_id, link_sinr, minimum_sinr
+                )
             else:
-                sinr_factor = 0.01  # Frame failure: link effectively blocked
+                hidden_factor = effective_rate / base_rate
 
-        # Bianchi contention domain sharing
-        # n contending stations share the channel: each gets eta(n)/n
         n_contending = 1 + len(contending_active)
-        eta = bianchi_efficiency(n_contending)
-        contention_factor = eta / n_contending
-
-        factor = sinr_factor * contention_factor
-        return max(0.01, min(1.0, factor))
+        if not self.contention_enabled:
+            n_contending = 1
+        solo_goodput = base_rate * bianchi_efficiency(
+            1, base_rate * 8, rts_cts=self.rf.rts_cts
+        )
+        goodput = effective_rate * bianchi_efficiency(
+            n_contending, effective_rate * 8, rts_cts=self.rf.rts_cts
+        ) / n_contending
+        return goodput / solo_goodput
 
     def get_affected_links(
         self,
@@ -327,19 +410,25 @@ class CsmaBianchiInterference(InterferenceModel):
         active_link_ids: Set[str],
         network: "Network"
     ) -> Set[str]:
-        # All other active links need recalculation — both conflict-graph
-        # neighbors (Bianchi contention) and hidden terminals (SINR).
-        # Previously only conflict neighbors were returned, which meant
-        # hidden terminals never triggered recalculation of already-active
-        # transfers, producing asymmetric rates in symmetric topologies.
-        return active_link_ids - {changed_link_id}
+        affected: Set[str] = set()
+        for target_id in sorted(active_link_ids - {changed_link_id}):
+            conflicts = self.conflict_graph.conflicts.get(target_id, set())
+            hidden = self._hidden_neighbors.get(target_id, set())
+            if (
+                self.contention_enabled and changed_link_id in conflicts
+            ) or (
+                self.hidden_terminals_enabled and changed_link_id in hidden
+            ):
+                affected.add(target_id)
+        return affected
 
 
 def create_interference_model(model_type: str, **kwargs) -> InterferenceModel:
     """Factory function to create interference models.
 
     Args:
-        model_type: "none", "proximity", "csma_clique", or "csma_bianchi"
+        model_type: Canonical ``raw_phy``, ``solo_80211``, or
+            ``full_wireless`` mode, or a supported legacy model name.
         **kwargs: Model-specific parameters:
             - interference_radius: for "proximity"
             - conflict_graph: for "csma_clique" and "csma_bianchi"
@@ -353,8 +442,16 @@ def create_interference_model(model_type: str, **kwargs) -> InterferenceModel:
     Raises:
         ValueError: If model_type is unknown
     """
-    if model_type == "none":
+    canonical = canonicalize_wireless_mode(model_type)
+    hidden_model = kwargs.get("hidden_terminal_model", "effective_rate")
+    if hidden_model not in {"effective_rate", "fixed_capture_overlap"}:
+        raise ValueError(f"Unknown hidden-terminal model: {hidden_model}")
+    if hidden_model != "effective_rate" and canonical != "full_wireless":
+        raise ValueError("An optional hidden-terminal model requires full_wireless")
+    if canonical == "raw_phy":
         return NoInterference()
+    elif canonical == "solo_80211":
+        return Solo80211Interference()
     elif model_type == "proximity":
         radius = kwargs.get("interference_radius", 10.0)
         return ProximityInterference(interference_radius=radius)
@@ -362,12 +459,20 @@ def create_interference_model(model_type: str, **kwargs) -> InterferenceModel:
         return CsmaCliqueInterference(
             conflict_graph=kwargs["conflict_graph"],
         )
-    elif model_type == "csma_bianchi":
-        return CsmaBianchiInterference(
+    elif canonical == "full_wireless":
+        model_class = CsmaBianchiInterference
+        if hidden_model == "fixed_capture_overlap":
+            from ncsim.models.fixed_capture import FixedCaptureOverlapInterference
+            model_class = FixedCaptureOverlapInterference
+        return model_class(
             conflict_graph=kwargs["conflict_graph"],
             rf_config=kwargs["rf_config"],
             network=kwargs["network"],
             shadow_fading_map=kwargs.get("shadow_fading_map"),
+            contention_enabled=kwargs.get("contention_enabled", True),
+            hidden_terminals_enabled=kwargs.get("hidden_terminals_enabled", True),
+            outage_floor_factor=kwargs.get("outage_floor_factor"),
+            base_rates=kwargs.get("base_rates"),
         )
     else:
         raise ValueError(f"Unknown interference model: {model_type}")

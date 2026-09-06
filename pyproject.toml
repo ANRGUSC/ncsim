@@ -4,29 +4,50 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anrg-ncsim"
-version = "1.0.0"
-description = "Headless Discrete Event Simulator for Networked Computing Research"
+version = "1.1.0"
+description = "Lightweight simulator for DAG scheduling over heterogeneous networked systems with multi-hop routing and realistic Wi-Fi interference modeling"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "MIT"
 authors = [
-    {name = "Bhaskar Krishnamachari", email = "bkrishna@usc.edu"}
+    {name = "Bhaskar Krishnamachari", email = "bkrishna@usc.edu"},
+    {name = "Maya Gutierrez"},
 ]
-keywords = ["simulation", "discrete-event", "network", "dag", "scheduling"]
+keywords = [
+    "simulation",
+    "discrete-event",
+    "network",
+    "dag",
+    "scheduling",
+    "edge-computing",
+    "wireless",
+    "wifi",
+    "workflow",
+    "task-scheduling",
+    "csma",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
+    "Topic :: System :: Networking",
 ]
 dependencies = [
     "anrg-saga>=2.0.3",
     "networkx>=3.0",
     "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://anrgusc.github.io/ncsim/intro.html"
+Documentation = "https://anrgusc.github.io/ncsim/"
+Source = "https://github.com/ANRGUSC/ncsim"
+Issues = "https://github.com/ANRGUSC/ncsim/issues"
+Paper = "https://arxiv.org/abs/2605.01094"
 
 [project.optional-dependencies]
 dev = [
@@ -39,7 +60,7 @@ ncsim = "ncsim.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-exclude = ["tests*", "viz*", "scenarios*", "docs*", "experiments*"]
+include = ["ncsim", "ncsim.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

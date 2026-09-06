@@ -19,7 +19,69 @@ from ncsim.models.dag import DAG, Edge
 from ncsim.core.simulation import Simulation, run_simulation
 from ncsim.scheduler.base import RoundRobinScheduler
 from ncsim.models.routing import DirectLinkRouting
+from ncsim.models.interference import InterferenceModel, WirelessOutageError
 from ncsim.scheduler.saga_adapter import create_scheduler, SAGA_AVAILABLE
+
+
+class _AlwaysOutage(InterferenceModel):
+    def get_interference_factor(self, link_id, active_link_ids, network):
+        raise WirelessOutageError(link_id, -3.0, 0.0)
+
+    def get_affected_links(self, changed_link_id, active_link_ids, network):
+        return set()
+
+
+def test_wireless_outage_has_structured_result_status():
+    nodes = {
+        "n0": Node(id="n0", compute_capacity=100),
+        "n1": Node(id="n1", compute_capacity=100),
+    }
+    links = {
+        "l01": Link(
+            id="l01", from_node="n0", to_node="n1",
+            bandwidth=100, latency=0.0,
+        )
+    }
+    network = Network(nodes=nodes, links=links)
+    tasks = {
+        "T0": Task(
+            id="T0", compute_cost=1, dag_id="outage", pinned_to="n0"
+        ),
+        "T1": Task(
+            id="T1", compute_cost=1, dag_id="outage", pinned_to="n1"
+        ),
+    }
+    dag = DAG(
+        id="outage", tasks=tasks,
+        edges=[Edge(from_task="T0", to_task="T1", data_size=1)],
+    )
+    sim = Simulation(
+        network=network,
+        scheduler=RoundRobinScheduler(),
+        dag_source=SingleDAGSource(dag),
+        interference_model=_AlwaysOutage(),
+    )
+    result = sim.run()
+    assert result.status == "blocked_wireless"
+    assert "wireless outage" in result.error_message
+
+
+def test_unused_clean_zero_rate_does_not_abort_run():
+    """An unused RF-derived unavailable link does not invalidate a run."""
+    nodes = {
+        "n0": Node(id="n0", compute_capacity=100),
+        "n1": Node(id="n1", compute_capacity=100),
+    }
+    link = Link(
+        id="l01", from_node="n0", to_node="n1",
+        bandwidth=1.0, latency=0.0,
+    )
+    link.bandwidth = 0.0
+    network = Network(nodes=nodes, links={"l01": link})
+    result = Simulation(network, RoundRobinScheduler()).run()
+
+    assert result.status == "completed"
+    assert result.error_message is None
 
 
 class TestDeterminism:
@@ -311,5 +373,5 @@ class TestDirectRoutingUnreachable:
 
         result = sim.run()
 
-        assert result.status == "error"
+        assert result.status == "unroutable"
         assert "unreachable" in result.error_message.lower() or "no route" in result.error_message.lower()

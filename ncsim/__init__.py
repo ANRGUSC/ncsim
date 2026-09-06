@@ -1,11 +1,29 @@
-"""
-ncsim - Headless Discrete Event Simulator for Networked Computing Research
+"""Lightweight simulation of DAG scheduling over networked systems.
 
-This package provides a deterministic DES for simulating DAG execution
-on heterogeneous networked compute nodes.
+ncsim provides a deterministic discrete-event simulator for heterogeneous
+compute nodes, multi-hop networks, and realistic Wi-Fi interference.
 """
 
-__version__ = "1.0.0"
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+import tomllib
+
+
+try:
+    __version__ = version("anrg-ncsim")
+except PackageNotFoundError:
+    # A source checkout is expected to be installed (normally with
+    # ``pip install -e .``), but keep imports usable for tooling that reads the
+    # package before installation.
+    __version__ = "0+unknown"
+
+# Prefer the adjacent project metadata when importing directly from a source
+# checkout. This prevents a different globally installed ncsim release from
+# leaking its version into local experiments and tests.
+_source_pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+if _source_pyproject.is_file():
+    with _source_pyproject.open("rb") as _source_handle:
+        __version__ = tomllib.load(_source_handle)["project"]["version"]
 
 from ncsim.core.simulation import Simulation
 from ncsim.models.network import Node, Link, Network
@@ -21,4 +39,5 @@ __all__ = [
     "Edge",
     "Task",
     "load_scenario",
+    "__version__",
 ]

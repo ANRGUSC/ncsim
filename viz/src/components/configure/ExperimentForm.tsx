@@ -2,6 +2,11 @@ import { useState, useMemo, useEffect } from 'react';
 import { ArrowLeft, Play, Loader2, AlertCircle } from 'lucide-react';
 import yaml from 'js-yaml';
 import type { NodeDef, LinkDef, TaskDef, EdgeDef } from '../../types/scenario';
+import type {
+  SchedulerDefinition,
+  SchedulerOptionDefinition,
+  SchedulerOptionValue,
+} from '../../types/api';
 import { TopologySection } from './TopologySection';
 import { DagSection } from './DagSection';
 import { InterferenceSection } from './InterferenceSection';
@@ -43,10 +48,28 @@ const DEFAULT_RF: RFFormState = {
   rts_cts: false,
 };
 
+const FALLBACK_SCHEDULERS: SchedulerDefinition[] = [
+  { name: 'heft', label: 'HEFT', kind: 'saga', description: '', options: [] },
+  { name: 'cpop', label: 'CPOP', kind: 'saga', description: '', options: [] },
+  { name: 'round_robin', label: 'Round Robin', kind: 'builtin', description: '', options: [] },
+  { name: 'manual', label: 'Manual', kind: 'builtin', description: '', options: [] },
+];
+
+function toRfParams(rf: RFFormState): RFParams {
+  return {
+    tx_power_dBm: rf.tx_power_dBm,
+    freq_ghz: rf.freq_ghz,
+    path_loss_exponent: rf.path_loss_exponent,
+    noise_floor_dBm: rf.noise_floor_dBm,
+  };
+}
+
 export function ExperimentForm({ onBack, onLoadResults }: Props) {
   // Basic config
   const [name, setName] = useState('my-experiment');
   const [scheduler, setScheduler] = useState('heft');
+  const [schedulers, setSchedulers] = useState<SchedulerDefinition[]>(FALLBACK_SCHEDULERS);
+  const [schedulerOptions, setSchedulerOptions] = useState<Record<string, SchedulerOptionValue>>({});
   const [routing, setRouting] = useState('direct');
   const [seed, setSeed] = useState(42);
 
@@ -54,6 +77,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
   const [interference, setInterference] = useState('none');
   const [interferenceRadius, setInterferenceRadius] = useState(15);
   const [rf, setRf] = useState<RFFormState>(DEFAULT_RF);
+  const deriveWirelessRates = interference === 'csma_clique' || interference === 'csma_bianchi';
 
   // Topology
   const [topoPreset, setTopoPreset] = useState<TopologyPreset>('line');
@@ -70,21 +94,73 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
   const [edges, setEdges] = useState<EdgeDef[]>(initialDag.edges);
 
   // RF params subset for radio range calculation
-  const rfParams: RFParams = useMemo(() => ({
-    tx_power_dBm: rf.tx_power_dBm,
-    freq_ghz: rf.freq_ghz,
-    path_loss_exponent: rf.path_loss_exponent,
-    noise_floor_dBm: rf.noise_floor_dBm,
-  }), [rf.tx_power_dBm, rf.freq_ghz, rf.path_loss_exponent, rf.noise_floor_dBm]);
+  const rfParams = useMemo(() => toRfParams(rf), [rf]);
 
-  // Regenerate random topology when RF params or seed change
-  useEffect(() => {
+  const regenerateRandomTopology = (nextRfParams: RFParams, nextSeed: number) => {
     if (topoPreset === 'random') {
-      const { nodes: n, links: l } = generateTopology('random', topoParams, rfParams, seed);
+      const { nodes: n, links: l } = generateTopology(
+        'random', topoParams, nextRfParams, nextSeed,
+      );
       setNodes(n);
       setLinks(l);
     }
-  }, [rfParams, seed, topoPreset]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
+
+  const handleSeedChange = (nextSeed: number) => {
+    setSeed(nextSeed);
+    regenerateRandomTopology(rfParams, nextSeed);
+  };
+
+  const handleRfChange = (nextRf: RFFormState) => {
+    setRf(nextRf);
+    regenerateRandomTopology(toRfParams(nextRf), seed);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/schedulers')
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<SchedulerDefinition[]>;
+      })
+      .then((catalog) => {
+        if (!cancelled) setSchedulers(catalog);
+      })
+      .catch(() => {
+        // Keep the core fallback choices when the backend is not yet running.
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const selectedScheduler = useMemo(
+    () => schedulers.find((entry) => entry.name === scheduler),
+    [schedulers, scheduler],
+  );
+
+  const handleSchedulerChange = (name: string) => {
+    const definition = schedulers.find((entry) => entry.name === name);
+    setScheduler(name);
+    setSchedulerOptions(Object.fromEntries(
+      (definition?.options ?? []).map((option) => [option.name, option.default]),
+    ));
+  };
+
+  const updateSchedulerOption = (
+    option: SchedulerOptionDefinition,
+    rawValue: string,
+  ) => {
+    let value: SchedulerOptionValue = rawValue;
+    if (rawValue === '' && option.nullable) {
+      value = null;
+    } else if (option.type === 'integer') {
+      value = Number.parseInt(rawValue, 10);
+    } else if (option.type === 'number') {
+      value = Number.parseFloat(rawValue);
+    } else if (option.type === 'boolean') {
+      value = rawValue === 'true';
+    }
+    setSchedulerOptions((current) => ({ ...current, [option.name]: value }));
+  };
 
   // Run state
   const { run, running, error: runError } = useRunExperiment();
@@ -99,13 +175,18 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
           compute_capacity: n.compute_capacity,
           position: { x: n.position.x, y: n.position.y },
         })),
-        links: links.map((l) => ({
-          id: l.id,
-          from: l.from,
-          to: l.to,
-          bandwidth: l.bandwidth,
-          latency: l.latency,
-        })),
+        links: links.map((l) => {
+          const link: Record<string, unknown> = {
+            id: l.id,
+            from: l.from,
+            to: l.to,
+            latency: l.latency,
+          };
+          if (!l.derive_bandwidth || !deriveWirelessRates) {
+            link.bandwidth = l.bandwidth;
+          }
+          return link;
+        }),
       },
       dags: [
         {
@@ -125,6 +206,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
       ],
       config: {
         scheduler,
+        ...(selectedScheduler?.options.length && { scheduler_options: schedulerOptions }),
         seed,
         routing,
         ...(interference !== 'none' && { interference }),
@@ -146,7 +228,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
     };
 
     return yaml.dump({ scenario }, { lineWidth: 120, noRefs: true });
-  }, [name, nodes, links, tasks, edges, scheduler, seed, routing, interference, interferenceRadius, rf]);
+  }, [name, nodes, links, tasks, edges, scheduler, selectedScheduler, schedulerOptions, seed, routing, interference, interferenceRadius, rf, deriveWirelessRates]);
 
   const handleRun = async () => {
     const result = await run({ name, scenario_yaml: scenarioYaml });
@@ -189,11 +271,17 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-xs text-[var(--color-text-secondary)]">Scheduler</span>
-              <select value={scheduler} onChange={(e) => setScheduler(e.target.value)} className="input-field">
-                <option value="heft">HEFT</option>
-                <option value="cpop">CPOP</option>
-                <option value="round_robin">Round Robin</option>
-                <option value="manual">Manual</option>
+              <select value={scheduler} onChange={(e) => handleSchedulerChange(e.target.value)} className="input-field">
+                <optgroup label="SAGA static batch">
+                  {schedulers.filter((entry) => entry.kind === 'saga').map((entry) => (
+                    <option key={entry.name} value={entry.name}>{entry.label}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Built in">
+                  {schedulers.filter((entry) => entry.kind === 'builtin').map((entry) => (
+                    <option key={entry.name} value={entry.name}>{entry.label}</option>
+                  ))}
+                </optgroup>
               </select>
             </label>
             <label className="flex flex-col gap-1">
@@ -208,11 +296,57 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
               <span className="text-xs text-[var(--color-text-secondary)]">Seed</span>
               <input
                 type="number" value={seed}
-                onChange={(e) => setSeed(Number(e.target.value))}
+                onChange={(e) => handleSeedChange(Number(e.target.value))}
                 className="input-field"
               />
             </label>
           </div>
+          {selectedScheduler && selectedScheduler.options.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
+              <h4 className="text-sm font-medium mb-3">{selectedScheduler.label} options</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {selectedScheduler.options.map((option) => (
+                  <label key={option.name} className="flex flex-col gap-1">
+                    <span className="text-xs text-[var(--color-text-secondary)]" title={option.description}>
+                      {option.label}
+                    </span>
+                    {option.choices.length > 0 ? (
+                      <select
+                        value={String(schedulerOptions[option.name] ?? option.default ?? '')}
+                        onChange={(event) => updateSchedulerOption(option, event.target.value)}
+                        className="input-field"
+                      >
+                        {option.choices.map((choice) => (
+                          <option key={String(choice)} value={String(choice)}>{String(choice)}</option>
+                        ))}
+                      </select>
+                    ) : option.type === 'boolean' ? (
+                      <select
+                        value={String(schedulerOptions[option.name] ?? option.default)}
+                        onChange={(event) => updateSchedulerOption(option, event.target.value)}
+                        className="input-field"
+                      >
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                      </select>
+                    ) : (
+                      <input
+                        type={option.type === 'string' ? 'text' : 'number'}
+                        step={option.type === 'integer' ? 1 : 'any'}
+                        min={option.minimum ?? undefined}
+                        max={option.maximum ?? undefined}
+                        value={String(schedulerOptions[option.name] ?? option.default ?? '')}
+                        placeholder={option.nullable ? 'Default' : undefined}
+                        onChange={(event) => updateSchedulerOption(option, event.target.value)}
+                        className="input-field"
+                        title={option.description}
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           {scheduler === 'manual' && (
             <p className="text-xs text-[var(--color-text-secondary)] mt-2 italic">
               Assign each task to a node using the "Pinned To" column in the DAG Structure section below.
@@ -226,7 +360,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
           rf={rf}
           onInterferenceChange={setInterference}
           onRadiusChange={setInterferenceRadius}
-          onRfChange={setRf}
+          onRfChange={handleRfChange}
         />
 
         <TopologySection
@@ -236,6 +370,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
           links={links}
           rfParams={rfParams}
           seed={seed}
+          deriveWirelessRates={deriveWirelessRates}
           onPresetChange={setTopoPreset}
           onParamsChange={setTopoParams}
           onNodesChange={setNodes}
@@ -279,7 +414,7 @@ export function ExperimentForm({ onBack, onLoadResults }: Props) {
           )}
 
           <p className="text-xs text-[var(--color-text-secondary)]">
-            Requires ncsim-viz backend running on port 8000
+            Results are saved under viz/public/sample-runs
           </p>
         </div>
       </div>

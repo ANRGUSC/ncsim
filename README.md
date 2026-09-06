@@ -2,21 +2,52 @@
 
 [![PyPI](https://img.shields.io/pypi/v/anrg-ncsim)](https://pypi.org/project/anrg-ncsim/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19138224.svg)](https://doi.org/10.5281/zenodo.19138224)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ANRGUSC/ncsim?quickstart=1)
 
-**Networked Compute Simulator** — a headless discrete-event simulator for evaluating task scheduling algorithms on heterogeneous networked systems.
+[Why ncsim?](https://anrgusc.github.io/ncsim/intro.html) · [Documentation](https://anrgusc.github.io/ncsim/) · [Codespaces](https://codespaces.new/ANRGUSC/ncsim?quickstart=1) · [Paper](https://arxiv.org/abs/2605.01094) · [Software DOI](https://doi.org/10.5281/zenodo.19138224)
+
+> **Codespaces:** The web UI should open automatically. If it does not, type `start-viz` in the terminal, then open port **5173** from the **Ports** tab. Port 8000 is the internal API and is not the UI.
+
+**ncsim** is a lightweight simulator for DAG scheduling over heterogeneous networked systems with multi-hop routing and realistic Wi-Fi interference modeling.
 
 ncsim models compute nodes, network links with WiFi interference, and DAG task graphs. It produces detailed JSONL traces and JSON metrics for analysis.
 
 ## Features
 
+Current manuscript sources and curated results are on the `paper` branch in
+[`artifacts/arxiv-2605.01094/`](https://github.com/ANRGUSC/ncsim/tree/paper/artifacts/arxiv-2605.01094).
+The earlier manuscript tree is archived separately as
+[`arxiv-old/`](https://github.com/ANRGUSC/ncsim/tree/paper/arxiv-old).
+See [wireless modes and fixed capture](docs/concepts/wireless-modes.md) for
+the optional model's scope and regression commands.
+
 - **Deterministic simulation**: Same inputs + same seed = identical results
-- **HEFT/CPOP/Manual scheduling**: Integrated with [anrg-saga](https://github.com/ANRGUSC/saga) schedulers, plus manual assignment via `pinned_to`
+- **22+ SAGA static batch schedulers**: HEFT, CPOP, Min-Min, Sufferage, and more; PEFT is added automatically with SAGA 2.1.0, alongside built-in round-robin and manual assignment
 - **Multi-hop routing**: Direct, widest-path (max-min bandwidth), and shortest-path (min-latency)
 - **802.11 WiFi PHY/MAC**: Log-distance path loss, SNR-based MCS rate adaptation (802.11n/ac/ax)
 - **Interference models**: Proximity, CSMA/CA clique-based, and CSMA/CA Bianchi (capture-aware)
 - **Fair bandwidth sharing** when multiple transfers share a link
 - **Experiment scripts** for interference verification and routing comparison
-- **Documentation**: [installation guide](docs/installation.html), [user guide](docs/userguide.html), [architecture overview](docs/architecture.html), and [WiFi interference model](docs/wifi_interference_model.pdf)
+- **Documentation**: [installation guide](https://anrgusc.github.io/ncsim/getting-started/installation/), [quick start](https://anrgusc.github.io/ncsim/getting-started/quickstart/), [architecture overview](https://anrgusc.github.io/ncsim/concepts/architecture/), and [Wi-Fi interference model](docs/wifi_interference_model.pdf)
+
+## Try in GitHub Codespaces
+
+[Open ncsim in GitHub Codespaces](https://codespaces.new/ANRGUSC/ncsim?quickstart=1) for a ready-to-use environment with **both the web UI and CLI**. The UI starts automatically on port 5173, while the `ncsim` CLI is ready in the terminal. A demo simulation is also run during setup; inspect its raw `scenario.yaml`, `trace.jsonl`, and `metrics.json` files under `results/codespaces-demo/`.
+
+Rerun the demo and analyze its trace from the terminal:
+
+```bash
+ncsim --scenario scenarios/demo_simple.yaml --output results/codespaces-demo
+python analyze_trace.py results/codespaces-demo/trace.jsonl --gantt --timeline --tasks
+```
+
+If the UI does not open automatically, start or restart it with:
+
+```bash
+start-viz
+```
+
+Then select the **Ports** tab at the bottom of Codespaces, hover over port 5173, and select the globe (**Open in Browser**).
 
 ## Installation
 
@@ -33,7 +64,11 @@ pip install -e ".[dev]"
 
 Alternatively, `pip install anrg-ncsim` installs just the core simulator and `ncsim` CLI. This is suitable if you want to use ncsim as a library in your own project and will write your own scenario YAML files. It does not include the example scenarios, experiment scripts, visualization UI, or documentation.
 
-Requires Python 3.10+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.0.3.
+Requires Python 3.12+ and [anrg-saga](https://github.com/ANRGUSC/saga) >= 2.0.4. The PyPI release of SAGA provides 22 directly compatible schedulers. To add PEFT as the 23rd scheduler, install SAGA 2.1.0 from its tagged source:
+
+```bash
+python -m pip install "anrg-saga @ git+https://github.com/ANRGUSC/saga.git@v2.1.0"
+```
 
 ## Quick Start
 
@@ -53,7 +88,9 @@ ncsim --scenario PATH --output DIR [options]
 
 Options:
   --seed N              Random seed (default: from scenario or 42)
-  --scheduler ALGO      heft | cpop | round_robin | manual
+  --scheduler ALGO      SAGA scheduler, round_robin, or manual
+  --scheduler-option K=V
+                        Scheduler constructor option (repeatable)
   --routing ROUTING     direct | widest_path | shortest_path
   --interference MODEL  none | proximity | csma_clique | csma_bianchi
   --verbose             Enable verbose logging
@@ -61,7 +98,8 @@ Options:
 WiFi / RF options (for csma_clique or csma_bianchi):
   --tx-power DBM        Transmit power in dBm (default: 20)
   --freq GHZ            Carrier frequency in GHz (default: 5.0)
-  --path-loss-exp N     Path loss exponent (default: 3.0)
+  --path-loss-exponent N
+                        Path loss exponent (default: 3.0)
   --wifi-standard STD   n | ac | ax (default: ax)
   --rts-cts             Enable RTS/CTS
 ```
@@ -86,15 +124,24 @@ scenario:
       edges:
         - {from: T0, to: T1, data_size: 50}
   config:
-    scheduler: heft
+    scheduler: wba
+    scheduler_options:
+      alpha: 0.75
     seed: 42
 ```
 
 Tasks can include `pinned_to: node_id` for use with `--scheduler manual`.
+Run `ncsim --help` for the scheduler list provided by the installed SAGA version. SAGA scheduler options
+currently available are `fcp.priority_queue_size`, `gdl.dynamic_level`,
+`smt.epsilon`, `smt.solver_name`, and `wba.alpha`; all have SAGA defaults.
 
 See [scenarios/](scenarios/) for more examples including WiFi interference, multi-hop routing, and parallel spread topologies.
 
 ## Experiment Scripts
+
+The paper-specific scenarios, recorded results, and reproduction instructions
+for the IEEE MILCOM 2026 study are in
+[`experiments/milcom26/`](experiments/milcom26/).
 
 Two standalone scripts for running structured experiments:
 
@@ -119,11 +166,11 @@ python analyze_trace.py results/trace.jsonl --gantt --timeline --tasks
 python -m pytest tests/ -v
 ```
 
-178 tests covering event queue, execution engine, scheduling, routing, WiFi physics, and acceptance criteria.
+An extensive unit and integration suite covers the event queue, execution engine, scheduling, routing, Wi-Fi physics, visualization API, and acceptance criteria.
 
 ## Architecture
 
-For a detailed interactive overview, see [docs/architecture.html](https://htmlpreview.github.io/?https://github.com/ANRGUSC/ncsim/blob/main/docs/architecture.html).
+For a detailed overview, see [the architecture documentation](https://anrgusc.github.io/ncsim/concepts/architecture/).
 
 ```
 ncsim/                  # Python package
@@ -140,19 +187,15 @@ ncsim/                  # Python package
 │   └── wifi.py         # 802.11 PHY/MAC
 ├── scheduler/
 │   ├── base.py         # Scheduler interface
-│   └── saga_adapter.py # SAGA HEFT/CPOP integration
+│   └── saga_adapter.py # SAGA static batch scheduler registry and adapter
 └── io/
     ├── scenario_loader.py
     ├── trace_writer.py
     └── results_writer.py
 
-scenarios/              # Example scenario YAML files (10 examples)
-tests/                  # Unit and integration tests (8 test modules)
-docs/                   # Documentation
-├── architecture.html   # Interactive architecture overview
-├── installation.html   # Installation guide
-├── userguide.html      # User guide with screenshots
-└── wifi_interference_model.pdf  # WiFi model writeup
+scenarios/              # Example scenario YAML files
+tests/                  # Unit and integration test suite
+docs/                   # MkDocs documentation source
 ```
 
 ---
@@ -225,24 +268,42 @@ viz/                    # Web visualization (React + FastAPI)
 
 ---
 
-## Citation
+## Cite ncsim
 
-If you use ncsim in your research, please cite it:
+If you use ncsim in your research, please cite the paper and the software release:
 
 ```bibtex
-@software{krishnamachari2026ncsim,
-  author    = {Krishnamachari, Bhaskar},
-  title     = {ncsim: Headless Discrete Event Simulator for Networked Computing Research},
-  version   = {1.0.0},
+@article{krishnamachari2026ncsimpaper,
+  author  = {Krishnamachari, Bhaskar and Gutierrez, Maya and Coleman, Jared},
+  title   = {ncsim: A Lightweight Simulator for Networked Edge Computing with Wireless Interference Modeling},
+  year    = {2026},
+  url     = {https://arxiv.org/abs/2605.01094},
+  note    = {arXiv:2605.01094}
+}
+
+@software{krishnamachari2026ncsimsoftware,
+  author    = {Krishnamachari, Bhaskar and Gutierrez, Maya},
+  title     = {ncsim: A Lightweight Simulator for Networked Edge Computing with Wireless Interference Modeling},
+  version   = {1.1.0},
   year      = {2026},
   url       = {https://github.com/ANRGUSC/ncsim},
   doi       = {10.5281/zenodo.19138224}
 }
 ```
 
+## Acknowledgements
+
+This work was supported in part by Army Research Laboratory under Cooperative Agreement W911NF-17-2-0196.
+
 ## License
 
 [MIT](LICENSE)
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, validation, and
+pull request guidance. Release history is recorded in
+[CHANGELOG.md](CHANGELOG.md).
+
 ## Contributors
-**Bhaskar Krishnamachari, Maya Gutierrez**  — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California
+**Bhaskar Krishnamachari, Maya Gutierrez** — [Autonomous Networks Research Group (ANRG)](https://anrg.usc.edu/), University of Southern California

@@ -10,6 +10,41 @@ export interface SimulationData {
   metrics: MetricsData;
 }
 
+function applyDerivedLinkRates(scenario: Scenario, metrics: MetricsData): Scenario {
+  const phyRates = metrics.link_phy_rates_MBps;
+  if (!phyRates) return scenario;
+
+  const useCliqueRate = scenario.config.interference === 'csma_clique';
+  return {
+    ...scenario,
+    network: {
+      ...scenario.network,
+      links: scenario.network.links.map((link) => {
+        const phyRate = phyRates[link.id];
+        if (!link.derive_bandwidth || phyRate === undefined) return link;
+
+        const cliqueSize = useCliqueRate
+          ? metrics.max_clique_sizes?.[link.id] ?? 1
+          : 1;
+        return {
+          ...link,
+          bandwidth: Math.round((phyRate / cliqueSize) * 10_000) / 10_000,
+        };
+      }),
+    },
+  };
+}
+
+function parseSimulationData(
+  scenarioText: string,
+  traceText: string,
+  metricsText: string,
+): SimulationData {
+  const metrics = parseMetrics(metricsText);
+  const scenario = applyDerivedLinkRates(parseScenario(scenarioText), metrics);
+  return { scenario, trace: parseTrace(traceText), metrics };
+}
+
 export function useSimulation() {
   const [data, setData] = useState<SimulationData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,11 +76,7 @@ export function useSimulation() {
       if (!traceText) throw new Error('Missing trace file (.jsonl)');
       if (!metricsText) throw new Error('Missing metrics file (.json)');
 
-      const scenario = parseScenario(scenarioText);
-      const trace = parseTrace(traceText);
-      const metrics = parseMetrics(metricsText);
-
-      setData({ scenario, trace, metrics });
+      setData(parseSimulationData(scenarioText, traceText, metricsText));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error loading files');
     } finally {
@@ -58,10 +89,7 @@ export function useSimulation() {
       setLoading(true);
       setError(null);
       try {
-        const scenario = parseScenario(scenarioText);
-        const trace = parseTrace(traceText);
-        const metrics = parseMetrics(metricsText);
-        setData({ scenario, trace, metrics });
+        setData(parseSimulationData(scenarioText, traceText, metricsText));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Unknown error parsing data');
       } finally {

@@ -1,0 +1,128 @@
+site_name: ncsim Documentation
+site_description: DAG scheduling over heterogeneous networked systems with realistic Wi-Fi interference
+site_url: https://anrgusc.github.io/ncsim/
+repo_url: https://github.com/ANRGUSC/ncsim
+repo_name: ANRGUSC/ncsim
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - glightbox
+  - print-site:
+      add_to_navigation: true
+      print_page_title: "Full Documentation (Printable)"
+      add_print_site_banner: false
+      add_table_of_contents: true
+      toc_title: "Table of Contents"
+      toc_depth: 3
+      enumerate_headings: false
+      enumerate_figures: false
+      add_cover_page: true
+      cover_page_template: ""
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.mark
+  - pymdownx.keys
+  - attr_list
+  - md_in_html
+  - tables
+  - def_list
+  - footnotes
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ANRGUSC/ncsim
+
+copyright: Copyright &copy; 2026 Autonomous Networks Research Group (ANRG), University of Southern California
+
+nav:
+  - Home: index.md
+  - Why ncsim?: intro.html
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+  - Core Concepts:
+    - Architecture: concepts/architecture.md
+    - Simulation Model: concepts/simulation-model.md
+    - Scheduling: concepts/scheduling.md
+    - Routing: concepts/routing.md
+    - Interference: concepts/interference.md
+    - WiFi Model: concepts/wifi-model.md
+    - Wireless Modes and Fixed Capture: concepts/wireless-modes.md
+  - Scenarios:
+    - YAML Reference: scenarios/yaml-reference.md
+    - Scenario Gallery: scenarios/scenario-gallery.md
+    - Writing Scenarios: scenarios/writing-scenarios.md
+  - CLI Usage:
+    - CLI Reference: cli/cli-reference.md
+    - Output Files: cli/output-files.md
+    - Batch Experiments: cli/batch-experiments.md
+    - Trace Analysis: cli/trace-analysis.md
+  - Visualization:
+    - Overview: viz/viz-overview.md
+    - Setup: viz/setup.md
+    - Configure & Run: viz/configure-run.md
+    - Visualization Tabs: viz/visualization-tabs.md
+    - Keyboard Shortcuts: viz/keyboard-shortcuts.md
+  - Experiments:
+    - Interference Verification: experiments/interference-verification.md
+    - Routing Comparison: experiments/routing-comparison.md
+    - Custom Experiments: experiments/custom-experiments.md
+  - Tutorials:
+    - "Tutorial 1: First Simulation": tutorials/tutorial-1-first-sim.md
+    - "Tutorial 2: Custom Scenario": tutorials/tutorial-2-custom-scenario.md
+    - "Tutorial 3: WiFi Experiment": tutorials/tutorial-3-wifi-experiment.md
+    - "Tutorial 4: Compare Schedulers": tutorials/tutorial-4-compare-schedulers.md
+    - "Tutorial 5: Viz Walkthrough": tutorials/tutorial-5-viz-walkthrough.md
+  - Reference:
+    - FAQ: reference/faq.md
+    - Troubleshooting: reference/troubleshooting.md
+    - Glossary: reference/glossary.md
