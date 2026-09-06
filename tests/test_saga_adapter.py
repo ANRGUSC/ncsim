@@ -6,11 +6,13 @@ import pytest
 from ncsim.models.network import Node, Link, Network
 from ncsim.models.task import Task
 from ncsim.models.dag import DAG, Edge
+from ncsim.models.wifi import ConflictGraph
 from ncsim.scheduler.base import NetworkSnapshot, RoundRobinScheduler
 from ncsim.scheduler.saga_adapter import (
     SAGA_AVAILABLE,
     SAGA_SCHEDULERS,
     SagaScheduler,
+    ConflictAwareHeftScheduler,
     available_scheduler_names,
     create_scheduler,
     scheduler_catalog,
@@ -169,7 +171,8 @@ class TestSchedulerRegistry:
         assert expected <= set(SAGA_SCHEDULERS) <= expected | {"peft"}
         assert "hybrid" not in SAGA_SCHEDULERS
         assert set(available_scheduler_names()) == set(SAGA_SCHEDULERS) | {
-            "round_robin", "manual"
+            "round_robin", "manual", "conflict_aware_heft",
+            "uniform_discount_heft", "all_on_fastest"
         }
 
     def test_catalog_has_typed_options_and_defaults(self):
@@ -199,6 +202,22 @@ class TestCreateScheduler:
         scheduler = create_scheduler("cpop")
         assert isinstance(scheduler, SagaScheduler)
         assert scheduler.algorithm == "cpop"
+
+    @pytest.mark.skipif(not SAGA_AVAILABLE, reason="SAGA not installed")
+    def test_conflict_aware_heft_records_structural_cost(self, simple_network, simple_dag):
+        graph = ConflictGraph(
+            conflicts={"l01": {"other"}},
+            max_clique_sizes={"l01": 2},
+        )
+        scheduler = create_scheduler(
+            "conflict_aware_heft", conflict_graph=graph
+        )
+        assert isinstance(scheduler, ConflictAwareHeftScheduler)
+        plan = scheduler.on_dag_inject(
+            simple_dag, NetworkSnapshot.from_network(simple_network)
+        )
+        assert plan.metadata["algorithm"] == "conflict_aware_heft"
+        assert plan.metadata["conflict_degrees"]["l01"] == 1
 
 
 class TestNetworkSnapshot:

@@ -1,7 +1,7 @@
 """SAGA static batch scheduler adapter and registry."""
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from ncsim.scheduler.base import Scheduler, PlacementPlan, NetworkSnapshot
@@ -172,7 +172,8 @@ def _build_saga_registry() -> Dict[str, SchedulerRegistration]:
 
 
 SAGA_SCHEDULERS = _build_saga_registry()
-BUILTIN_SCHEDULERS = ("round_robin", "manual")
+BUILTIN_SCHEDULERS = ("round_robin", "manual", "conflict_aware_heft",
+                      "uniform_discount_heft", "all_on_fastest")
 
 
 def available_scheduler_names() -> tuple[str, ...]:
@@ -191,7 +192,22 @@ def scheduler_catalog() -> list[Dict[str, Any]]:
             "name": "manual", "label": "Manual", "kind": "builtin",
             "description": "Uses each task's pinned_to assignment.", "options": [],
         },
+        {
+            "name": "conflict_aware_heft", "label": "Conflict-aware HEFT",
+            "kind": "builtin",
+            "description": (
+                "HEFT with static route rates reduced by structural "
+                "conflict-neighborhood airtime."
+            ),
+            "options": [],
+        },
     ]
+    builtins.extend([
+        {"name": "uniform_discount_heft", "label": "Uniform-discount HEFT",
+         "kind": "builtin", "description": "HEFT with one static network-wide discount.", "options": []},
+        {"name": "all_on_fastest", "label": "All on fastest node",
+         "kind": "builtin", "description": "Colocate tasks on the fastest compute node.", "options": []},
+    ])
     return [registration.as_dict() for registration in SAGA_SCHEDULERS.values()] + builtins
 
 
@@ -297,6 +313,8 @@ class SagaScheduler(Scheduler):
         """
         # Build SAGA network model
         saga_network = self._build_saga_network(network_snapshot)
+        if self.routing is not None:
+            self.routing.clear_cache()
 
         # Build SAGA task graph
         saga_taskgraph = self._build_saga_taskgraph(dag)
@@ -355,8 +373,10 @@ class SagaScheduler(Scheduler):
                     latency=link_snap.latency
                 )
                 for link_id, link_snap in snapshot.links.items()
+                if link_snap.bandwidth > 0
             }
             network_for_routing = Network(nodes=nodes, links=links)
+            self.routing.clear_cache()
 
         # Build connectivity and speed matrices
         # Use link bandwidth for connected pairs, widest-path bandwidth for
@@ -378,7 +398,8 @@ class SagaScheduler(Scheduler):
                     # Check for direct link only
                     found_link = False
                     for link in snapshot.links.values():
-                        if link.from_node == src_id and link.to_node == dst_id:
+                        if (link.from_node == src_id and link.to_node == dst_id
+                                and link.bandwidth > 0):
                             speed_matrix[(src_id, dst_id)] = link.bandwidth
                             found_link = True
                             break
@@ -491,10 +512,93 @@ class SagaScheduler(Scheduler):
         return None
 
 
+class ConflictAwareHeftScheduler(SagaScheduler):
+    """Illustrative HEFT baseline enabled by the wireless conflict graph.
+
+    For link ``l`` with conflict degree ``d_l``, the scheduler sees the
+    structural rate estimate ``B_l * eta(1+d_l) / (1+d_l)``. Runtime
+    execution still uses the selected simulator wireless mode. This remains
+    a static, inexpensive placement heuristic rather than an online MAC
+    scheduler.
+    """
+
+    def __init__(self, routing=None, conflict_graph=None, wireless_model=None,
+                 uniform_discount=False):
+        self.conflict_graph = conflict_graph
+        self.wireless_model = wireless_model
+        self.uniform_discount = uniform_discount
+        super().__init__(algorithm="heft", routing=routing)
+
+    def on_dag_inject(
+        self, dag: DAG, network_snapshot: NetworkSnapshot
+    ) -> PlacementPlan:
+        from ncsim.models.wifi import bianchi_efficiency
+
+        adjusted_links = {}
+        degrees = {}
+        factors = {}
+        raw_rates = getattr(self.wireless_model, "raw_phy_rates_MBps", {})
+        rf = getattr(self.wireless_model, "rf_config", None)
+        for link_id, link in network_snapshot.links.items():
+            if self.conflict_graph is None:
+                degree = 0
+            else:
+                degree = len(self.conflict_graph.conflicts.get(link_id, set()))
+            degrees[link_id] = degree
+            contenders = 1 + degree
+            rate_mbps = raw_rates.get(link_id, 68.8 / 8) * 8
+            if rate_mbps <= 0:
+                factors[link_id] = 1.0
+                continue
+            timing = {"rts_cts": getattr(rf, "rts_cts", False)}
+            factors[link_id] = bianchi_efficiency(contenders, rate_mbps, **timing) / (
+                contenders * bianchi_efficiency(1, rate_mbps, **timing)
+            )
+        import math
+        usable = [factors[lid] for lid, link in network_snapshot.links.items()
+                  if link.bandwidth > 0]
+        uniform = math.exp(sum(map(math.log, usable)) / len(usable)) if usable else 1.0
+        for link_id, link in network_snapshot.links.items():
+            structural_factor = uniform if self.uniform_discount else factors[link_id]
+            adjusted_links[link_id] = replace(
+                link, bandwidth=link.bandwidth * structural_factor
+            )
+
+        adjusted_snapshot = NetworkSnapshot(
+            nodes=network_snapshot.nodes,
+            links=adjusted_links,
+            timestamp=network_snapshot.timestamp,
+        )
+        plan = super().on_dag_inject(dag, adjusted_snapshot)
+        plan.metadata.update({
+            "algorithm": "uniform_discount_heft" if self.uniform_discount else "conflict_aware_heft",
+            "structural_rate": "B_solo * eta(1+d,R) / ((1+d)*eta(1,R))",
+            "conflict_degrees": degrees,
+            "link_multipliers": factors,
+            "uniform_multiplier": uniform if self.uniform_discount else None,
+        })
+        return plan
+
+
+class AllOnFastestScheduler(Scheduler):
+    """Communication-avoidance control; explicit task pins take precedence."""
+
+    def on_dag_inject(self, dag, network_snapshot):
+        fastest = min(network_snapshot.nodes, key=lambda node: (
+            -network_snapshot.nodes[node].compute_capacity, node
+        ))
+        assignments = {task_id: task.pinned_to or fastest
+                       for task_id, task in dag.tasks.items()}
+        return PlacementPlan(assignments=assignments,
+                             metadata={"algorithm": "all_on_fastest"})
+
+
 def create_scheduler(
     algorithm: str = "heft",
     routing: Optional["WidestPathRouting"] = None,
     scheduler_options: Optional[Dict[str, Any]] = None,
+    conflict_graph=None,
+    wireless_model=None,
 ) -> Scheduler:
     """Factory function to create a scheduler.
 
@@ -502,11 +606,20 @@ def create_scheduler(
         algorithm: Registered SAGA scheduler or built-in scheduler name
         routing: Optional WidestPathRouting for multi-hop bandwidth calculation
         scheduler_options: Keyword arguments for the SAGA scheduler constructor
+        conflict_graph: Optional wireless conflict graph for enabled policies
 
     Returns:
         Scheduler instance
     """
     algorithm = algorithm.lower()
+    if algorithm == "all_on_fastest":
+        if scheduler_options:
+            raise ValueError("all_on_fastest does not accept scheduler options")
+        return AllOnFastestScheduler()
+    if algorithm == "uniform_discount_heft":
+        if scheduler_options:
+            raise ValueError("uniform_discount_heft does not accept scheduler options")
+        return ConflictAwareHeftScheduler(routing, conflict_graph, wireless_model, True)
 
     if algorithm == "manual":
         if scheduler_options:
@@ -519,6 +632,15 @@ def create_scheduler(
             raise ValueError("The round_robin scheduler does not accept scheduler options")
         from ncsim.scheduler.base import RoundRobinScheduler
         return RoundRobinScheduler()
+
+    if algorithm in ("conflict_aware_heft", "ca_heft"):
+        if scheduler_options:
+            raise ValueError(
+                "The conflict_aware_heft scheduler does not accept scheduler options"
+            )
+        return ConflictAwareHeftScheduler(
+            routing=routing, conflict_graph=conflict_graph, wireless_model=wireless_model
+        )
 
     if not SAGA_AVAILABLE:
         raise RuntimeError("SAGA library not available. Install with: pip install anrg-saga")
