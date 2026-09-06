@@ -17,7 +17,7 @@ from ncsim.models.wireless import configure_wireless
 ROOT = Path(__file__).resolve().parents[1]
 from tests.wireless_helpers import parallel_setup, runtime_rates
 
-DEFAULT_CLASS_AST_SHA256 = 'fcc7f01931cb4cff8e179325d1c447201395e20973a1a6ef753da646a3e8e264'
+REFERENCE_SOURCE_SHA256 = '255247250b676725290bc55ee8fefa1942377ac2e389555da872c265881fab47'
 
 
 def test_default_is_not_replaced_and_optional_is_identified():
@@ -69,7 +69,13 @@ def test_default_matches_frozen_implementation_across_active_sets():
 def test_default_class_body_is_unchanged():
     tree = ast.parse((ROOT / 'ncsim/models/interference.py').read_text(encoding='utf-8'))
     node = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'CsmaBianchiInterference')
-    assert hashlib.sha256(ast.dump(node).encode()).hexdigest() == DEFAULT_CLASS_AST_SHA256
+    reference = (ROOT / 'tests/fixtures/effective_rate_reference.py').read_bytes().replace(b'\r\n', b'\n')
+    assert hashlib.sha256(reference).hexdigest() == REFERENCE_SOURCE_SHA256
+    old_tree = ast.parse(reference.decode('utf-8'))
+    old_node = next(n for n in old_tree.body if isinstance(n, ast.ClassDef) and n.name == 'CsmaBianchiInterference')
+    # ast.dump formatting changes between Python versions; compare both trees
+    # with the same interpreter while pinning the reference source bytes.
+    assert ast.dump(node) == ast.dump(old_node)
 
 
 def test_completion_removes_hidden_loss_and_conserves_bytes():
