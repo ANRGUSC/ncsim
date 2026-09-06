@@ -1,0 +1,8 @@
+# Shared executable source has consistent bytes in clean Windows/Linux checkouts.
+ncsim/** text eol=lf
+tests/** text eol=lf
+pyproject.toml text eol=lf
+LICENSE text eol=lf
+# Frozen observations, manuscript assets, and historical files retain their bytes.
+artifacts/arxiv-2605.01094/** -text
+arxiv-old/** -text

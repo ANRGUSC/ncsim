@@ -76,7 +76,7 @@ class DirectLinkRouting(RoutingModel):
 
         # Check for direct link
         link = network.get_link_between(src_node, dst_node)
-        if link:
+        if link and link.bandwidth > 0:
             return [link.id]
 
         # No direct link = transfer not possible
@@ -212,7 +212,9 @@ class WidestPathRouting(RoutingModel):
                 continue
 
             # Explore outgoing links
-            for link in network.get_links_from(current):
+            for link in sorted(network.get_links_from(current), key=lambda item: item.id):
+                if link.bandwidth <= 0:
+                    continue
                 neighbor = link.to_node
                 if neighbor in visited:
                     continue
@@ -371,7 +373,9 @@ class ShortestPathRouting(RoutingModel):
                 break
 
             # Explore outgoing links
-            for link in network.get_links_from(current):
+            for link in sorted(network.get_links_from(current), key=lambda item: item.id):
+                if link.bandwidth <= 0:
+                    continue
                 neighbor = link.to_node
                 if neighbor in visited:
                     continue
@@ -406,3 +410,28 @@ class ShortestPathRouting(RoutingModel):
         """
         self._path_cache.clear()
         self._bandwidth_cache.clear()
+
+
+class MinimumHopRouting(ShortestPathRouting):
+    """Minimum number of usable directed links, with deterministic BFS ties."""
+
+    def _compute_shortest_path(self, src, dst, network):
+        from collections import deque
+
+        if src not in network.nodes or dst not in network.nodes:
+            return None
+        frontier = deque([src])
+        previous = {src: None}
+        while frontier:
+            node = frontier.popleft()
+            if node == dst:
+                path = []
+                while previous[node] is not None:
+                    node, link_id = previous[node]
+                    path.append(link_id)
+                return list(reversed(path))
+            for link in sorted(network.get_links_from(node), key=lambda item: item.id):
+                if link.bandwidth > 0 and link.to_node not in previous:
+                    previous[link.to_node] = (node, link.id)
+                    frontier.append(link.to_node)
+        return None

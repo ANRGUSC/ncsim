@@ -2,9 +2,10 @@
 802.11 CSMA/CA wireless link model.
 
 Provides RF propagation, MCS rate selection, conflict graph construction,
-Bianchi MAC efficiency, and support for two link model variants:
-  - csma_clique: Static PHY rate / max_clique_size
-  - csma_bianchi: SINR-based dynamic rate * Bianchi efficiency
+Bianchi MAC efficiency, and support for three canonical comparison modes:
+  - raw_phy: clean SNR-derived rate without MAC overhead (diagnostic)
+  - solo_80211: clean single-link 802.11 goodput
+  - full_wireless: solo goodput plus local contention and hidden interference
 
 Physical layer models:
   - Log-distance path loss with Friis reference at d0=1m
@@ -20,6 +21,7 @@ References:
 
 import math
 import random
+from functools import lru_cache
 from dataclasses import dataclass, field
 from typing import Dict, List, Set, Tuple, Optional, FrozenSet
 
@@ -42,6 +44,12 @@ class RFConfig:
         wifi_standard: MCS table selection ("n", "ac", "ax")
         shadow_fading_sigma: Std dev of log-normal shadow fading in dB (0=none)
         rts_cts: Enable RTS/CTS (extends conflict zone to protect receivers)
+        capture_margin_dB: Difference between conservative MCS-selection
+            thresholds and decode thresholds used by the flow-level
+            effective-MCS abstraction.
+        interference_cutoff_dBm: Ignore a hidden transmitter at a receiver
+            when its received power is below this value. This bounds the
+            local rate-recalculation neighborhood.
     """
     tx_power_dBm: float = 20.0
     freq_ghz: float = 5.0
@@ -52,6 +60,8 @@ class RFConfig:
     wifi_standard: str = "ax"
     shadow_fading_sigma: float = 0.0
     rts_cts: bool = False
+    capture_margin_dB: float = 5.0
+    interference_cutoff_dBm: float = -105.0
 
 
 # ─── Path Loss Model ─────────────────────────────────────────────
@@ -248,6 +258,27 @@ def snr_to_rate_mbps(
     return selected_rate * cw_factor
 
 
+def sinr_to_effective_rate_mbps(
+    sinr: float,
+    wifi_standard: str = "ax",
+    channel_width_mhz: int = 20,
+    capture_margin_dB: float = 5.0,
+) -> float:
+    """Select the flow-level effective MCS under sustained interference.
+
+    The simulator treats rate adaptation as an inter-frame, flow-level
+    approximation. It does not model a receiver changing MCS while decoding
+    an individual frame. ``capture_margin_dB`` shifts the conservative clean
+    channel selection thresholds to approximate decode thresholds. A return
+    value of zero means the adjusted SINR is below the minimum MCS.
+    """
+    return snr_to_rate_mbps(
+        sinr + capture_margin_dB,
+        wifi_standard=wifi_standard,
+        channel_width_mhz=channel_width_mhz,
+    )
+
+
 def rate_mbps_to_MBps(rate_mbps: float) -> float:
     """Convert Mbps to MB/s. ncsim uses MB/s for bandwidth."""
     return rate_mbps / 8.0
@@ -270,12 +301,11 @@ def rate_mbps_to_MBps(rate_mbps: float) -> float:
 CAPTURE_MARGIN_DB: float = 5.0
 """Gap between MCS rate-selection threshold and minimum decode SINR.
 
-Accounts for implementation margin (~2 dB), fading margin (~2 dB), and
-PER operating-point margin (~1 dB) that are built into the selection
-thresholds but are not required for frame decoding in static channels.
-Consistent with measured capture thresholds of 4-10 dB in the literature
-and with the gap between ns-3's IdealWifiManager selection and its
-TableBasedErrorRateModel decode thresholds."""
+This inherited phenomenological default shifts the model's effective-rate
+thresholds during hidden interference. Neither a receiver calibration nor a
+validated decomposition into implementation, fading, and packet-error margins
+is available. The paper reports sensitivity at 0, 3, 5, and 8 dB. The generic
+capture references above motivate power-dependent reception, not this value."""
 
 
 def mcs_min_sinr(
@@ -374,6 +404,37 @@ def hidden_terminal_success_rate(
 
 # ─── Bianchi MAC Efficiency ──────────────────────────────────────
 
+@lru_cache(maxsize=8192)
+def bianchi_fixed_point(n: int, W: int = 16, m: int = 6) -> Tuple[float, float]:
+    """Return (tau, p) at the saturated homogeneous-domain fixed point.
+
+    W is the number of initial backoff slots (CWmin + 1). The finite
+    geometric sum removes the apparent singularity at p=1/2. Bisection
+    solves a continuous increasing scalar residual on [0, 1].
+    """
+    if not isinstance(n, int) or n < 1 or W < 2 or m < 0:
+        raise ValueError("Require integer n>=1, W>=2, and m>=0")
+
+    def attempt(p):
+        return 2.0 / (W + 1 + W * p * sum((2 * p) ** k for k in range(m)))
+
+    def collision(tau):
+        return -math.expm1((n - 1) * math.log1p(-tau))
+
+    lo, hi = 0.0, 1.0
+    for _ in range(100):
+        p = (lo + hi) / 2
+        tau = attempt(p)
+        residual = p - collision(tau)
+        if abs(residual) <= 1e-13:
+            return tau, p
+        if residual > 0:
+            hi = p
+        else:
+            lo = p
+    raise ArithmeticError(f"Bianchi root failed residual check for n={n}")
+
+
 def _bianchi_efficiency_compute(
     n: int,
     W: int = 16,
@@ -388,6 +449,9 @@ def _bianchi_efficiency_compute(
     ack_dur_us: float = 28.0,
     aifs_us: float = 43.0,
     prop_us: float = 0.1,
+    rts_cts: bool = False,
+    rts_dur_us: float = 28.0,
+    cts_dur_us: float = 28.0,
 ) -> float:
     """Compute Bianchi saturation throughput efficiency for n contending stations.
 
@@ -421,31 +485,11 @@ def _bianchi_efficiency_compute(
         aifs_us: AIFS duration in μs (SIFS + AIFSN×slot for AC_BE)
         prop_us: One-way propagation delay in μs
     """
-    if n <= 0:
-        n = 1
-
-    # Iterative fixed-point solution for tau and p
-    tau = 2.0 / (W + 1)
-
-    for _ in range(200):
-        p = 1.0 - (1.0 - tau) ** (n - 1)
-        p = min(max(p, 1e-12), 1.0 - 1e-12)
-
-        denom_factor = 1.0 - 2.0 * p
-        if abs(denom_factor) < 1e-12:
-            # p = 0.5 edge case
-            tau_new = 2.0 / (W + 1)
-        else:
-            numerator = 2.0 * denom_factor
-            denominator = denom_factor * (W + 1) + p * W * (1.0 - (2.0 * p) ** m)
-            if abs(denominator) < 1e-12:
-                break
-            tau_new = numerator / denominator
-            tau_new = max(tau_new, 1e-12)
-
-        if abs(tau_new - tau) < 1e-10:
-            break
-        tau = tau_new
+    if not math.isfinite(phy_rate_mbps) or phy_rate_mbps <= 0:
+        raise ValueError("PHY rate must be finite and positive")
+    if not 0 < goodput_bytes <= psdu_bytes:
+        raise ValueError("Require 0 < goodput bytes <= PSDU bytes")
+    tau, p = bianchi_fixed_point(n, W, m)
 
     # 802.11ax HE frame timing with OFDM symbol math
     # Coded bits per OFDM symbol derived from PHY rate and symbol duration
@@ -460,6 +504,12 @@ def _bianchi_efficiency_compute(
     # After collision, stations wait EIFS = SIFS + ACK_time + AIFS (not just AIFS)
     # because the failed reception triggers extended inter-frame spacing.
     T_collision = T_data + sifs_us + ack_dur_us + aifs_us + prop_us
+    if rts_cts:
+        # A successful exchange adds RTS/SIFS/CTS/SIFS ahead of DATA.
+        # A collision occupies an RTS followed by the CTS timeout/backoff
+        # interval, rather than an entire data frame.
+        T_success += rts_dur_us + cts_dur_us + 2 * (sifs_us + prop_us)
+        T_collision = rts_dur_us + sifs_us + cts_dur_us + aifs_us + prop_us
 
     # Goodput payload duration (continuous — not OFDM-quantized, since this
     # represents the fraction of PHY capacity used for application data)
@@ -475,34 +525,25 @@ def _bianchi_efficiency_compute(
               + p_collision * T_collision)
 
     if E_slot <= 0:
-        return 0.01
+        raise ArithmeticError("Bianchi expected slot duration is non-positive")
 
     # Goodput efficiency: fraction of PHY rate delivered as application payload
     efficiency = (p_success * goodput_dur) / E_slot
-    return max(0.01, min(1.0, efficiency))
+    if not math.isfinite(efficiency) or not 0 < efficiency <= 1:
+        raise ArithmeticError(f"Invalid Bianchi efficiency: {efficiency}")
+    return efficiency
 
 
-# Precomputed lookup table (lazy init)
-_BIANCHI_TABLE: Optional[List[float]] = None
-_BIANCHI_MAX_N = 100
+@lru_cache(maxsize=32768)
+def bianchi_efficiency(n: int, phy_rate_mbps: float = 68.8, **timing) -> float:
+    """Rate-aware MAC efficiency, without a contender-count cap.
 
-
-def bianchi_efficiency(n: int) -> float:
-    """Look up precomputed Bianchi MAC efficiency for n contending stations.
-
-    Returns efficiency factor in (0, 1] including 802.11ax PHY overhead.
+    The one-argument call retains the historical 68.8 Mb/s timing default.
+    Runtime callers must supply the actual PHY rate. Timing keywords are
+    those of ``_bianchi_efficiency_compute`` (including ``rts_cts``).
     """
-    global _BIANCHI_TABLE
-    if _BIANCHI_TABLE is None:
-        _BIANCHI_TABLE = [0.0]  # Index 0 unused
-        for i in range(1, _BIANCHI_MAX_N + 1):
-            _BIANCHI_TABLE.append(_bianchi_efficiency_compute(i))
-
-    if n <= 0:
-        n = 1
-    if n >= len(_BIANCHI_TABLE):
-        return _BIANCHI_TABLE[-1]
-    return _BIANCHI_TABLE[n]
+    # Legacy callers used nonpositive n as the isolated-link case.
+    return _bianchi_efficiency_compute(max(1, n), phy_rate_mbps=phy_rate_mbps, **timing)
 
 
 # ─── Conflict Graph ──────────────────────────────────────────────
@@ -559,9 +600,14 @@ def build_conflict_graph(
             tx_b = link_b.from_node
             rx_b = link_b.to_node
 
-            has_conflict = False
+            # A node has one half-duplex radio in this abstraction.  Links
+            # that share a transmitter or receiver therefore conflict even
+            # when the carrier-sense distance tests below skip identical
+            # endpoint coordinates.  This also covers the two directions of
+            # one physical neighbor pair.
+            has_conflict = bool({tx_a, rx_a} & {tx_b, rx_b})
 
-            if rf.rts_cts:
+            if not has_conflict and rf.rts_cts:
                 # RTS/CTS: any node of A senses any node of B
                 nodes_a = [tx_a, rx_a]
                 nodes_b = [tx_b, rx_b]
@@ -574,7 +620,7 @@ def build_conflict_graph(
                                 break
                     if has_conflict:
                         break
-            else:
+            elif not has_conflict:
                 # No RTS/CTS: only transmitters sense other link's nodes
                 # tx(A) senses tx(B) or rx(B)
                 for nb in [tx_b, rx_b]:

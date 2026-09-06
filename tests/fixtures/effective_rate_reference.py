@@ -443,11 +443,6 @@ def create_interference_model(model_type: str, **kwargs) -> InterferenceModel:
         ValueError: If model_type is unknown
     """
     canonical = canonicalize_wireless_mode(model_type)
-    hidden_model = kwargs.get("hidden_terminal_model", "effective_rate")
-    if hidden_model not in {"effective_rate", "fixed_capture_overlap"}:
-        raise ValueError(f"Unknown hidden-terminal model: {hidden_model}")
-    if hidden_model != "effective_rate" and canonical != "full_wireless":
-        raise ValueError("An optional hidden-terminal model requires full_wireless")
     if canonical == "raw_phy":
         return NoInterference()
     elif canonical == "solo_80211":
@@ -460,11 +455,7 @@ def create_interference_model(model_type: str, **kwargs) -> InterferenceModel:
             conflict_graph=kwargs["conflict_graph"],
         )
     elif canonical == "full_wireless":
-        model_class = CsmaBianchiInterference
-        if hidden_model == "fixed_capture_overlap":
-            from ncsim.models.fixed_capture import FixedCaptureOverlapInterference
-            model_class = FixedCaptureOverlapInterference
-        return model_class(
+        return CsmaBianchiInterference(
             conflict_graph=kwargs["conflict_graph"],
             rf_config=kwargs["rf_config"],
             network=kwargs["network"],

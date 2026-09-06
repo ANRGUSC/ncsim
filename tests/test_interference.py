@@ -5,9 +5,12 @@ import pytest
 from ncsim.models.network import Node, Link, Network, Position
 from ncsim.models.interference import (
     NoInterference,
+    Solo80211Interference,
     ProximityInterference,
     CsmaCliqueInterference,
     CsmaBianchiInterference,
+    WirelessOutageError,
+    canonicalize_wireless_mode,
     create_interference_model,
 )
 from ncsim.models.wifi import (
@@ -178,7 +181,8 @@ class TestCsmaBianchiInterference:
         cg = build_conflict_graph(net, rf, shadow_map)
         phy_rates = compute_link_phy_rates(net, rf, shadow_map)
 
-        # Set link bandwidths to PHY rates (as main.py does for csma_bianchi)
+        # This low-level fixture installs PHY rates directly; canonical setup
+        # tests below verify MAC-normalized solo and full modes.
         for lid, rate in phy_rates.items():
             net.links[lid].bandwidth = max(rate, 0.001)
 
@@ -191,11 +195,10 @@ class TestCsmaBianchiInterference:
         return model, net, cg
 
     def test_single_link_factor_near_1(self, wifi_setup):
-        """Single active link -> factor ~ bianchi_efficiency(1)."""
+        """Single active link is already MAC-normalized by setup."""
         model, net, cg = wifi_setup
         f = model.get_interference_factor("l01", {"l01"}, net)
-        expected = bianchi_efficiency(1) / 1
-        assert abs(f - expected) < 0.01
+        assert f == pytest.approx(1.0)
 
     def test_two_contending_links_factor_less_1(self, wifi_setup):
         """Two contending active links -> factor < 1.0."""
@@ -210,16 +213,102 @@ class TestCsmaBianchiInterference:
         assert f == 1.0
 
     def test_factor_clamped_to_range(self, wifi_setup):
-        """Factor should be in [0.01, 1.0]."""
+        """A feasible factor stays in [0, 1] without a positive clamp."""
         model, net, cg = wifi_setup
         f = model.get_interference_factor("l01", {"l01", "l12"}, net)
-        assert 0.01 <= f <= 1.0
+        assert 0.0 <= f <= 1.0
 
     def test_affected_links_returns_all_others(self, wifi_setup):
-        """affected_links returns all active links except self."""
+        """A conflicting active neighbor is causally affected."""
         model, net, cg = wifi_setup
         affected = model.get_affected_links("l01", {"l01", "l12"}, net)
         assert affected == {"l12"}
+
+
+class TestCanonicalWirelessModes:
+    def test_legacy_aliases_are_canonicalized(self):
+        assert canonicalize_wireless_mode("none") == "raw_phy"
+        assert canonicalize_wireless_mode("csma_bianchi") == "full_wireless"
+        assert canonicalize_wireless_mode("solo_80211") == "solo_80211"
+
+    def test_solo_and_full_have_same_single_link_goodput(self):
+        net = _make_positioned_network(
+            [("tx", 0, 0), ("rx", 30, 0)],
+            [("link", "tx", "rx", 1.0)],
+        )
+        rf = RFConfig()
+        phy_rate = compute_link_phy_rates(net, rf)["link"]
+        net.links["link"].bandwidth = phy_rate
+        graph = ConflictGraph(
+            conflicts={"link": set()}, max_clique_sizes={"link": 1}
+        )
+        solo = Solo80211Interference()
+        full = CsmaBianchiInterference(graph, rf, net)
+        active = {"link"}
+        assert solo.get_interference_factor("link", active, net) == pytest.approx(
+            full.get_interference_factor("link", active, net)
+        )
+        assert full.get_interference_factor("link", active, net) == pytest.approx(1.0)
+
+    @pytest.fixture
+    def hidden_setup(self):
+        net = _make_positioned_network(
+            [
+                ("a_tx", 0, 0), ("a_rx", 30, 0),
+                ("mid_tx", 30, 70), ("mid_rx", 60, 70),
+                ("strong_tx", 30, 10), ("strong_rx", 60, 10),
+                ("far_tx", 1000, 1000), ("far_rx", 1030, 1000),
+            ],
+            [
+                ("a", "a_tx", "a_rx", 1.0),
+                ("mid", "mid_tx", "mid_rx", 1.0),
+                ("strong", "strong_tx", "strong_rx", 1.0),
+                ("far", "far_tx", "far_rx", 1.0),
+            ],
+        )
+        rf = RFConfig(interference_cutoff_dBm=-105.0)
+        rates = compute_link_phy_rates(net, rf)
+        for link_id, rate in rates.items():
+            net.links[link_id].bandwidth = rate
+        graph = ConflictGraph(
+            conflicts={link_id: set() for link_id in net.links},
+            max_clique_sizes={link_id: 1 for link_id in net.links},
+        )
+        return net, rf, graph
+
+    def test_hidden_sinr_reselects_lower_effective_mcs(self, hidden_setup):
+        net, rf, graph = hidden_setup
+        model = CsmaBianchiInterference(graph, rf, net)
+        factor = model.get_interference_factor("a", {"a", "mid"}, net)
+        assert 0.0 < factor < 1.0
+
+    def test_below_minimum_mcs_returns_zero_service(self, hidden_setup):
+        net, rf, graph = hidden_setup
+        model = CsmaBianchiInterference(graph, rf, net)
+        assert model.get_interference_factor("a", {"a", "strong"}, net) == 0.0
+
+    def test_diagnostic_floor_is_opt_in(self, hidden_setup):
+        net, rf, graph = hidden_setup
+        model = CsmaBianchiInterference(
+            graph, rf, net, outage_floor_factor=0.02
+        )
+        factor = model.get_interference_factor("a", {"a", "strong"}, net)
+        assert factor == pytest.approx(0.02)
+
+    def test_local_dependency_excludes_irrelevant_far_link(self, hidden_setup):
+        net, rf, graph = hidden_setup
+        model = CsmaBianchiInterference(graph, rf, net)
+        active = {"a", "mid", "far"}
+        assert model.get_affected_links("mid", active, net) == {"a"}
+        assert "a" not in model.get_affected_links("far", active, net)
+
+    def test_component_ablation_preserves_solo_overhead(self, hidden_setup):
+        net, rf, graph = hidden_setup
+        hidden_only = CsmaBianchiInterference(
+            graph, rf, net, contention_enabled=False
+        )
+        no_hidden_activity = hidden_only.get_interference_factor("a", {"a"}, net)
+        assert no_hidden_activity == pytest.approx(1.0)
 
 
 # ─── create_interference_model factory ───────────────────────────
@@ -228,6 +317,10 @@ class TestCreateInterferenceModel:
     def test_none_returns_no_interference(self):
         model = create_interference_model("none")
         assert isinstance(model, NoInterference)
+
+    def test_solo_80211_returns_mac_normalized_model(self):
+        model = create_interference_model("solo_80211")
+        assert isinstance(model, Solo80211Interference)
 
     def test_proximity_default_radius(self):
         model = create_interference_model("proximity")
