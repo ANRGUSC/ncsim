@@ -871,5 +871,5 @@
     "pyproject.toml": "cf4a2dd5804b8b156e3b70d155b38634502c12d64840c7ea672747a0ccbe38cf"
   },
   "public_url": "https://github.com/ANRGUSC/ncsim/tree/paper/artifacts/arxiv-2605.01094",
-  "tested_shared_implementation_commit": "7f93504bf12207b31b76976d09b39cf0b64253c7"
+  "tested_shared_implementation_commit": "45c0145e396deb85da823a0859298475dcc3c8f8"
 }
