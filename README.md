@@ -14,6 +14,13 @@ ncsim models compute nodes, network links with WiFi interference, and DAG task g
 
 ## Features
 
+Current manuscript sources and curated results are on the `paper` branch in
+[`artifacts/arxiv-2605.01094/`](https://github.com/ANRGUSC/ncsim/tree/paper/artifacts/arxiv-2605.01094).
+The earlier manuscript tree is archived separately as
+[`arxiv-old/`](https://github.com/ANRGUSC/ncsim/tree/paper/arxiv-old).
+See [wireless modes and fixed capture](docs/concepts/wireless-modes.md) for
+the optional model's scope and regression commands.
+
 - **Deterministic simulation**: Same inputs + same seed = identical results
 - **22+ SAGA static batch schedulers**: HEFT, CPOP, Min-Min, Sufferage, and more; PEFT is added automatically with SAGA 2.1.0, alongside built-in round-robin and manual assignment
 - **Multi-hop routing**: Direct, widest-path (max-min bandwidth), and shortest-path (min-latency)

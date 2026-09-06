@@ -39,7 +39,10 @@ viz/node_modules/
 viz/dist/
 
 # Simulation output
-results/
+/results/
+/output/
+/tmp/
+/external/
 test_output/
 
 # Sample runs (keep only demo-simple)
@@ -53,7 +56,7 @@ viz/e2e-screenshots/
 site/
 
 # Paper (lives on the 'paper' branch)
-paper/
+/paper/
 
 # LaTeX build artifacts
 docs/*.aux

@@ -37,7 +37,7 @@ classifiers = [
     "Topic :: System :: Networking",
 ]
 dependencies = [
-    "anrg-saga>=2.0.4",
+    "anrg-saga>=2.0.3",
     "networkx>=3.0",
     "pyyaml>=6.0",
 ]
@@ -60,7 +60,7 @@ ncsim = "ncsim.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-exclude = ["tests*", "viz*", "scenarios*", "docs*", "experiments*"]
+include = ["ncsim", "ncsim.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

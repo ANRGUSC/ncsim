@@ -91,7 +91,7 @@ config:
 
 ## CSMA/CA Bianchi (`csma_bianchi`)
 
-The most realistic WiFi interference model. It **dynamically** separates two
+The Full wireless model (`csma_bianchi` is an alias) dynamically separates two
 distinct interference mechanisms:
 
 ### 1. Contention Domain (Conflict Graph Neighbors)
@@ -101,8 +101,9 @@ they **cannot transmit simultaneously**. Instead, they share airtime according
 to Bianchi's saturation throughput model.
 
 Each of **n** contending links (including the link itself) gets a fraction
-`eta(n) / n` of the channel, where `eta(n)` is the Bianchi MAC efficiency
-for n stations.
+`eta(n, R) / n` of the clean PHY capacity, where `eta(n, R)` is the
+rate-aware Bianchi MAC efficiency. The stored link bandwidth already includes
+single-link MAC overhead; the interference factor normalizes by that overhead.
 
 Because CSMA prevents simultaneous transmission, contending links do **not**
 cause SINR degradation at each other's receivers.
@@ -120,14 +121,14 @@ interference. The base rate (`R_base`) is the SNR-only PHY rate.
 ### Combined Factor
 
 ```
-factor = (R_SINR / R_base) * (eta(n) / n)
+factor = R_SINR * eta(n, R_SINR) / (n * R_base * eta(1, R_base))
 ```
 
 Where:
 
 - `n = 1 + |active contending neighbors|`
-- `eta(n)` = Bianchi MAC efficiency for n stations
-- `R_SINR` = MCS rate under SINR (hidden terminal degradation)
+- `eta(n, R)` = Bianchi MAC efficiency for n stations at PHY rate R
+- `R_SINR` = MCS rate under SINR, capped at the clean PHY rate
 - `R_base` = MCS rate under SNR only (no interference)
 
 The factor is **recalculated** whenever a transfer starts or completes,
@@ -163,8 +164,10 @@ config:
 | **Dynamic** | N/A | Yes | No (static) | Yes |
 | **WiFi-aware** | No | No | Yes | Yes |
 | **RF parameters required** | No | No | Yes | Yes |
-| **Accuracy** | N/A | Low | Medium | High |
-| **Use case** | Wired networks | Quick approximation | WiFi without SINR | Realistic WiFi |
+| **Use case** | No interference | Distance abstraction | Static contention | Dynamic contention and hidden interference |
+
+See [wireless modes](wireless-modes.md) for setup conventions, zero-service
+handling, and the opt-in fixed-capture treatment for isolated hidden pairs.
 
 ---
 

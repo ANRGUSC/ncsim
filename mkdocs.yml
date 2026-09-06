@@ -96,6 +96,7 @@ nav:
     - Routing: concepts/routing.md
     - Interference: concepts/interference.md
     - WiFi Model: concepts/wifi-model.md
+    - Wireless Modes and Fixed Capture: concepts/wireless-modes.md
   - Scenarios:
     - YAML Reference: scenarios/yaml-reference.md
     - Scenario Gallery: scenarios/scenario-gallery.md

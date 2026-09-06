@@ -1,7 +1,7 @@
 # Scheduling Algorithms
 
-ncsim supports 22 SAGA static batch schedulers with SAGA 2.0.4, plus PEFT
-when SAGA 2.1.0 is installed, and two built-in schedulers. These schedulers
+ncsim supports 22 SAGA static batch schedulers with SAGA 2.0.3 or 2.0.4, plus PEFT
+when SAGA 2.1.0 is installed, and five built-in schedulers. These schedulers
 decide **where** each task runs. The scheduler receives a DAG and a snapshot of the network
 (node capacities, link bandwidths), and returns a `PlacementPlan`
 mapping every task to a node. The execution engine then decides
@@ -32,7 +32,7 @@ ncsim's execution engine controls actual run and transfer timing.
 
 HEFT is a list-scheduling heuristic designed for heterogeneous computing
 environments. It is the default scheduler in ncsim and generally produces
-the best makespans.
+placements based on estimated computation and communication costs.
 
 ### Algorithm
 

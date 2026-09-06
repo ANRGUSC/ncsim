@@ -6,6 +6,18 @@ All notable changes to ncsim are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Simulator synchronization
+
+- Correct event-time byte accounting, task serialization, directed interference
+  notifications, rate-aware MAC normalization, and minimum-hop routing.
+- Add canonical Raw/Solo/Full wireless setup and an explicit, scope-checked
+  `fixed_capture_overlap` option; the default hidden treatment is unchanged.
+- Add static conflict-aware, uniform-discount, and all-on-fastest placements;
+  retain the remote SAGA catalog, including conditional PEFT support.
+- Support the recorded SAGA 2.0.3 environment and restrict wheel discovery to
+  the `ncsim` package. Regression tests do not require private paper folders.
+- Report non-completed CLI runs through a nonzero exit status.
+
 ### Added
 
 - Python-version test coverage and clean wheel-install validation in CI.

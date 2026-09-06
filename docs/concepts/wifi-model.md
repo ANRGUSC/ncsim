@@ -1,9 +1,9 @@
 # WiFi Model
 
-The WiFi model replaces manually specified link bandwidths with physically
-grounded data rates derived from RF propagation, SNR-based MCS selection,
-and 802.11 MAC contention. It is used by the `csma_clique` and `csma_bianchi`
-interference models.
+The WiFi model derives link rates from propagation, SNR-based MCS selection,
+and 802.11 MAC contention. Explicit link bandwidths specify clean PHY rates;
+Solo and Full modes apply MAC overhead to those rates too. See
+[wireless modes](wireless-modes.md) for the canonical API and optional treatment.
 
 The implementation lives in two modules:
 
@@ -230,7 +230,8 @@ Bianchi's saturation throughput model computes the MAC-layer efficiency
 ### Coupled Equations
 
 The model solves for the transmission probability `tau` and collision
-probability `p` via fixed-point iteration:
+probability `p` using a bracketed scalar solve, evaluating the removable
+singularity at `p = 0.5` through a finite geometric sum:
 
 ```
 tau = 2(1 - 2p) / [(1 - 2p)(W + 1) + pW(1 - (2p)^m)]
@@ -239,7 +240,7 @@ p   = 1 - (1 - tau)^(n - 1)
 
 Where:
 
-- **W** = 16 (CWmin, minimum contention window for 802.11)
+- **W** = 16 (CWmin + 1, the initial contention-window size)
 - **m** = 6 (maximum backoff stage; CWmax = W * 2^m = 1024)
 
 ### Efficiency Values
@@ -248,22 +249,11 @@ From the converged `tau` and `p`, the model computes idle, success, and
 collision probabilities per slot, then derives the fraction of channel time
 carrying successful payload:
 
-| n (stations) | eta(n) | Per-station share eta(n)/n |
-|---|---|---|
-| 1 | 1.000 | 1.000 |
-| 2 | ~0.88 | ~0.44 |
-| 5 | ~0.72 | ~0.14 |
-| 10 | ~0.59 | ~0.059 |
-| 20 | ~0.47 | ~0.024 |
-
-Properties:
-
-- `eta(1) = 1.0` -- a single station has no contention overhead.
-- `eta(n)` is monotonically decreasing but always positive.
-- The per-station share `eta(n)/n` decreases faster than `1/n` due to
-  collision overhead.
-
-ncsim precomputes a lookup table for n = 1 to 100 at startup.
+Efficiency depends on the PHY rate and RTS/CTS setting as well as station
+count: `eta(n, R)`. Even one station incurs interframe, backoff, preamble, and
+acknowledgment overhead, so `eta(1, R)` is below one. Values are cached on demand;
+there is no 100-station lookup-table cap. Per-link saturated goodput is
+`R * eta(n, R) / n` for homogeneous contenders.
 
 ---
 
@@ -290,9 +280,9 @@ simulation.
 
 `csma_clique` is appropriate when you want WiFi-aware bandwidth estimation
 without the computational cost of dynamic recalculation. It provides a
-**conservative worst-case bound**: the bandwidth assumes all links in the
+static approximation: the bandwidth assumes all links in the
 largest clique are always active, even if only a subset actually transmits
-at any given time.
+at any given time. It is not a physical throughput bound.
 
 ---
 
@@ -308,7 +298,7 @@ Links that are neighbors in the conflict graph operate under CSMA/CA and
 **cannot transmit simultaneously**. Each of n contending links gets:
 
 ```
-contention_factor = eta(n) / n
+contention_factor = eta(n, R) / (n * eta(1, R))
 ```
 
 No SINR degradation occurs from these links because CSMA prevents concurrent
@@ -335,27 +325,30 @@ sinr_factor = R_SINR / R_base
 ### Combined Factor
 
 ```
-factor = sinr_factor * contention_factor
-       = (R_SINR / R_base) * (eta(n) / n)
+factor = R_effective * eta(n, R_effective)
+         / (n * R_base * eta(1, R_base))
 ```
 
-The factor is clamped to the range [0.01, 1.0].
+Here `R_effective` is the SINR-selected PHY rate capped at the clean base rate.
+The installed link bandwidth already includes `eta(1, R_base)`, so this
+normalization avoids counting single-link overhead twice. Outages give zero
+service; no positive floor is applied unless explicitly requested for diagnosis.
 
 ### Recalculation
 
-When any transfer starts or completes, **all** other active links have their
-factors recalculated. This ensures both contention domain changes and hidden
-terminal changes are captured symmetrically.
+When a transfer starts or completes, affected links are found through directed
+interference dependencies. Bytes served before the event are credited at the
+old rates before new completion times are scheduled.
 
 ```mermaid
 flowchart TD
     A["Transfer starts/completes on link L"] --> B["Identify active links"]
-    B --> C["For each active link K != L"]
+    B --> C["For each affected active link K"]
     C --> D["Classify neighbors:<br/>contending vs. hidden"]
-    D --> E["Compute contention_factor = eta(n)/n"]
+    D --> E["Count contenders n"]
     D --> F["Compute SINR from hidden terminals"]
     F --> G["Select MCS from SINR -> R_SINR"]
-    E --> H["factor = (R_SINR / R_base) * (eta(n) / n)"]
+    E --> H["Normalize rate-aware goodput by clean solo goodput"]
     G --> H
     H --> I["Recalculate transfer completion time"]
 ```
@@ -433,9 +426,8 @@ config:
     When using `csma_clique` or `csma_bianchi`, link bandwidth is **derived
     from RF parameters** and node positions. You can omit the `bandwidth` key
     from link definitions -- ncsim will compute it automatically. If you do
-    specify a bandwidth, it will be kept as-is (not overwritten by the WiFi
-    model), which is useful for mixing wired and wireless links in the same
-    topology.
+    specify a bandwidth, it supplies the clean PHY rate. Solo and Full modes
+    still apply MAC overhead; specifying it does not exempt a link from WiFi.
 
 ### CLI Override Example
 

@@ -29,8 +29,11 @@ python -m ncsim --scenario PATH --output DIR [options]
 | `--seed` | int | from YAML (`42`) | Random seed for reproducibility |
 | `--scheduler` | choice | from YAML (`heft`) | Registered SAGA static batch scheduler, `round_robin`, or `manual` |
 | `--scheduler-option KEY=VALUE` | repeatable | from YAML | Override a scheduler constructor option; YAML scalar types are accepted |
-| `--routing` | choice | from YAML (`direct`) | Routing algorithm: `direct`, `widest_path`, or `shortest_path` |
-| `--interference` | choice | from YAML (`proximity`) | Interference model: `none`, `proximity`, `csma_clique`, or `csma_bianchi` |
+| `--routing` | choice | from YAML (`direct`) | `direct`, `widest_path`, `shortest_path` (latency), or `minimum_hop` |
+| `--interference` | choice | from YAML (`proximity`) | `raw_phy`, `solo_80211`, `full_wireless`; legacy `none`, `proximity`, `csma_clique`, `csma_bianchi` |
+| `--hidden-terminal-model` | choice | `effective_rate` | Opt in to `fixed_capture_overlap` for supported isolated pairs; requires Full mode |
+| `--wireless-components` | choice | `combined` | `combined`, `contention-only`, or `hidden-only` diagnostic ablation |
+| `--outage-floor-factor` | float | none | Explicit diagnostic positive-service floor; changes outage behavior |
 | `--interference-radius` | float | `15.0` | Radius in meters for the proximity interference model |
 | `--tx-power` | float | `20` | WiFi transmit power in dBm |
 | `--freq` | float | `5.0` | WiFi carrier frequency in GHz |
@@ -42,8 +45,14 @@ python -m ncsim --scenario PATH --output DIR [options]
 
 The `--scheduler` choices are generated from the installed SAGA version.
 SAGA 2.0.4 from PyPI provides 22 registered choices; SAGA 2.1.0 adds
-`peft`. The built-in `round_robin` and `manual` choices are always available.
+`peft`. SAGA 2.0.3 also supplies the 22 study-era choices. Built-ins are
+`round_robin`, `manual`, `all_on_fastest`, `conflict_aware_heft`, and
+`uniform_discount_heft`.
 Run `ncsim --help` to see the active list.
+
+The exit code is zero only for `completed` runs. Inspect output metrics for
+`blocked`, `unroutable`, `limit`, or `error` status. See
+[wireless modes](../concepts/wireless-modes.md) for model scope and normalization.
 
 ---
 
