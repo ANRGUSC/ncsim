@@ -1,0 +1,8 @@
+# Python 3.12.10 for the recorded workflow replay
+anrg-saga==2.0.3
+numpy==2.4.3
+matplotlib==3.10.8
+pillow==12.1.1
+networkx==3.6.1
+pyyaml==6.0.3
+pypdf==6.7.0

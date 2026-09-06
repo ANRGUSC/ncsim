@@ -1,0 +1,38 @@
+{
+  "description": "Recovered bytes matching every recorded workflow source hash; reference-only archive.",
+  "original_experimental_commit": null,
+  "source_sha256": {
+    "ncsim/main.py": "f5a2ae6bcd69cd2ae7d582748a6a66534e97c714e497edd1a4cff1b8164d1e70",
+    "ncsim/__init__.py": "cdba561df13a2052753b9437e3c92cb689c1b07c6d93d24e093c6cdd8a75c4c5",
+    "ncsim/__main__.py": "84263e4cc6b92c50f2566597c813b62889f082606a6c95abab092d18568a71b4",
+    "ncsim/core/event_queue.py": "6ef672a30d4cf1fde833b9140bd4136cdfbf64148eda9c1d3b99e8bcb423b8e6",
+    "ncsim/core/execution_engine.py": "dc97ed28cf217beaa425159f1e5a6b151e0eaf8eedf5d93f1bff935b5df55e0d",
+    "ncsim/core/simulation.py": "7dc27f3c0f6f6ab294e3560536204a102306e1dc3017ec3b480b142861026e5b",
+    "ncsim/core/telemetry.py": "e8d463c4794c4ffd4e1660d7f44537a033268e28a0f6a5af19e9686ea5511041",
+    "ncsim/core/__init__.py": "297beaf3a0527515e3a4f7692996948ef2ab444e4e435057762c54a6b85d8b9b",
+    "ncsim/io/results_writer.py": "b68a1b53416af1a7f9262ae9f4e98cc4d80f8c2cd8fbe9b47387ab02fd97bbe6",
+    "ncsim/io/scenario_loader.py": "6d8cf789de4692d124210881a7e88c2e76b1cf6a57d0509c02ca2680d53ae05c",
+    "ncsim/io/trace_writer.py": "1723e6481d65483d86801093ec7efd82692a6f48ac85e6a39f826099b4c55a0f",
+    "ncsim/io/__init__.py": "476d610a4d912d16a9d2938ac31d4592a91d07ae27581336de4277fe9cd8b116",
+    "ncsim/models/dag.py": "d54990dfaae0722d343752f8fc8d9cfd547973a696da906c8204ebfe410ca229",
+    "ncsim/models/disruptions.py": "af08c232bf91a676ac74d70ec4953c5bea6a7870a311529f75ef58cac743f427",
+    "ncsim/models/interference.py": "1414bca7d0babfaa7f1ed17d1e520c23d7d72bf0bf4397ccae34a7e74c5b15bb",
+    "ncsim/models/network.py": "c2958b9a3424b7f5a12e47c9f952cabb2c7d0eae7e5d5ee3f6bc0f2273dad89c",
+    "ncsim/models/routing.py": "469b549921b8fff6ec92047dab9749d1d702c55c8b2dca222d04c3a0528a05ad",
+    "ncsim/models/task.py": "00fff0c3dd50a7266c55c508956c7226f5ae70f884246a5e1775908ae054a90c",
+    "ncsim/models/wifi.py": "c8a941e2eb23e1d063c25c5353ee7d912c035eb48196dc694b49e5a7e9230d81",
+    "ncsim/models/wireless.py": "c2a0508f95bc6672c7b5e7e9120ff35ac023494751aec03bb74147f4b2f19f2e",
+    "ncsim/models/__init__.py": "73e43d66da0fc0e22080ba9d986ae78c9652422b15fd47e734daa6480fe008ad",
+    "ncsim/scheduler/base.py": "0e24c94e3d2114b7a7e6caba38fb82c5a98248759c46c7cdbaa4fce44d2dcecd",
+    "ncsim/scheduler/saga_adapter.py": "9ab8d18fb9cff822cc4984db5d453445c7feba8b6fa2e676dbe255a5e3a511d2",
+    "ncsim/scheduler/__init__.py": "f654f9ec2c7298623f5438c5337f38e43a881deacdfb3ac67832b2d45d204feb"
+  },
+  "driver_sha256": "c250d4d01f877ba82b3eee7abb206fdd488d5f84c8b4e8b5efb9971f5be60581",
+  "environment": {
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "anrg-saga": "2.0.3",
+    "seed": 42,
+    "PYTHONHASHSEED": "0"
+  },
+  "limits": "Source hashes do not reconstruct the full original environment or prove every saved run was executed with these bytes. The final integration is a separately tested compatible implementation."
+}
