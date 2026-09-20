@@ -316,7 +316,9 @@ def plot_cost_sweep(table, generators, costs, output, summary):
         style_axis(ax)
 
     axes[0].set_ylabel("Makespan / oracle", fontsize=8, color=TEXT_PRIMARY)
-    axes[-1].legend(frameon=False, fontsize=7, loc="best", handlelength=1.7)
+    legend_at = generators.index("mobility") if "mobility" in generators else -1
+    axes[legend_at].legend(frameon=False, fontsize=7, loc="best",
+                           handlelength=1.7)
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(output / f"cost_sweep.{ext}", bbox_inches="tight", pad_inches=0.04)
