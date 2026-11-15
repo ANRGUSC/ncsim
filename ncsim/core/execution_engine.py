@@ -1246,8 +1246,15 @@ class ExecutionEngine:
         downed link's active list finds all transfers that cross it. Each is
         cancelled, removed from all its links, and parked as a stalled
         transfer to be retransmitted in full when a route exists again.
+
+        All crossing transfers are removed before any surviving link is
+        recalculated: a recalculation that still saw a transfer crossing the
+        downed link would find no bandwidth for it and park it on its own, and
+        this loop would then park it a second time (a duplicate retransmission
+        of the same edge).
         """
         link_state = self.link_states[link_id]
+        survivors: Set[str] = set()
         # Copy: we mutate active_transfers lists while iterating.
         for transfer in list(link_state.active_transfers):
             self.event_queue.cancel(transfer.event_id)
@@ -1273,10 +1280,10 @@ class ExecutionEngine:
                 f"Transfer {transfer.from_task}->{transfer.to_task} aborted "
                 f"(link {link_id} down); will retransmit in full"
             )
-            # Survivors on the other links of the path get the freed bandwidth.
-            for lid in path:
-                if lid != link_id:
-                    self._recalculate_link_transfers(lid)
+            survivors.update(lid for lid in path if lid != link_id)
+        # Transfers left on the other links of the aborted paths get the freed bandwidth.
+        for lid in sorted(survivors):
+            self._recalculate_link_transfers(lid)
 
     def _stall_transfer(self, dag_id: str, edge: Edge) -> None:
         """Park a transfer that has no usable route right now."""
