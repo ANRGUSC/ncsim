@@ -293,3 +293,39 @@ class TestImmediateRetryAfterAbort:
         assert result.metrics["unfinished_tasks"] == 0
         assert result.metrics["disruptions"]["transfers_aborted"] == 1
         assert result.makespan == pytest.approx(3.5)
+
+
+class TestAbortAfterRecalculation:
+    """Two multi-hop transfers share their whole path n0 -> n1 -> n2; the second link fails under both.
+
+    Aborting the first must not let the bandwidth recalculation of the shared first link park the second as a side
+    effect: each aborted transfer is parked, and later retransmitted, exactly once.
+    """
+
+    def make_dag(self) -> DAG:
+        tasks = {
+            "A": Task(id="A", compute_cost=100, dag_id="dag_1", pinned_to="n0"),
+            "B": Task(id="B", compute_cost=100, dag_id="dag_1", pinned_to="n0"),
+            "C": Task(id="C", compute_cost=100, dag_id="dag_1", pinned_to="n2"),
+            "D": Task(id="D", compute_cost=100, dag_id="dag_1", pinned_to="n2"),
+        }
+        edges = [Edge(from_task="A", to_task="C", data_size=1000),
+                 Edge(from_task="B", to_task="D", data_size=1000)]
+        return DAG(id="dag_1", tasks=tasks, edges=edges)
+
+    def test_each_aborted_transfer_is_retransmitted_once(self, caplog):
+        sim = Simulation(
+            network=make_network(),
+            scheduler=ManualScheduler(),
+            dag_source=SingleDAGSource(self.make_dag()),
+            routing_model=WidestPathRouting(),
+            disruption_model=ScheduledDisruptions([link_down(4.0, "l12", duration=2.0)]),
+        )
+        result = sim.run()
+        stats = result.metrics["disruptions"]
+        assert stats["transfers_aborted"] == 2
+        assert stats["transfers_resumed"] == 2  # at the recovery, one retransmission per edge
+        assert not [r for r in caplog.records if r.levelname == "ERROR"]  # no recalculation met the downed link
+        # A 0-1 and B 1-2 on n0; at 4 both transfers abort; at 6 both resend 1000 MB over the shared 100 MB/s path,
+        # done at 26; C and D run 26-28. A duplicate retransmission of B->D would take a third of the link (38).
+        assert result.makespan == pytest.approx(28.0)
